@@ -428,7 +428,7 @@ def _num(v):
 
 # ── upserts (raw sempre guardado; INSERT OR REPLACE é idempotente) ──────────
 
-def _upsert_contratacao(db, item, ibge=None, referencia=0):
+def _upsert_contratacao(db, item, ibge=None):
     numero = item.get("numeroControlePNCP")
     if not numero:
         return False
@@ -441,15 +441,14 @@ def _upsert_contratacao(db, item, ibge=None, referencia=0):
             valor_estimado, valor_homologado, data_encerramento_proposta,
             data_publicacao, data_atualizacao,
             referencia, municipio_ibge, raw, sync_em)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?)""",
         (numero, item.get("anoCompra"), item.get("sequencialCompra"),
          orgao.get("cnpj"), orgao.get("razaoSocial"), unidade.get("nomeUnidade"),
          item.get("modalidadeId"), item.get("modalidadeNome"),
          item.get("situacaoCompraNome"), item.get("objetoCompra"),
          _num(item.get("valorTotalEstimado")), _num(item.get("valorTotalHomologado")),
          item.get("dataEncerramentoProposta"),
-         item.get("dataPublicacaoPncp"), item.get("dataAtualizacao"),
-         referencia, ibge,
+         item.get("dataPublicacaoPncp"), item.get("dataAtualizacao"), ibge,
          json.dumps(item, ensure_ascii=False), datetime.now().isoformat()))
     return True
 
@@ -505,8 +504,7 @@ def _upsert_ata(db, item):
 
 # ── fases de sincronização ──────────────────────────────────────────────────
 
-def sync_contratacoes(db, codigo_ibge, inicio, fim, progresso=None,
-                      referencia=0):
+def sync_contratacoes(db, codigo_ibge, inicio, fim, progresso=None):
     """Fase 1: contratações do município, por modalidade e janela de datas.
 
     São 13 modalidades × janelas de data, todas independentes — a API exige
@@ -527,8 +525,7 @@ def sync_contratacoes(db, codigo_ibge, inicio, fim, progresso=None,
             falhas.append(f"{nome}: {erro}")
             continue
         for item in lote:
-            total += _upsert_contratacao(db, item, codigo_ibge,
-                                         referencia)
+            total += _upsert_contratacao(db, item, codigo_ibge)
         db.commit()  # transação curta por lote: não segurar trava
     if falhas:
         # O que baixou já está gravado (upsert é idempotente); levantar aqui
