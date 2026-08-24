@@ -913,7 +913,7 @@ function vistaExecucao(d) {
   <div class="faixa f-4">
     <div class="card hero">
       <h3>Homologado em ${ano}</h3>
-      <div class="n">${compacto(c.homologado)}</div>
+      <div class="n">${dinheiro(c.homologado)}</div>
       <div class="r">${varValor == null ? `sem ${ano - 1} para comparar`
         : `<span class="dir">${
             varValor >= 0 ? "▲" : "▼"} ${pct(Math.abs(varValor), 0)}</span>
@@ -931,7 +931,7 @@ function vistaExecucao(d) {
       <div class="r">deságio médio</div>
       <div class="r" style="margin-top:8px">${
         c.estimado && c.homologado
-          ? `${compacto(c.estimado - c.homologado)} economizados` : ""}</div></div>
+          ? `${dinheiro(c.estimado - c.homologado)} economizados` : ""}</div></div>
     <div class="card kpiv"><div class="v">${c.contratos_vigentes}</div>
       <div class="r">contratos vigentes</div>
       <div class="r" style="margin-top:8px">${c.atas_vigentes} atas vigentes</div>
@@ -1027,7 +1027,7 @@ function vistaEconomia(d) {
   <div class="faixa f-3">
     <div class="card hero">
       <h3>Economizado em ${ano}</h3>
-      <div class="n">${compacto(e.economizado)}</div>
+      <div class="n">${dinheiro(e.economizado)}</div>
       <div class="r">${varEcon == null ? `sem ${ano - 1} para comparar`
         : `<span class="${varEcon >= 0 ? "up" : "down"}">${
             varEcon >= 0 ? "▲" : "▼"} ${pct(Math.abs(varEcon), 0)}</span>
@@ -1035,9 +1035,9 @@ function vistaEconomia(d) {
     </div>
     <div class="card kpiv"><div class="v">${pct(e.pct)}</div>
       <div class="r">deságio médio</div>
-      <div class="r" style="margin-top:8px">${compacto(e.estimado)} estimados</div>
+      <div class="r" style="margin-top:8px">${dinheiro(e.estimado)} estimados</div>
     </div>
-    <div class="card kpiv"><div class="v">${compacto(e.homologado)}</div>
+    <div class="card kpiv"><div class="v">${dinheiro(e.homologado)}</div>
       <div class="r">homologado no ano</div>
       <div class="r" style="margin-top:8px">${
         varHom == null ? `sem ${ano - 1} para comparar`

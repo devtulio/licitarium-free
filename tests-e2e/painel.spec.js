@@ -532,17 +532,25 @@ test("número do hero cabe numa linha só na largura mínima da janela",
   // achado da auditoria (m1, 2026-08-08): a 900px (min_size do pywebview,
   // licitarium.py) "R$ 19,6 mi" quebrava em duas linhas dentro do card.
   // fonte virou clamp() — este teste confere que ela de fato encolheu o
-  // bastante pra caber, e não só reduziu sem resolver.
+  // bastante pra caber, e não só reduziu sem resolver. Desde a troca do
+  // compacto ("R$ 19,6 mi") pelo valor completo ("R$ 19.609.957,57",
+  // pedido do usuário 2026-08-24) a string ficou bem mais longa — o mesmo
+  // risco de quebra, só que agora em todo hero do Painel.
   // desde a vista Economia, mais de um ".card.hero" existe no DOM (as vistas
   // ficam todas montadas, só ocultas) — escopado à vista à mostra
   await page.setViewportSize({ width: 900, height: 700 });
-  const numero = page.locator("#p-execucao .card.hero .n");
-  const caixa = await numero.boundingBox();
-  const linha = await numero.evaluate(
-    el => parseFloat(getComputedStyle(el).lineHeight));
-  const hero = await page.locator("#p-execucao .card.hero").boundingBox();
-  expect(caixa.height).toBeLessThan(linha * 1.5);
-  expect(caixa.width).toBeLessThanOrEqual(hero.width - 16);
+  const cabe = async (seletor) => {
+    const numero = page.locator(seletor);
+    const caixa = await numero.boundingBox();
+    const linha = await numero.evaluate(
+      el => parseFloat(getComputedStyle(el).lineHeight));
+    const hero = await numero.locator("xpath=..").boundingBox();
+    expect(caixa.height).toBeLessThan(linha * 1.5);
+    expect(caixa.width).toBeLessThanOrEqual(hero.width - 16);
+  };
+  await cabe("#p-execucao .card.hero .n");
+  await page.locator('.subabas button[data-vista="economia"]').click();
+  await cabe("#p-economia .card.hero .n");
 });
 
 test("chip.aviso não herda margin-top da classe .aviso genérica",

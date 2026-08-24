@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.44.5 — 2026-08-24
+
+**Os cards de valor do Painel e dos relatórios mostram o número completo**
+
+"Homologado em 2026" e "Economizado em 2026" — no Painel e nos relatórios
+Resumo Executivo e Economia — mostravam o valor arredondado ("R$ 15,9 mi").
+Passam a mostrar o valor exato, como em qualquer outro lugar do sistema
+("R$ 15.758.966,12"). Os gráficos e as tabelas de listagem continuam
+arredondados, onde o espaço é curto.
+
 ## 1.44.4 — 2026-08-24
 
 **Três correções no motor de sincronização, achadas em auditoria**

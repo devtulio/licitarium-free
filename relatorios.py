@@ -1326,7 +1326,7 @@ def render_executivo(d, municipio, uf, brasao=None, graficos=None,
 
     economia = ""
     if c.get("estimado") and c.get("homologado"):
-        economia = f"{compacto(c['estimado'] - c['homologado'])} economizados"
+        economia = f"{moeda(c['estimado'] - c['homologado'])} economizados"
 
     # sparkline do hero: mesmo traçado de ui/painel.js:vistaExecucao
     pontos_spark = [m["valor"] for m in ex["meses"] if m["valor"]]
@@ -1344,7 +1344,7 @@ def render_executivo(d, municipio, uf, brasao=None, graficos=None,
     hero = f"""<div class="faixa f-4">
 <div class="card hero">
   <h3>Homologado em {ano}</h3>
-  <div class="n">{compacto(c['homologado'])}</div>
+  <div class="n">{moeda(c['homologado'])}</div>
   <div class="r">{linha_valor}</div>
   {spark}
 </div>
@@ -1457,14 +1457,14 @@ def render_economia(d, municipio, uf, brasao=None, graficos=None,
     hero = f"""<div class="faixa f-3">
 <div class="card hero">
   <h3>Economizado em {ano}</h3>
-  <div class="n">{compacto(e['economizado'])}</div>
+  <div class="n">{moeda(e['economizado'])}</div>
   <div class="r">{linha_econ}</div>
 </div>
 <div class="card kpiv"><div class="v">{desagio}</div>
   <div class="r">deságio médio</div>
-  <div class="r" style="margin-top:8px">{compacto(e['estimado'])} estimados</div>
+  <div class="r" style="margin-top:8px">{moeda(e['estimado'])} estimados</div>
 </div>
-<div class="card kpiv"><div class="v">{compacto(e['homologado'])}</div>
+<div class="card kpiv"><div class="v">{moeda(e['homologado'])}</div>
   <div class="r">homologado no ano</div></div>
 </div>"""
 
