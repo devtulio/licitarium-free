@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.44.3"
+VERSAO = "1.44.4"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -668,8 +668,12 @@ class Api:
         try:
             db = abrir_db()
             try:
+                # `itens`/`pca_itens` ficavam de fora — órfãs do município
+                # antigo (contratacao_controle/orgao_cnpj já apagados),
+                # nunca mais revisitadas, lixo permanente a cada troca
+                # (achado 2026-08-24)
                 for tabela in ("contratacoes", "contratos", "atas", "orgaos",
-                               "sync_log"):
+                               "itens", "pca_itens", "sync_log"):
                     db.execute(f"DELETE FROM {tabela}")
                 db.execute("DELETE FROM config WHERE chave LIKE 'last_sync_%'")
                 db.commit()

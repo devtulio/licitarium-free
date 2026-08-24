@@ -366,6 +366,27 @@ def test_trocar_municipio_recusa_com_sync_em_andamento(api):
     assert api.listar("contratacoes", {})["total"] == 0
 
 
+def test_trocar_municipio_limpa_itens_e_pca_itens(api):
+    """`itens`/`pca_itens` ficavam de fora do DELETE — órfãs do município
+    antigo (contratacao_controle/orgao_cnpj já apagados), nunca mais
+    revisitadas, lixo permanente a cada troca (achado 2026-08-24)."""
+    db = licitarium.abrir_db()
+    db.execute("INSERT INTO itens (id, contratacao_controle, numero_item,"
+               " descricao) VALUES ('A#1', 'A', 1, 'Papel')")
+    db.commit()
+    assert db.execute("SELECT COUNT(*) FROM pca_itens").fetchone()[0] == 2
+    db.close()
+
+    assert api.trocar_municipio("3536604", "Paulo de Faria", "SP")["ok"]
+
+    db = licitarium.abrir_db()
+    try:
+        assert db.execute("SELECT COUNT(*) FROM itens").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM pca_itens").fetchone()[0] == 0
+    finally:
+        db.close()
+
+
 def test_importar_acervo_recusa_com_sync_em_andamento(api, monkeypatch):
     chamou = []
     monkeypatch.setattr(api, "_importar_acervo", lambda: chamou.append(1))

@@ -739,7 +739,7 @@ def sync_itens(db, progresso=None, limite=None):
            ORDER BY data_publicacao DESC""")]
     if limite:
         pendentes = pendentes[:limite]
-    total, sem_listagem = 0, 0
+    total, sem_listagem, falhas = 0, 0, []
     for i, c in enumerate(pendentes, 1):
         if progresso:
             progresso(f"Itens — contratação {i} de {len(pendentes)}…")
@@ -776,15 +776,26 @@ def sync_itens(db, progresso=None, limite=None):
             sem_listagem += 1
             db.commit()
             continue
-        except PncpErro:
-            db.commit()  # preserva o que já entrou; tenta de novo na próxima
-            raise
+        except PncpErro as e:
+            # uma contratação com erro de rede não pode derrubar as demais
+            # pendentes da lista — mesma regra que `_baixar` já aplica na
+            # fase 1 (achado 2026-08-24: aqui a fase 3 parava tudo no
+            # primeiro erro, ao contrário do resto do motor)
+            falhas.append(f"{c['numero_controle']}: {e}")
+            db.commit()  # preserva o que já entrou antes da falha
+            continue
     if sem_listagem:
         # o usuário vê isso em Configurações → Sincronizações recentes
         hoje = date.today()
         _log(db, "itens", hoje, hoje, total, "aviso",
              f"{sem_listagem} contratações sem listagem de itens (404 do "
              f"portal) — ficaram pendentes para a próxima sincronização")
+    if falhas:
+        # mesma regra da fase 1: o total já gravado vai na mensagem, senão
+        # o log mostra 0 registros mesmo quando a maioria funcionou
+        raise PncpErro(f"{len(falhas)} de {len(pendentes)} contratações "
+                       f"falharam ao buscar itens ({total} itens gravados "
+                       f"assim mesmo) — {falhas[0]}")
     return total
 
 
@@ -869,19 +880,25 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True):
         "SELECT cnpj FROM orgaos WHERE ativo=1").fetchall()]
     for tipo, func in (("contratos", sync_contratos), ("atas", sync_atas),
                        ("pca", sync_pca)):  # fase 2, por CNPJ de órgão
-        inicio = janela_de(tipo)
-        total, falhou = 0, False
+        total, falhou, inicios = 0, False, []
         for cnpj in orgaos:
+            # janela POR CNPJ: uma chave só por tipo fazia um órgão birrento
+            # travar a data de corte de todos os outros para sempre — cada
+            # sync recomeçava a janela inteira de todo mundo até aquele CNPJ
+            # se resolver sozinho (achado 2026-08-24)
+            chave = f"{tipo}_{cnpj}"
+            inicio = janela_de(chave)
+            inicios.append(inicio)
             if progresso:
                 progresso(f"{tipo.capitalize()} — órgão {cnpj}…")
             try:
                 total += func(db, cnpj, inicio, hoje, progresso)
+                _config(db, f"last_sync_{chave}", hoje.isoformat())
             except PncpErro as e:
                 falhou = True
                 _log(db, tipo, inicio, hoje, total, "erro", f"{cnpj}: {e}")
         if not falhou:
-            _config(db, f"last_sync_{tipo}", hoje.isoformat())
-            _log(db, tipo, inicio, hoje, total, "ok")
+            _log(db, tipo, min(inicios) if inicios else hoje, hoje, total, "ok")
             resumo[tipo] = total
         else:
             resumo[tipo] = None

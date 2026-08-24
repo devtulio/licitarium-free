@@ -247,6 +247,80 @@ def test_sincronizar_tudo_ignora_municipios_referencia(db, monkeypatch):
     assert pncp._config(db, "last_sync_ref_3552205") is None
 
 
+def test_sync_itens_nao_para_tudo_num_erro_de_uma_contratacao(db, monkeypatch):
+    """Uma contratação com erro de rede não pode impedir as demais da fila
+    de serem tentadas — mesma regra que `_baixar` já aplica na fase 1."""
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, data_atualizacao, data_publicacao)"
+        " VALUES ('C1', 2026, 1, '111', '2026-06-05', '2026-06-05')")
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, data_atualizacao, data_publicacao)"
+        " VALUES ('C2', 2026, 2, '111', '2026-06-01', '2026-06-01')")
+    db.commit()
+    item = {"numeroItem": 1, "descricao": "CANETA", "temResultado": False,
+            "dataAtualizacao": "2026-06-01"}
+
+    def fake_get(caminho, params, base=None, **kw):
+        if "/1/itens" in caminho:            # C1 (sequencial=1): fora do ar
+            raise pncp.PncpErro("PNCP fora do ar")
+        if caminho.endswith("/itens"):        # C2 (sequencial=2): ok
+            return [item] if params.get("pagina") == 1 else []
+        return None
+    monkeypatch.setattr(pncp, "_get", fake_get)
+
+    # C1 vem primeiro na fila (data_publicacao mais recente); mesmo assim
+    # C2 tem que ser tentada e gravada
+    with pytest.raises(pncp.PncpErro, match="1 itens gravados"):
+        pncp.sync_itens(db)
+    assert db.execute("SELECT COUNT(*) FROM itens WHERE"
+                      " contratacao_controle='C2'").fetchone()[0] == 1
+    versoes = dict(db.execute(
+        "SELECT numero_controle, itens_versao FROM contratacoes"))
+    assert versoes["C1"] is None       # continua pendente, tenta de novo
+    assert versoes["C2"] == "2026-06-01"
+
+
+def test_watermark_contratos_e_por_cnpj(db, monkeypatch):
+    """Antes, `last_sync_contratos` era uma chave só pra todos os órgãos: um
+    CNPJ birrento travava a janela de todo mundo para sempre. Agora cada
+    CNPJ tem seu próprio marcador."""
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, orgao_cnpj,"
+        " orgao_nome, data_publicacao, referencia)"
+        " VALUES ('C1', 2026, 'BOM', 'Órgão Bom', '2026-01-01', 0)")
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, orgao_cnpj,"
+        " orgao_nome, data_publicacao, referencia)"
+        " VALUES ('C2', 2026, 'RUIM', 'Órgão Ruim', '2026-01-01', 0)")
+    db.commit()
+    pncp.descobrir_orgaos(db)
+
+    janelas_bom = []
+    def fake_get(caminho, params, base=None, **kw):
+        if base == pncp.BASE_PNCP or "contratacoes" in caminho:
+            return None       # fase 1 e itens: sem novidade neste teste
+        if "contratos" in caminho:
+            if params["cnpjOrgao"] == "RUIM":
+                raise pncp.PncpErro("PNCP fora do ar")
+            janelas_bom.append(params["dataInicial"])
+            return None
+        return None            # atas/pca: vazio
+    monkeypatch.setattr(pncp, "_get", fake_get)
+
+    pncp.sincronizar_tudo(db, "3534203")
+    n1 = len(janelas_bom)          # janelas geradas na 1ª passada
+    pncp.sincronizar_tudo(db, "3534203")
+
+    # a ÚLTIMA janela de qualquer passada termina perto de hoje só porque
+    # `_janelas` sempre fatia até `hoje` — isso não prova nada. O que
+    # importa é onde a 2ª passada COMEÇA: se o watermark de BOM avançou de
+    # verdade, ela não recomeça do início do PNCP outra vez.
+    assert janelas_bom[0] == pncp._amd(pncp.DATA_INICIO_PNCP)
+    assert janelas_bom[n1] != pncp._amd(pncp.DATA_INICIO_PNCP)
+
+
 def test_sync_pca_idempotente_e_parametros(db, monkeypatch):
     """PCA achata itens do plano; endpoint usa dataInicio/dataFim."""
     params_vistos, servido = [], []

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.44.4 — 2026-08-24
+
+**Três correções no motor de sincronização, achadas em auditoria**
+
+Uma contratação com erro de rede na coleta de itens parava a fila inteira
+no meio — as demais pendentes daquela passada nem eram tentadas. Agora, uma
+falha isolada não impede as outras de serem baixadas normalmente, do
+mesmo jeito que já acontecia nas outras fases da sincronização.
+
+Trocar de município não limpava os itens nem o Plano de Contratações Anual
+do município anterior — ficavam órfãos no banco, ocupando espaço para
+sempre. Agora saem junto na troca.
+
+Um único órgão fora do ar (contratos, atas ou PCA) travava a data de corte
+de todos os outros órgãos: a cada sincronização, o motor refazia a janela
+inteira para todo mundo até aquele órgão específico voltar a responder.
+Agora cada órgão tem seu próprio marcador de progresso, e um problema num
+não atrasa os demais.
+
 ## 1.44.3 — 2026-08-19
 
 **A sincronização parou de buscar preços de outras cidades**
