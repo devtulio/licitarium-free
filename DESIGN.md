@@ -51,7 +51,10 @@ Fase 2 — CONTRATOS / ATAS / PCA (chave: CNPJ do órgão)
     GET /v1/pca/atualizacao?cnpj=...
 ```
 
-- **Estado**: `last_sync_<tipo>` em `config`; upsert idempotente → recomeço seguro após falha.
+- **Estado**: `last_sync_<tipo>` em `config` (fase 1) e `last_sync_<tipo>_<cnpj>`
+  por órgão (fase 2, desde 1.44.4 — antes era uma chave só por tipo, e um CNPJ
+  birrento travava a janela de todos os outros para sempre); upsert idempotente
+  → recomeço seguro após falha.
 - **Bootstrap** (primeira execução): mesma máquina, janela 2021-01-01 → hoje
   (PNCP existe desde ago/2021), com barra de progresso.
 - **Robustez**: retry 5× com backoff em 429/5xx/timeout; falha em um tipo não
@@ -61,7 +64,10 @@ Fase 2 — CONTRATOS / ATAS / PCA (chave: CNPJ do órgão)
   a consulta que esgota as tentativas não derruba as irmãs. Quem chama grava
   o que veio e levanta `PncpErro` **no fim**, para que `last_sync_<tipo>` não
   avance sobre janela que nunca foi baixada. Antes disso, uma janela ruim
-  entre as 78 da fase 1 jogava fora todo o resto da passada.
+  entre as 78 da fase 1 jogava fora todo o resto da passada. A fase 3
+  (`sync_itens`) só ganhou a mesma regra na 1.44.4 — até então, uma
+  contratação com erro de rede parava a fila inteira no meio, e as
+  pendentes seguintes nem eram tentadas naquela passada.
 - **Concorrência**: uma thread de sync por vez (lock); UI nunca bloqueia —
   abre com dados locais na hora, sync roda atrás com banner de progresso.
 - **Paralelismo (1.1.x)**: as três fases baixam com até 4 conexões (`_baixar`
@@ -85,20 +91,20 @@ Fase 2 — CONTRATOS / ATAS / PCA (chave: CNPJ do órgão)
   que não é nosso — a defesa é tolerar a consulta perdida (falha parcial,
   acima) e reler a escada de recuo entre levas curtas dentro de `_baixar`,
   em vez de fixar a concorrência uma vez para a fase inteira.
-- **Municípios de referência (1.3.0)**: `referencia` (0/1) e `municipio_ibge`
-  em `contratacoes` e `itens`, mais a tabela `municipios_referencia`. Para
-  esses municípios roda **só a fase 1**; os itens saem na fase 3 junto com os
-  próprios. Tudo que representa o município — KPIs, abas do acervo, filtros,
-  `descobrir_orgaos`, PCA e os relatórios oficiais — filtra `referencia=0`;
-  só o banco de preços e o relatório de Pesquisa de Preços enxergam os dois.
-  A blindagem é testada em `tests/test_referencia.py`, que inclusive lê o HTML
-  gerado. Motivação e medições: `design/BRIEFING-precos-referencia.md`.
-  O `raw` do item de referência é mantido (medido: 25,5 MB de JSON para cinco
-  vizinhos) — descartá-lo economizaria pouco e quebraria o princípio de que
-  o JSON bruto é a fonte da verdade. O que o município ocupa de fato em disco
-  é esse JSON vezes `pncp.FATOR_DISCO` (1,78, medido): é assim que a lista de
-  municípios de referência e o aviso de volume dizem o tamanho, já que
-  `dbstat` não existe na build do SQLite que acompanha o Python.
+- **Municípios de referência — REMOVIDO (1.3.0 → 1.44.0/1.44.3)**: existiu
+  para alimentar a Pesquisa de Preços e a Comparação vs Vizinhos, ambas
+  tiradas do Free na 1.44.0 (viram produto à parte). A tela de configuração
+  saiu naquela versão, mas o motor continuou sincronizando de verdade os
+  municípios que já estavam cadastrados — achado do usuário, corrigido na
+  1.44.3 (o loop em `sincronizar_tudo` foi removido). O parâmetro `referencia`
+  na escrita (`_upsert_contratacao`/`sync_contratacoes`) saiu na mesma leva,
+  por estar morto desde então. **O que ficou, de propósito**: a coluna
+  `referencia` e a tabela `municipios_referencia` — dormentes, só lidas por
+  backup/restore (contagem no arquivo) —, e o filtro `WHERE referencia=0` em
+  todo lugar que lista o acervo (KPIs, abas, filtros, `descobrir_orgaos`, PCA,
+  relatórios oficiais). É a trava que garante que dado de município alheio
+  nunca aparece na tela, mesmo que a tabela volte a ter linha um dia — mais
+  barato manter a blindagem do que apagar a coluna numa migração.
 - **Revisita de itens**: `data_atualizacao` da contratação muda por motivo
   cosmético e não implica item alterado — `_itens_pendentes` compara a data de
   cada item antes de pedir o resultado. Item inalterado é pulado inteiro, e
