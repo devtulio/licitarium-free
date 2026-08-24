@@ -229,6 +229,24 @@ def test_sincronizar_tudo_continua_apos_falha(db, monkeypatch):
     assert erros >= 1
 
 
+def test_sincronizar_tudo_ignora_municipios_referencia(db, monkeypatch):
+    """O Free não tem mais pesquisa de preços — linhas sobreviventes de
+    `municipios_referencia` (tabela dormente, de uma versão anterior) não
+    podem gerar chamada nenhuma ao PNCP por outro município."""
+    db.execute("INSERT INTO municipios_referencia (ibge, nome, uf) "
+               "VALUES ('3552205', 'Olímpia', 'SP')")
+    db.commit()
+    chamados = []
+    def fake_get(caminho, params, base=None, **kw):
+        if base != pncp.BASE_PNCP and "codigoMunicipioIbge" in params:
+            chamados.append(params["codigoMunicipioIbge"])
+        return None
+    monkeypatch.setattr(pncp, "_get", fake_get)
+    pncp.sincronizar_tudo(db, "3534203")
+    assert "3552205" not in chamados
+    assert pncp._config(db, "last_sync_ref_3552205") is None
+
+
 def test_sync_pca_idempotente_e_parametros(db, monkeypatch):
     """PCA achata itens do plano; endpoint usa dataInicio/dataFim."""
     params_vistos, servido = [], []

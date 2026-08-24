@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.44.3 — 2026-08-19
+
+**A sincronização parou de buscar preços de outras cidades**
+
+A saída de preços do Free na 1.44.0 removeu a tela e o botão de município de
+referência, mas o motor de sincronização continuou a sincronizar, de
+verdade, os municípios que já estavam configurados antes disso — quem
+usava a Pesquisa de Preços via seis cidades vizinhas sendo consultadas no
+PNCP a cada sincronização, sem tela nenhuma para ver ou desligar isso.
+O laço que fazia essa busca foi removido do motor: a sincronização volta a
+tratar só o município do próprio acervo.
+
 ## 1.44.2 — 2026-08-18
 
 **O balão dos gráficos aparece na faixa toda da coluna, não só na barra fina**

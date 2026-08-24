@@ -889,26 +889,7 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True):
         else:
             resumo[tipo] = None
 
-    # municípios de referência: só a fase 1, e sem a fase 2 — contratos e
-    # atas alheios não têm uso aqui. Os itens deles saem na fase 3, junto
-    # com os nossos, numa passada só.
-    referencia = [dict(r) for r in db.execute(
-        "SELECT ibge, nome FROM municipios_referencia ORDER BY nome")]
-    for m in referencia:
-        chave = f"last_sync_ref_{m['ibge']}"
-        inicio = janela_de(f"ref_{m['ibge']}")
-        try:
-            if progresso:
-                progresso(f"Preços de referência — {m['nome']}…")
-            n = sync_contratacoes(db, m["ibge"], inicio, hoje, progresso,
-                                  referencia=1)
-            _config(db, chave, hoje.isoformat())
-            _log(db, f"referencia:{m['nome']}", inicio, hoje, n, "ok")
-        except PncpErro as e:
-            # um município de referência fora do ar não pode derrubar o sync
-            _log(db, f"referencia:{m['nome']}", inicio, hoje, 0, "erro", str(e))
-
-    # fase 3 — itens das contratações (banco de preços); é a mais custosa,
+    # fase 3 — itens das contratações; é a mais custosa,
     # então vem no fim: se falhar, o resto do acervo já está gravado
     try:
         n = sync_itens(db, progresso)
