@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.44.7 — 2026-08-24
+
+**A tela de primeira execução já oferece restaurar uma cópia salva**
+
+Quem trocava de computador (ou reinstalava) tinha que escolher o
+município, esperar o download completo desde 2021 e só depois lembrar
+que "Restaurar cópia…" existe em Configurações — refazendo em minutos de
+espera o que a cópia já salva resolvia na hora. A tela inicial agora tem
+um botão "Já tenho uma cópia salva — Restaurar…": a cópia já traz o
+município junto, sem escolher nada.
+
 ## 1.44.6 — 2026-08-24
 
 **O valor do card "Homologado"/"Economizado" estava sumindo em telas

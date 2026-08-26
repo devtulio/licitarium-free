@@ -265,6 +265,22 @@ $("wiz-ok").addEventListener("click", async () => {
   iniciarApp(await api.get_estado());
 });
 
+// Primeiro uso numa máquina nova: quem já tinha um acervo salvo não precisa
+// escolher o município e esperar o download desde 2021 pra só depois lembrar
+// que existe "Restaurar cópia…" em Configurações — o backup já traz o
+// município junto (é o mesmo `licitarium.db` inteiro). Mesmo fluxo do botão
+// de Configurações (`importar_acervo`, sem método novo na ponte).
+$("wiz-restaurar").addEventListener("click", async () => {
+  const msg = $("wiz-restaurar-msg");
+  msg.textContent = "Conferindo o arquivo…";
+  const r = await api.importar_acervo();
+  if (!r.ok) { msg.textContent = r.erro ? `Falhou: ${r.erro}` : ""; return; }
+  msg.textContent = `Acervo restaurado (${(r.itens || 0).toLocaleString("pt-BR")}`
+    + ` itens). Feche e abra o Licitarium para usá-lo.`;
+  alert("Acervo restaurado.\n\nFeche e abra o Licitarium para carregar o "
+        + "acervo restaurado.");
+});
+
 // ── app ───────────────────────────────────────────────────────────────────
 async function iniciarApp(e) {
   estado.municipio = e.municipio;

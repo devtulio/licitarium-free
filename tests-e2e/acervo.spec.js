@@ -39,3 +39,27 @@ test("arquivo recusado explica o motivo e não some com o aviso",
   await expect(page.locator("#acervo-msg"))
     .toContainText("Falhou: o banco dentro do arquivo está corrompido");
 });
+
+test("wizard (1ª execução) oferece restaurar cópia, sem pedir confirmação",
+    async ({ page }) => {
+  // quem já tinha o acervo salvo (troca de máquina, reinstalação) não
+  // precisa escolher município e esperar o download desde 2021 pra só
+  // depois lembrar que "Restaurar cópia…" existe em Configurações — o
+  // backup já traz o município junto, é o mesmo licitarium.db inteiro.
+  await page.evaluate(() => iniciarWizard());
+  await expect(page.locator("#wizard")).toBeVisible();
+  const restaurar = page.locator("#wiz-restaurar");
+  await expect(restaurar).toBeVisible();
+
+  // ao contrário de Configurações, aqui não há acervo prévio em risco —
+  // o 1º diálogo tem de ser o aviso final (`alert`), não um `confirm` que
+  // bloqueie o clique antes de restaurar
+  let tipoPrimeiroDialogo = null;
+  page.once("dialog", d => { tipoPrimeiroDialogo = d.type(); d.accept(); });
+  await restaurar.click();
+  await expect(page.locator("#wiz-restaurar-msg"))
+    .toContainText("Feche e abra o Licitarium");
+  expect(tipoPrimeiroDialogo).toBe("alert");
+  expect(await page.evaluate(() => window.__chamadas
+    .some(c => c.metodo === "importar_acervo"))).toBe(true);
+});
