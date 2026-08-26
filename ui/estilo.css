@@ -561,9 +561,17 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 /* achado da auditoria de design (2026-08-08): "R$ 19,6 mi" quebrava com o
    "mi" sozinho numa linha na largura mínima da janela (900px) — o número
    mais importante da tela virava o com pior tipografia bem onde sobra
-   menos espaço. clamp() encolhe a fonte antes de precisar quebrar; medido
-   a 900px (card ~193px úteis) até 1440px (card ~340px). */
-.hero .n { font-size:clamp(26px, 2.5vw + 8px, 40px); font-weight:700;
+   menos espaço. clamp() encolhe a fonte antes de precisar quebrar.
+   Escala por `cqw` (largura do CARD), não `vw` (largura da JANELA): o
+   card para de crescer ao esbarrar no teto do `main`, mas `vw` continua
+   subindo — o número passava do card em tela larga sem quebrar (sem
+   overflow:hidden em lugar nenhum, então só sumia, pintado por baixo do
+   card vizinho no grid). Estourou de verdade na v1.44.5, quando o valor
+   arredondado ("R$ 19,6 mi", 11 caracteres) virou o completo
+   ("R$ 19.609.957,57", 17) — o teto de 40px nunca tinha sido calibrado
+   pra essa largura. */
+.card.hero { container-type:inline-size; }
+.hero .n { font-size:clamp(20px, 11cqw, 27px); font-weight:700;
            line-height:1.05; white-space:nowrap; }
 .hero .r, .kpiv .r { font-size:12px; color:var(--muted); margin-top:2px; }
 .kpiv .v { font-size:22px; font-weight:700; }

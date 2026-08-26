@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.44.6 — 2026-08-24
+
+**O valor do card "Homologado"/"Economizado" estava sumindo em telas
+largas**
+
+A 1.44.5 trocou o valor arredondado ("R$ 15,9 mi") pelo completo, mas o
+tamanho da letra desses dois cards media pela largura da JANELA, não do
+card — numa tela larga a letra crescia mais do que o card, e o fim do
+número (os centavos, às vezes mais) desaparecia atrás do card vizinho, sem
+aviso nenhum. Corrigido: a letra agora acompanha a largura do próprio card.
+
 ## 1.44.5 — 2026-08-24
 
 **Os cards de valor do Painel e dos relatórios mostram o número completo**

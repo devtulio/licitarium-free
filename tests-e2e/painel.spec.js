@@ -527,30 +527,39 @@ test("os 5 alertas possíveis cabem numa linha só até a largura mínima da jan
   for (const y of ys) expect(Math.abs(y - ys[0])).toBeLessThan(10);
 });
 
-test("número do hero cabe numa linha só na largura mínima da janela",
+test("número do hero cabe numa linha, em qualquer largura de janela",
     async ({ page }) => {
   // achado da auditoria (m1, 2026-08-08): a 900px (min_size do pywebview,
   // licitarium.py) "R$ 19,6 mi" quebrava em duas linhas dentro do card.
-  // fonte virou clamp() — este teste confere que ela de fato encolheu o
-  // bastante pra caber, e não só reduziu sem resolver. Desde a troca do
-  // compacto ("R$ 19,6 mi") pelo valor completo ("R$ 19.609.957,57",
-  // pedido do usuário 2026-08-24) a string ficou bem mais longa — o mesmo
-  // risco de quebra, só que agora em todo hero do Painel.
-  // desde a vista Economia, mais de um ".card.hero" existe no DOM (as vistas
-  // ficam todas montadas, só ocultas) — escopado à vista à mostra
-  await page.setViewportSize({ width: 900, height: 700 });
+  // fonte virou clamp() — mas o `boundingBox()` que este teste usava mede a
+  // área PINTADA, não o conteúdo: `.n` não tem overflow:hidden nenhum, então
+  // um número mais largo que o card não é cortado por CSS — ele transborda
+  // e é pintado POR BAIXO do card vizinho no grid (ordem do DOM), o que
+  // parece corte na tela mas o boundingBox() não via nada de errado.
+  // Estourou de verdade na v1.44.5 (valor completo, "R$ 19.609.957,57",
+  // 17 caracteres — bem mais longo que o "R$ 19,6 mi" original) em
+  // qualquer largura ACIMA de 900px: o `clamp()` antigo escalava a fonte
+  // por `vw` (largura da JANELA), e o card para de crescer bem antes da
+  // fonte parar de crescer. Virou `cqw` (largura do CARD) — por isso este
+  // teste confere em várias larguras, não só na mínima, e mede
+  // `scrollWidth` contra `clientWidth` (overflow de verdade), não a caixa
+  // pintada.
   const cabe = async (seletor) => {
     const numero = page.locator(seletor);
-    const caixa = await numero.boundingBox();
-    const linha = await numero.evaluate(
-      el => parseFloat(getComputedStyle(el).lineHeight));
-    const hero = await numero.locator("xpath=..").boundingBox();
-    expect(caixa.height).toBeLessThan(linha * 1.5);
-    expect(caixa.width).toBeLessThanOrEqual(hero.width - 16);
+    const info = await numero.evaluate(el => ({
+      scrollW: el.scrollWidth, clientW: el.clientWidth,
+      linhas: el.scrollHeight / parseFloat(getComputedStyle(el).lineHeight),
+    }));
+    expect(info.scrollW).toBeLessThanOrEqual(info.clientW);
+    expect(info.linhas).toBeLessThan(1.5);
   };
-  await cabe("#p-execucao .card.hero .n");
-  await page.locator('.subabas button[data-vista="economia"]').click();
-  await cabe("#p-economia .card.hero .n");
+  for (const largura of [900, 1024, 1180, 1440]) {
+    await page.setViewportSize({ width: largura, height: 700 });
+    await cabe("#p-execucao .card.hero .n");
+    await page.locator('.subabas button[data-vista="economia"]').click();
+    await cabe("#p-economia .card.hero .n");
+    await page.locator('.subabas button[data-vista="execucao"]').click();
+  }
 });
 
 test("chip.aviso não herda margin-top da classe .aviso genérica",
