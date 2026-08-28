@@ -87,7 +87,7 @@ sentido, também em CSV:
 | Relação de Contratos | Contratos do período, por órgão |
 | Relação de Atas | Atas de registro de preços e vigências |
 | Resumo Executivo Anual | Visão consolidada do exercício |
-| Alerta de Fracionamento | Autocontrole: acompanha os limites do art. 75 por unidade |
+| Alerta de Fracionamento | Autocontrole: agrupa dispensas por similaridade de objeto e acompanha os limites do art. 75, com janela por exercício ou período móvel |
 | Minuta do PCA | Plano sugerido, para revisão |
 
 Os relatórios seguem o tema escolhido na tela, mas a **impressão sai sempre

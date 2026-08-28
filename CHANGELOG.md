@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.45.0 — 2026-08-25
+
+**Motor do Alerta de Fracionamento reformulado — agrupa por similaridade,
+janela configurável**
+
+O agrupamento das dispensas passou a ser por **semelhança do objeto**
+(mesmo sistema usado no SGCD), não mais pelo campo "unidade" do PNCP nem
+por um radical fixo de palavras — descrições parecidas com grafia
+diferente ("aquisição de pneus para veículos" e "compra de pneus e
+câmaras") agora entram no mesmo grupo, e objetos sem relação nenhuma (só
+por serem da mesma secretaria) não somam mais juntos.
+
+A janela de análise também ficou configurável, em Configurações → Limites
+de dispensa: **exercício financeiro** (padrão, igual a antes) ou
+**período móvel** de 12, 18 ou 24 meses — o móvel pega fracionamento
+dividido entre dezembro e janeiro, que o corte por exercício civil nunca
+enxergava, cada dispensa caindo num relatório de ano diferente.
+
+O card "Limite anual de dispensa" do Painel e o relatório de Fracionamento
+agora usam o mesmo cálculo — antes eram dois motores diferentes que podiam
+mostrar percentuais divergentes para a mesma dispensa.
+
 ## 1.44.7 — 2026-08-24
 
 **A tela de primeira execução já oferece restaurar uma cópia salva**

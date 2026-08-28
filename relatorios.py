@@ -35,12 +35,23 @@ LIMITE_PADRAO_OBRAS = 125279.84
 LIMITE_PADRAO_COMPRAS = 62639.92
 
 
+def _inciso_dispensa(amparo):
+    """"I", "II" ou `None` — qual inciso do art. 75 ampara a dispensa, lido
+    do amparo legal bruto (não é campo da tabela). Casa em qualquer ponto da
+    string (com ou sem o "Lei 14.133/2021," na frente — o PNCP varia a
+    formatação); o `\\b` depois do algarismo garante que "III" (ou incisos
+    maiores) nunca casa como "II"."""
+    if not amparo:
+        return None
+    m = re.search(r"Art\.\s*75,\s*(I{1,2})\b", amparo)
+    return m.group(1) if m else None
+
+
 def teto_da_dispensa(amparo, limite_compras, limite_obras):
     """Qual teto de valor se aplica a uma dispensa — ou `None` quando não há.
 
     `modalidade_id=8` (Dispensa) NÃO é sinônimo de "sujeita ao limite do
-    art. 75, II" — o amparo legal (lido do `raw`, não é campo da tabela)
-    distingue três situações:
+    art. 75, II" — o amparo legal distingue três situações:
 
     - **Art. 75, II** — compras e serviços comuns: é o único que responde
       ao limite de compras.
@@ -58,19 +69,117 @@ def teto_da_dispensa(amparo, limite_compras, limite_obras):
     sobre o maior valor da lista onde não havia irregularidade nenhuma.
 
     Amparo ausente é tratado como "sem teto" — conservador: sem saber o
-    amparo não se afirma que um limite se aplica. Casa "Art. 75, I"/"Art.
-    75, II" em qualquer ponto da string (com ou sem o "Lei 14.133/2021,"
-    na frente — o PNCP varia a formatação) — o `\\b` depois do algarismo
-    garante que "III" (ou incisos maiores) nunca casa como "II".
+    amparo não se afirma que um limite se aplica.
     """
-    if not amparo:
+    inciso = _inciso_dispensa(amparo)
+    if inciso is None:
         return None
-    m = re.search(r"Art\.\s*75,\s*(I{1,2})\b", amparo)
-    if not m:
-        return None
-    if m.group(1) == "II":
-        return limite_compras
-    return limite_obras
+    return limite_compras if inciso == "II" else limite_obras
+
+
+# ── agrupamento por similaridade (motor portado do SGCD, 2026-08-25) ───────
+# Antes, dispensas do mesmo órgão/teto entravam no mesmo grupo por baterem a
+# mesma `unidade` do PNCP (que costuma trazer só o nome do órgão — no
+# acervo do piloto, TODAS caem em "MUNICIPIO DE ORINDIUVA") ou o mesmo
+# radical fixo de 2 palavras da descrição. As duas somavam coisas sem
+# relação ("Merenda" e "Reforma de telhado" da mesma secretaria) e perdiam
+# coisas relacionadas com grafia diferente ("PNEUS PARA VEÍCULOS" x "PNEUS E
+# CÂMARAS"). O SGCD (sistema irmão, workflow de dispensa de um órgão só)
+# já tinha resolvido isso com similaridade textual — portado aqui.
+_FRAC_STOPWORDS = {"de", "da", "do", "das", "dos", "e", "em", "para", "com",
+                   "a", "o", "as", "os", "no", "na", "nos", "nas", "pela",
+                   "pelo", "por", "sem", "sob", "sobre", "um", "uma"}
+
+
+def _frac_tokenize(texto):
+    """Tokens de 3+ letras, sem acento/pontuação/palavra vazia."""
+    limpo = unicodedata.normalize("NFD", (texto or "")) \
+        .encode("ascii", "ignore").decode("ascii").lower()
+    limpo = re.sub(r"[^a-z0-9\s]", " ", limpo)
+    return {t for t in limpo.split() if len(t) > 2 and t not in _FRAC_STOPWORDS}
+
+
+def _frac_similaridade(a, b):
+    """Jaccard dos tokens de dois objetos: 0 (nada em comum) a 1 (mesmos
+    tokens depois de normalizar)."""
+    ta, tb = _frac_tokenize(a), _frac_tokenize(b)
+    if not ta or not tb:
+        return 0.0
+    inter = len(ta & tb)
+    return inter / (len(ta) + len(tb) - inter)
+
+
+def _frac_mesma_unidade(a, b):
+    ua, ub = (a or "").strip().lower(), (b or "").strip().lower()
+    if not ua or not ub:
+        return False
+    return ua == ub or ua in ub or ub in ua
+
+
+def _agrupar_por_similaridade(linhas):
+    """Une dispensas do MESMO órgão e MESMO teto (`_teto` já anotado em cada
+    linha) num grupo quando o objeto é parecido: Jaccard > 45% sozinho, ou
+    > 20% quando também é a mesma unidade requisitante — o texto fraco
+    ganha força quando o contexto organizacional bate junto.
+
+    União por componente conexo (union-find): se A~B e B~C, os três entram
+    no mesmo grupo mesmo que A e C sozinhos não passem no limiar — mesma
+    regra do motor original (SGCD `analisarFracionamento`).
+    """
+    n = len(linhas)
+    pai = list(range(n))
+
+    def acha(i):
+        while pai[i] != i:
+            pai[i] = pai[pai[i]]
+            i = pai[i]
+        return i
+
+    def une(i, j):
+        ri, rj = acha(i), acha(j)
+        if ri != rj:
+            pai[ri] = rj
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            a, b = linhas[i], linhas[j]
+            if a["orgao_cnpj"] != b["orgao_cnpj"] or a["_teto"] != b["_teto"]:
+                continue
+            sim = _frac_similaridade(a["objeto"], b["objeto"])
+            mesma_unidade = _frac_mesma_unidade(a["unidade"], b["unidade"])
+            if sim > 0.45 or (sim > 0.20 and mesma_unidade):
+                une(i, j)
+
+    grupos = {}
+    for i, l in enumerate(linhas):
+        grupos.setdefault(acha(i), []).append(l)
+    return list(grupos.values())
+
+
+def _linha_do_grupo(grupo):
+    total = sum(l["valor"] or 0 for l in grupo)
+    principal = max(grupo, key=lambda l: l["valor"] or 0)
+    limite = principal["_teto"]
+    outros = len({l["objeto"] for l in grupo if l["objeto"]}) - 1
+    rotulo = principal["objeto"] or "(sem descrição)"
+    if outros > 0:
+        rotulo += (f" (+{outros} objeto{'s' if outros > 1 else ''}"
+                   f" semelhante{'s' if outros > 1 else ''})")
+    return {"objeto": rotulo, "orgao_nome": principal["orgao_nome"],
+            "n": len(grupo), "total": total, "limite": limite,
+            "tipo": principal["_tipo"],
+            "pct": total / limite * 100 if limite else 0,
+            # o clique no alerta do Painel filtra por ESTES processos — não
+            # dá mais pra recalcular o grupo em SQL (não é mais um radical
+            # fixo de N palavras), então a lista de membros vai junto
+            "numeros_controle": [l["numero_controle"] for l in grupo]}
+
+
+# Janela de análise, configurável (Configurações → Limites de dispensa):
+# "exercicio" (padrão — ano civil, é o que TCE/AGU usam, Lei 4.320/64 art.
+# 34) ou N meses corridos até hoje (período móvel — mais rigoroso, pega
+# dispensa dividida na virada dez/jan, que o corte por exercício não vê).
+JANELAS_FRAC_MESES = {"12": 12, "18": 18, "24": 24}
 
 MESES_NOME = ["jan", "fev", "mar", "abr", "mai", "jun",
               "jul", "ago", "set", "out", "nov", "dez"]
@@ -251,7 +360,7 @@ def _grafico_limites(unidades, larg=760):
     dele é gravidade diferente, e "874%" numa barra do tamanho da de 100%
     esconderia isso — por isso o texto vira "×o limite" acima de 100%."""
     if not unidades:
-        return '<div class="vazio">Nenhuma dispensa registrada no exercício.</div>'
+        return '<div class="vazio">Nenhuma dispensa registrada no período.</div>'
     bloco = 66
     g = ""
     for i, u in enumerate(unidades):
@@ -264,7 +373,7 @@ def _grafico_limites(unidades, larg=760):
                "var(--warn)" if pct >= 75 else "var(--s3)")
         texto_pct = (f"{pct / 100:.1f}".replace(".", ",") + "× o limite"
                      if estourou else f"{pct:.0f}% do limite")
-        g += (f'<text class="rot" x="0" y="{y - 4}">{_e(u["unidade"])} · '
+        g += (f'<text class="rot" x="0" y="{y - 4}">{_e(u["objeto"])} · '
               f'{u["n"]} {"dispensa" if u["n"] == 1 else "dispensas"}</text>'
               f'<rect x="0" y="{y}" width="{cheio:.1f}" height="14" rx="4"'
               f' fill="var(--surface2)"/>'
@@ -440,19 +549,27 @@ def dados_executivo(db, ano, orgao=None):
             "meses": meses, "fornecedores": fornecedores, "vencendo": vencendo}
 
 
-def dados_fracionamento(db, ano, orgao=None, limites=None):
-    """Dispensas do exercício somadas por unidade, contra o teto legal de
-    cada uma (ver `teto_da_dispensa`).
+def dados_fracionamento(db, ano, orgao=None, limites=None, janela=None):
+    """Dispensas somadas por objeto de mesma natureza, contra o teto legal
+    de cada uma (ver `teto_da_dispensa`).
 
-    O agrupamento legal correto é por "objeto de mesma natureza" — juízo do
-    gestor; aqui a soma por unidade é um termômetro de autocontrole. Agrupa
-    também por ÓRGÃO — o teto do art. 75 é "por órgão ou entidade" (§1º):
-    Prefeitura e Câmara que dispensam a mesma coisa têm cada uma o seu
-    limite, e somar as duas contra um teto só acusaria fracionamento (crime,
-    art. 337-E do CP) onde há duas compras legais — e por TETO, porque a
-    mesma unidade pode ter dispensa de compra e de obra, com limites
-    diferentes. Achado 2026-08-12, portado da varredura do
-    licitarium-relatorios.
+    O agrupamento agora é por SIMILARIDADE do objeto (`_agrupar_por_
+    similaridade`, motor portado do SGCD), que é o critério legal — "objeto
+    de mesma natureza", art. 75, §1º — em vez do campo `unidade` do PNCP
+    (que costuma trazer só o nome do órgão) ou de um radical fixo de
+    palavras. Agrupa também por ÓRGÃO: Prefeitura e Câmara que dispensam a
+    mesma coisa têm cada uma o seu limite, e somar as duas contra um teto só
+    acusaria fracionamento (crime, art. 337-E do CP) onde há duas compras
+    legais — e por TETO, porque o mesmo órgão pode ter dispensa de compra e
+    de obra, com limites diferentes. Achado 2026-08-12, portado da varredura
+    do licitarium-relatorios.
+
+    `janela`: "exercicio" (padrão — ano civil de `ano`) ou "12"/"18"/"24"
+    (meses corridos até hoje, período móvel — pega dispensa dividida na
+    virada dez/jan, que o corte por exercício não vê; ver
+    `JANELAS_FRAC_MESES`). Configurável em Configurações → Limites de
+    dispensa. No modo móvel, `ano` só serve de rótulo — a seleção real é a
+    janela de meses.
 
     Dispensa sem teto por valor (amparo em outro inciso do art. 75 ou em
     lei própria) não soma no termômetro nem no total — sai declarada à
@@ -470,54 +587,61 @@ def dados_fracionamento(db, ano, orgao=None, limites=None):
     limite_obras = _limite(limites.get("obras"), LIMITE_PADRAO_OBRAS)
     og = " AND orgao_cnpj=?" if orgao else ""
     og_args = [orgao] if orgao else []
+    meses = JANELAS_FRAC_MESES.get(str(janela))
+    if meses:
+        cond_data, arg_data = "date(data_publicacao) >= date('now','localtime',?)", f"-{meses} months"
+    else:
+        cond_data, arg_data = "ano=?", ano
     linhas = [dict(r) for r in db.execute(
-        f"""SELECT sequencial, ano, orgao_cnpj, orgao_nome,
+        f"""SELECT numero_controle, sequencial, ano, orgao_cnpj, orgao_nome,
                    COALESCE(unidade,'(sem unidade)') unidade, objeto,
                    COALESCE(valor_homologado, valor_estimado, 0) valor,
                    data_publicacao,
                    json_extract(raw, '$.amparoLegal.nome') amparo
             FROM contratacoes
-            WHERE referencia=0 AND ano=? AND modalidade_id=8{og}
-            ORDER BY unidade, data_publicacao""", [ano] + og_args)]
+            WHERE referencia=0 AND {cond_data} AND modalidade_id=8{og}
+            ORDER BY unidade, data_publicacao""", [arg_data] + og_args)]
 
-    dispensas, fora = [], []
-    grupos = {}
+    dispensas, fora, candidatas = [], [], []
     for l in linhas:
-        teto = teto_da_dispensa(l["amparo"], limite_compras, limite_obras)
-        if teto is None:
+        inciso = _inciso_dispensa(l["amparo"])
+        if inciso is None:
             fora.append(l)
             continue
+        l["_teto"] = limite_compras if inciso == "II" else limite_obras
+        l["_tipo"] = "compras" if inciso == "II" else "obras"
         dispensas.append(l)
-        chave = (l["orgao_cnpj"], l["unidade"], teto)
-        g = grupos.setdefault(chave, {
-            "unidade": l["unidade"], "orgao_nome": l["orgao_nome"], "n": 0,
-            "total": 0.0, "limite": teto,
-            "tipo": "obras" if teto == limite_obras else "compras"})
-        g["n"] += 1
-        g["total"] += l["valor"] or 0
-    unidades = sorted(grupos.values(), key=lambda u: -u["total"])
-    for u in unidades:
-        u["pct"] = u["total"] / u["limite"] * 100 if u["limite"] else 0
+        candidatas.append(l)
+    unidades = sorted(
+        (_linha_do_grupo(g) for g in _agrupar_por_similaridade(candidatas)),
+        key=lambda u: -u["total"])
 
     return {"ano": ano, "unidades": unidades, "dispensas": dispensas,
             "fora_do_limite_legal": fora,
             "limite_compras": limite_compras, "limite_obras": limite_obras,
             "total": sum(d["valor"] or 0 for d in dispensas),
-            "n": len(dispensas)}
+            "n": len(dispensas),
+            "janela": str(janela) if meses else "exercicio"}
 
 
-def dados_painel(db, ano, orgao=None, limites=None):
+def dados_painel(db, ano, orgao=None, limites=None, janela=None):
     """Tudo o que o Painel mostra, numa consulta só por assunto.
 
     O painel tem três subabas — execução, análise e vigilância —, mas uma
     ida ao banco: a ponte JS custa mais que a consulta, e trocar de subaba
     não pode ir buscar dados de novo.
+
+    `janela` segue `dados_fracionamento` — o card "Limite anual de
+    dispensa" da Vigilância reusa o MESMO cálculo do relatório de
+    Fracionamento (achado 2026-08-12/2026-08-25: existiam dois motores
+    divergentes, um agrupando por unidade pro relatório e outro por objeto
+    de 2 palavras pro Painel — unificado aqui, um cálculo só).
     """
     ano = int(ano)
     og = " AND orgao_cnpj=?" if orgao else ""
     og_args = [orgao] if orgao else []
     executivo = dados_executivo(db, ano, orgao)
-    fracionamento = dados_fracionamento(db, ano, orgao, limites)
+    fracionamento = dados_fracionamento(db, ano, orgao, limites, janela)
 
     # ── execução: o ano corrente contra o anterior, no mesmo ponto do mês
     # Comparar o ano em curso com o ano anterior INTEIRO é aritmética do
@@ -712,48 +836,24 @@ def dados_painel(db, ano, orgao=None, limites=None):
                AND datetime(data_encerramento_proposta)
                    >= datetime('now','localtime'){og}""",
         og_args).fetchone()[0]
-    # O campo "unidade" do PNCP costuma trazer o nome do órgão — no acervo
-    # do piloto, todas as dispensas caem em "MUNICIPIO DE ORINDIUVA" e o
-    # medidor vira uma linha só. Agrupar por objeto é também o critério
-    # legal: o art. 75 fala em objeto de mesma natureza. Mesma correção de
-    # `dados_fracionamento` (achado 2026-08-12): só entra dispensa com
-    # teto por valor (`teto_da_dispensa`), agrupada também por órgão — o
-    # alerta do Painel tinha o mesmo defeito copiado.
-    por_objeto = {}
-    for r in db.execute(
-            f"""SELECT objeto, orgao_cnpj,
-                       COALESCE(valor_homologado, valor_estimado, 0),
-                       json_extract(raw, '$.amparoLegal.nome')
-                  FROM contratacoes
-                 WHERE referencia=0 AND ano=? AND modalidade_id=8{og}""",
-            [ano] + og_args):
-        teto = teto_da_dispensa(r[3], fracionamento["limite_compras"],
-                                fracionamento["limite_obras"])
-        if teto is None:
-            continue
-        # duas palavras significativas: com três, "PAPEL A4" e "PAPEL A4
-        # SULFITE" viram objetos distintos e o limite deixa de somar o que
-        # a lei manda somar; com uma, "MATERIAL" engoliria meio acervo
-        chave_objeto = pca_builder.chave_agrupamento(r[0], palavras=2) \
-            or "(sem descrição)"
-        alvo = por_objeto.setdefault((r[1], chave_objeto, teto),
-                                     {"objeto": chave_objeto, "n": 0,
-                                      "total": 0.0, "limite": teto})
-        alvo["n"] += 1
-        alvo["total"] += r[2] or 0
-    objetos = sorted(por_objeto.values(), key=lambda o: -o["total"])
-    for o in objetos:
-        o["pct"] = o["total"] / o["limite"] * 100 if o["limite"] else 0
+    # o card "Limite anual" reusa o mesmo agrupamento por similaridade do
+    # relatório de Fracionamento (`fracionamento`, já calculado acima) —
+    # não recalcula nada aqui (achado 2026-08-25: eram dois motores
+    # divergentes, um por objeto de Nº fixo de palavras, outro por unidade)
+    objetos = fracionamento["unidades"]
     perto_do_limite = [o for o in objetos if o["pct"] >= 75]
 
     return {
         "ano": ano,
         "comparacao_parcial": parcial,
         "alertas": {"perto_do_limite": len(perto_do_limite),
-                    # o clique no chip filtra a lista por estes mesmos
-                    # objetos — não por "toda dispensa do ano"
-                    "objetos_perto_do_limite": [o["objeto"]
-                                                for o in perto_do_limite],
+                    # o clique no chip filtra a lista por estes PROCESSOS —
+                    # não por "toda dispensa do ano". Desde que o
+                    # agrupamento virou similaridade (2026-08-25), o grupo
+                    # não é mais recalculável em SQL por um radical fixo;
+                    # a lista de numero_controle vai explícita
+                    "objetos_perto_do_limite": [nc for o in perto_do_limite
+                                                for nc in o["numeros_controle"]],
                     "acima_do_limite": sum(1 for o in objetos
                                            if o["pct"] > 100),
                     # contrato e ata vivem em telas diferentes — um alerta só
@@ -1122,13 +1222,13 @@ def render_fracionamento(d, municipio, uf, brasao=None, categoria=None,
         if pct >= 75:
             return '<span class="farol-atencao">Atenção</span>'
         return "ok"
-    # a coluna Órgão só aparece quando há mais de um com dispensa (mesmo
-    # padrão da coluna Unidade): sem ela, duas linhas do mesmo objeto
-    # pareceriam duplicata, quando são dois entes com teto próprio cada um
+    # a coluna Órgão só aparece quando há mais de um com dispensa: sem ela,
+    # duas linhas do mesmo objeto pareceriam duplicata, quando são dois
+    # entes com teto próprio cada um
     varios_orgaos = len({u["orgao_nome"] for u in d["unidades"]}) > 1
     unid = "".join(f"""<tr>{
       f'<td>{_e(u["orgao_nome"])}</td>' if varios_orgaos else ''}
-      <td>{_e(u['unidade'])}</td>
+      <td>{_e(u['objeto'])}</td>
       <td>{'Obras' if u['tipo'] == 'obras' else 'Compras'}</td>
       <td class="num">{u['n']}</td>
       <td class="num">{moeda(u['total'])}</td>
@@ -1146,38 +1246,44 @@ def render_fracionamento(d, municipio, uf, brasao=None, categoria=None,
                  f'próprio inciso — obra tem limite dobrado em relação a '
                  f'compra, e dispensa do mesmo órgão nunca soma com a de '
                  f'outro. Outras {len(fora)} dispensa'
-                 f'{"s" if len(fora) != 1 else ""} do exercício ficaram '
+                 f'{"s" if len(fora) != 1 else ""} do período ficaram '
                  f'fora deste quadro por não terem teto por valor — amparo '
                  f'em outro inciso do art. 75 (emergência, licitação '
                  f'deserta, agricultura familiar etc.) ou em lei própria '
                  f'decorre da natureza do objeto, não do valor.</p>'
                  if fora else '')
+    janela = d.get("janela") or "exercicio"
+    janela_label = ("exercício financeiro — 1º de janeiro a 31 de dezembro"
+                    if janela == "exercicio"
+                    else f"período móvel — últimos {janela} meses corridos")
     corpo = f"""<div class="caixa-aviso">Instrumento de <b>autocontrole
-interno</b>. A soma por unidade é um termômetro: o enquadramento legal do
-fracionamento considera despesas de <b>mesma natureza</b> (art. 75, §1º, Lei
-14.133/2021), avaliação que cabe ao gestor. Limites parametrizados nas
-configurações — confira o decreto de atualização vigente.
+interno</b>. A soma por objeto semelhante é um termômetro: o enquadramento
+legal do fracionamento considera despesas de <b>mesma natureza</b> (art. 75,
+§1º, Lei 14.133/2021), avaliação que cabe ao gestor — o agrupamento aqui é
+por similaridade textual do objeto, não substitui essa análise. Janela de
+análise: <b>{janela_label}</b>. Limites parametrizados nas configurações —
+confira o decreto de atualização vigente.
 Limite adotado para compras/serviços (art. 75, II): <b>{moeda(d['limite_compras'])}</b> ·
 obras/serviços de engenharia (art. 75, I): <b>{moeda(d['limite_obras'])}</b>.
 Cada dispensa é medida contra o teto do próprio órgão — nunca somada com a
 de outro ente.</div>
 <div class="cards">
-<div class="card"><div class="n">{d['n']}</div><div class="l">dispensas no exercício</div></div>
+<div class="card"><div class="n">{d['n']}</div><div class="l">dispensas no período</div></div>
 <div class="card"><div class="n">{moeda(d['total'])}</div><div class="l">total em dispensas</div></div>
 </div>
-<h2>Soma de dispensas por unidade × teto legal</h2>
+<h2>Soma de dispensas por objeto semelhante × teto legal</h2>
 <div class="card">{_grafico_limites(d["unidades"])}</div>
 <table><thead><tr>{
-  '<th>Órgão</th>' if varios_orgaos else ''}<th>Unidade</th><th>Teto</th>
+  '<th>Órgão</th>' if varios_orgaos else ''}<th>Objeto</th><th>Teto</th>
 <th class="num">Dispensas</th>
 <th class="num">Total</th><th class="num">% do teto</th>
 <th class="ctr">Situação</th></tr></thead>
-<tbody>{unid or f'<tr><td colspan="{n_colunas}">Nenhuma dispensa com teto por valor no exercício.</td></tr>'}</tbody></table>
+<tbody>{unid or f'<tr><td colspan="{n_colunas}">Nenhuma dispensa com teto por valor no período.</td></tr>'}</tbody></table>
 {nota_fora}
-<h2>Dispensas do exercício (para agrupamento por natureza pelo gestor)</h2>
+<h2>Dispensas do período (para agrupamento por natureza pelo gestor)</h2>
 <table><thead><tr><th class="ctr">Processo</th><th class="ctr">Unidade</th>
 <th>Objeto</th><th class="num">Valor</th><th class="num">Publicação</th></tr></thead>
-<tbody>{disp or '<tr><td colspan="5">Nenhuma dispensa no exercício.</td></tr>'}</tbody></table>"""
+<tbody>{disp or '<tr><td colspan="5">Nenhuma dispensa no período.</td></tr>'}</tbody></table>"""
     titulo = f"{TITULOS['fracionamento']} {d['ano']} — {municipio}"
     return _pagina(titulo, corpo, municipio, uf,
                    f"Exercício {d['ano']} · uso interno", paisagem=True,

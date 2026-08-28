@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.44.7"
+VERSAO = "1.45.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -394,12 +394,6 @@ def abrir_db():
     # Python e em SQL — daí a função viajar para dentro do banco
     db.create_function("unidade_canonica", 1, _unidade_canonica,
                        deterministic=True)
-    # mesmo raciocínio: o medidor de limite do Painel agrupa dispensa por
-    # objeto (relatorios.dados_painel), e o clique no alerta precisa filtrar
-    # a lista exatamente pelos mesmos objetos — a função tem de ser uma só
-    db.create_function("agrupamento_objeto", 1,
-                       lambda o: pca_builder.chave_agrupamento(o, 2),
-                       deterministic=True)
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("PRAGMA busy_timeout=10000")
     # o índice de busca nasce vazio; banco que já tinha itens precisa popular
@@ -575,6 +569,7 @@ class Api:
                     "limite_dispensa_obras":
                         cfg.get("limite_dispensa_obras",
                                 str(relatorios.LIMITE_PADRAO_OBRAS)),
+                    "frac_janela": cfg.get("frac_janela", "exercicio"),
                     "last_sync": cfg.get("last_sync_contratacoes"),
                     "sincronizado_em": db.execute(
                         "SELECT MAX(iniciado_em) FROM sync_log"
@@ -627,7 +622,8 @@ class Api:
     # 2026-08-09; `tests/test_config.py` fecha o contrato de ida e volta.
     CHAVES_CONFIG = ("tema", "largura", "fonte", "densidade", "colunas",
                      "maximizar", "limite_dispensa_compras",
-                     "limite_dispensa_obras", "aba", "painel_vista")
+                     "limite_dispensa_obras", "frac_janela", "aba",
+                     "painel_vista")
 
     def set_config(self, chave, valor):
         if chave not in self.CHAVES_CONFIG or valor is None:
@@ -839,11 +835,14 @@ class Api:
             where.append("valor_homologado IS NULL"
                          " AND date(data_publicacao) < date('now','-90 day')")
         if f.get("objetos") and tipo == "contratacoes":
-            # clique no alerta de limite anual: só os objetos que o Painel
-            # apontou como perto/acima do limite, não a modalidade inteira
+            # clique no alerta de limite anual: só os processos que o
+            # Painel apontou como perto/acima do limite, não a modalidade
+            # inteira. `f["objetos"]` traz numero_controle (não mais um
+            # radical de objeto — o agrupamento virou similaridade textual,
+            # 2026-08-25, e não é recalculável em SQL)
             grupo = [str(o) for o in f["objetos"] if o]
             if grupo:
-                where.append("modalidade_id=8 AND agrupamento_objeto(objeto)"
+                where.append("modalidade_id=8 AND numero_controle"
                              f" IN ({','.join('?' * len(grupo))})")
                 args += grupo
         if f.get("so_homologados") and tipo == "itens":
@@ -925,7 +924,8 @@ class Api:
             return relatorios.dados_painel(
                 db, ano, orgao,
                 {"compras": cfg.get("limite_dispensa_compras"),
-                 "obras": cfg.get("limite_dispensa_obras")})
+                 "obras": cfg.get("limite_dispensa_obras")},
+                janela=cfg.get("frac_janela"))
         finally:
             db.close()
 
@@ -1228,6 +1228,7 @@ class Api:
                 params["limites"] = {
                     "compras": pncp._config(db, "limite_dispensa_compras"),
                     "obras": pncp._config(db, "limite_dispensa_obras")}
+                params["janela"] = pncp._config(db, "frac_janela")
             resultado = relatorios.gerar(db, tipo, params, municipio, uf,
                                          DIR_DADOS / "relatorios")
         except ValueError as e:

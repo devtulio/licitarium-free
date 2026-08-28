@@ -177,12 +177,14 @@ def test_medidor_de_limite_agrupa_por_objeto(api):
         db.close()
 
     v = api.painel(ANO)["vigilancia"]
-    limites = {o["objeto"]: o for o in v["limites"]}
-    # os dois papéis caem na mesma chave; a manutenção fica separada
-    papel = limites["PAPEL A4"]
-    assert papel["n"] == 2 and papel["total"] == pytest.approx(52000.0)
+    # os dois papéis (textos parecidos, mesmo órgão) caem no mesmo grupo;
+    # a manutenção (texto sem relação) fica separada, mesmo na mesma unidade
+    papel = next(o for o in v["limites"] if o["n"] == 2)
+    manutencao = next(o for o in v["limites"] if o["n"] == 1)
+    assert papel["total"] == pytest.approx(52000.0)
     assert papel["pct"] == pytest.approx(52000 / v["limite_compras"] * 100)
-    assert limites["MANUTENÇÃO PREDIAL"]["n"] == 1
+    assert "PAPEL A4" in papel["objeto"].upper()
+    assert "MANUTENÇÃO PREDIAL" in manutencao["objeto"].upper()
 
 
 def test_alertas_contam_o_que_exige_acao(api):
@@ -215,13 +217,14 @@ def test_alerta_distingue_perto_de_acima_do_limite(api):
 # nunca "a modalidade inteira" nem "nada".
 
 def test_alerta_de_limite_expoe_os_objetos_que_contou(api):
-    """O clique filtra por estes objetos, não por toda dispensa do ano.
+    """O clique filtra por estes PROCESSOS, não por toda dispensa do ano.
 
-    D1 e D2 nascem com objeto genérico ("Objeto") no fixture — a chave
-    agrupada é "OBJETO"; o teste seguinte usa objetos de verdade.
-    """
+    D1 e D2 nascem com o mesmo objeto genérico ("Objeto") no fixture — o
+    agrupamento por similaridade funde os dois, e o alerta expõe o
+    numero_controle de cada um (não mais um radical de texto — o
+    agrupamento virou similaridade, não é recalculável em SQL)."""
     a = api.painel(ANO)["alertas"]
-    assert a["objetos_perto_do_limite"] == ["OBJETO"]
+    assert set(a["objetos_perto_do_limite"]) == {"D1", "D2"}
 
 
 def test_clique_no_alerta_de_limite_traz_so_esses_objetos(api):

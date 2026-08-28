@@ -516,6 +516,17 @@ test("limites de dispensa usam máscara de dinheiro e salvam número puro",
   expect(parseFloat(salvo.v)).toBe(75000);            // persiste numérico
 });
 
+test("janela de fracionamento carrega do estado e salva ao trocar",
+    async ({ page }) => {
+  await page.locator("#btn-config").click();
+  await expect(page.locator("#cfg-frac-janela")).toHaveValue("exercicio");
+  await page.locator("#cfg-frac-janela").selectOption("12");
+  const salvo = await page.evaluate(() =>
+    window.__chamadas.filter(c => c.metodo === "set_config"
+      && c.k === "frac_janela").pop());
+  expect(salvo.v).toBe("12");
+});
+
 test("chip de vencimento de contratos filtra pela janela de 60 dias, não por vigentes",
     async ({ page }) => {
   // "vigentes" não tem teto — todo contrato ativo entrava, e o alerta de

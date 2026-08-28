@@ -1310,6 +1310,7 @@ $("btn-config").addEventListener("click", async () => {
       api.set_orgao_ativo(c.dataset.cnpj, c.checked)));
   aplicarLimCompras(parseFloat(e.limite_dispensa_compras) || 0);
   aplicarLimObras(parseFloat(e.limite_dispensa_obras) || 0);
+  $("cfg-frac-janela").value = e.frac_janela || "exercicio";
   $("cfg-log").innerHTML = log.map(l =>
     `<div class="logline">${esc(l.iniciado_em?.slice(0,16).replace("T"," "))} ·
      ${esc(l.tipo)} · ${l.status === "ok" ? `${l.registros} registros`
@@ -1354,6 +1355,8 @@ const aplicarLimCompras = mascaraDinheiro($("cfg-lim-compras"),
   v => api.set_config("limite_dispensa_compras", v));
 const aplicarLimObras = mascaraDinheiro($("cfg-lim-obras"),
   v => api.set_config("limite_dispensa_obras", v));
+$("cfg-frac-janela").addEventListener("change",
+  () => api.set_config("frac_janela", $("cfg-frac-janela").value));
 $("btn-trocar").addEventListener("click", () => {
   fecharModal("veu-config");
   iniciarWizard();

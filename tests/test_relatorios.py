@@ -3,6 +3,7 @@ import json
 import re
 import sqlite3
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -300,9 +301,15 @@ def test_fracionamento(db, tmp_path):
                " WHERE ano=2026")
     db.commit()
     d = relatorios.dados_fracionamento(db, 2026, limites={"compras": 100})
-    # A: homologado 80; B: sem homologado, cai no estimado 200 -> total 280
+    # A ("Merenda", homologado 80) e B ("Obras", sem homologado, cai no
+    # estimado 200) são objetos sem relação — mesmo na mesma unidade, o
+    # agrupamento por similaridade NÃO soma os dois (achado 2026-08-25:
+    # antes, agrupar por `unidade` somava "Merenda" com "Obras" só por
+    # serem da mesma secretaria). Total geral continua 280 (soma de TODAS
+    # as dispensas, grupo à parte); o grupo maior sozinho é B, 200.
     assert d["n"] == 2 and d["total"] == 280.0
-    assert d["unidades"][0]["pct"] == 280.0
+    assert d["unidades"][0]["pct"] == 200.0
+    assert len(d["unidades"]) == 2
     r = relatorios.gerar(db, "fracionamento", {"ano": 2026},
                          "Testópolis", "SP", tmp_path)
     html = Path(r["html"]).read_text(encoding="utf-8")
@@ -323,7 +330,7 @@ def test_fracionamento_tem_o_medidor_de_limite(db, tmp_path):
                          {"compras": 100}}, "T", "SP", tmp_path)
     html = Path(r["html"]).read_text(encoding="utf-8")
     assert html.count("<svg") >= 1
-    assert "2,8× o limite" in html      # 280/100
+    assert "2,0× o limite" in html      # B ("Obras"): 200/100, maior grupo
     assert "var(--erro)" in html        # cor de estouro
 
 
@@ -393,9 +400,71 @@ def test_obra_e_medida_contra_o_limite_de_obras_nao_de_compras(db):
 
     d = relatorios.dados_fracionamento(
         db, 2026, limites={"compras": 100000, "obras": 200000})
-    obra = next(u for u in d["unidades"] if u["unidade"] == "Obras")
+    obra = next(u for u in d["unidades"] if u["objeto"] == "Reforma de telhado")
     assert obra["tipo"] == "obras"
     assert obra["pct"] == pytest.approx(75.0)   # 150.000 / 200.000, não / 100.000
+
+
+def test_similaridade_agrupa_objeto_parecido_mesmo_com_grafia_diferente(db):
+    """Motor portado do SGCD (2026-08-25): Jaccard de tokens, não um radical
+    fixo de N palavras — "AQUISIÇÃO DE PNEUS PARA VEÍCULOS" e "COMPRA DE
+    PNEUS E CÂMARAS" têm overlap parcial ("pneus") mesmo sem bater as duas
+    primeiras palavras."""
+    raw = json.dumps({"amparoLegal": {"nome": "Art. 75, II"}})
+    db.executemany(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, orgao_nome, unidade, modalidade_id, modalidade_nome,"
+        " objeto, valor_homologado, data_publicacao, referencia, raw)"
+        " VALUES (?,2026,?,'111','PREF','Sec.',8,'Dispensa',?,"
+        " 40000.0,'2026-06-01',0,?)",
+        [("P1", 80, "PNEUS E CÂMARAS PARA VEÍCULOS", raw),
+         ("P2", 81, "AQUISIÇÃO DE PNEUS E CÂMARAS DE VEÍCULOS", raw),
+         # sem relação nenhuma com os pneus — não pode entrar no grupo só
+         # por ser a mesma unidade/órgão
+         ("P3", 82, "SERVIÇO DE JARDINAGEM", raw)])
+    db.commit()
+
+    d = relatorios.dados_fracionamento(db, 2026, limites={"compras": 100000})
+    pneus = next(g for g in d["unidades"] if g["n"] == 2)
+    assert pneus["total"] == pytest.approx(80000.0)
+    assert {"P1", "P2"} == set(pneus["numeros_controle"])
+    jardinagem = next(g for g in d["unidades"] if g["n"] == 1)
+    assert jardinagem["numeros_controle"] == ["P3"]
+
+
+def test_janela_movel_ve_o_que_o_exercicio_esconde(db):
+    """Achado do usuário (2026-08-25): fracionamento dividido na virada
+    dez/jan não aparece no corte por exercício civil — cada dispensa cai
+    num relatório de ano diferente. Período móvel (config `frac_janela`)
+    resolve isso. Datas em dias corridos a partir de hoje (não meses de
+    calendário) pra o teste não depender de em que mês do ano ele roda:
+    400 dias é sempre > 12 meses e < 24 meses."""
+    hoje = date.today()
+    recente = (hoje - timedelta(days=20)).isoformat()
+    antiga = (hoje - timedelta(days=400)).isoformat()
+    raw = json.dumps({"amparoLegal": {"nome": "Art. 75, II"}})
+    db.executemany(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, orgao_nome, unidade, modalidade_id, modalidade_nome,"
+        " objeto, valor_homologado, data_publicacao, referencia, raw)"
+        " VALUES (?,?,?,'111','PREF','Sec.',8,'Dispensa','Material de"
+        " limpeza',40000.0,?,0,?)",
+        [("M1", int(recente[:4]), 90, recente, raw),
+         ("M2", int(antiga[:4]), 91, antiga, raw)])
+    db.commit()
+
+    movel_12 = relatorios.dados_fracionamento(
+        db, hoje.year, limites={"compras": 100000}, janela="12")
+    assert movel_12["n"] == 1 and movel_12["total"] == pytest.approx(40000.0)
+
+    movel_24 = relatorios.dados_fracionamento(
+        db, hoje.year, limites={"compras": 100000}, janela="24")
+    assert movel_24["n"] == 2 and movel_24["total"] == pytest.approx(80000.0)
+    assert movel_24["janela"] == "24"
+
+    exercicio = relatorios.dados_fracionamento(
+        db, hoje.year, limites={"compras": 100000})
+    assert exercicio["janela"] == "exercicio"
 
 
 def test_dois_orgaos_sob_o_teto_nao_somam_pra_estourar(db):

@@ -366,6 +366,19 @@
       </div>
       <div class="aviso">Usados no Alerta de Fracionamento. Atualizados por
         decreto federal — confira o valor vigente.</div>
+      <div style="margin-top:12px">
+        <label for="cfg-frac-janela">Janela de análise do fracionamento</label>
+        <select id="cfg-frac-janela" style="width:100%">
+          <option value="exercicio">Exercício financeiro — 1º jan a 31 dez (recomendado)</option>
+          <option value="12">Período móvel — últimos 12 meses</option>
+          <option value="18">Período móvel — últimos 18 meses</option>
+          <option value="24">Período móvel — últimos 24 meses</option>
+        </select>
+      </div>
+      <div class="ajuda" style="margin-top:6px">Exercício financeiro é a
+        interpretação usada pelos TCEs e pela AGU (Lei 4.320/64, art. 34).
+        Período móvel é mais rigoroso — pega dispensas divididas entre
+        dezembro e janeiro, que o corte por exercício não vê.</div>
     </div>
     <div class="card cfg">
       <h2>Cópia do acervo</h2>
