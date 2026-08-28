@@ -161,7 +161,16 @@ def _linha_do_grupo(grupo):
     principal = max(grupo, key=lambda l: l["valor"] or 0)
     limite = principal["_teto"]
     outros = len({l["objeto"] for l in grupo if l["objeto"]}) - 1
-    rotulo = principal["objeto"] or "(sem descrição)"
+    texto = (principal["objeto"] or "(sem descrição)").strip()
+    # o objeto do PNCP costuma ser a descrição inteira do edital (não um
+    # radical curto) — sem teto, o gauge (SVG do papel e ECharts da tela,
+    # os dois desenhados pra rótulo curto) empurrava a barra pra fora do
+    # cartão ou escondia o rótulo (achado do usuário, 2026-08-28, PDF real).
+    # A listagem "Dispensas do período" (por dispensa, não agrupada) segue
+    # com o objeto completo — só este rótulo agregado corta.
+    if len(texto) > 90:
+        texto = texto[:87].rstrip() + "…"
+    rotulo = texto
     if outros > 0:
         rotulo += (f" (+{outros} objeto{'s' if outros > 1 else ''}"
                    f" semelhante{'s' if outros > 1 else ''})")

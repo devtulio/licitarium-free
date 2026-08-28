@@ -432,6 +432,34 @@ def test_similaridade_agrupa_objeto_parecido_mesmo_com_grafia_diferente(db):
     assert jardinagem["numeros_controle"] == ["P3"]
 
 
+def test_rotulo_do_grupo_corta_descricao_muito_longa(db):
+    """Achado do usuário em PDF real (2026-08-28): o objeto do PNCP é a
+    descrição inteira do edital, não um radical curto — sem corte, o
+    gráfico (SVG do papel e ECharts da tela, os dois desenhados pra rótulo
+    curto) empurrava a barra pra fora do cartão ou escondia o rótulo por
+    completo. O rótulo agregado do grupo corta em 90 caracteres; a listagem
+    "Dispensas do período" (por dispensa) continua com o texto inteiro."""
+    longa = ("CONTRATAÇÃO DE EMPRESA PARA PRESTAÇÃO DE SERVIÇOS COMUNS DE "
+             "APOIO TÉCNICO-CONTÁBIL, ASSISTÊNCIA E ORIENTAÇÃO OPERACIONAL "
+             "AO DEPARTAMENTO DE CONTABILIDADE")
+    assert len(longa) > 90   # a própria descrição de teste já estoura
+    raw = json.dumps({"amparoLegal": {"nome": "Art. 75, II"}})
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, orgao_nome, unidade, modalidade_id, modalidade_nome,"
+        " objeto, valor_homologado, data_publicacao, referencia, raw)"
+        " VALUES ('L1',2026,90,'111','PREF','Sec.',8,'Dispensa',?,"
+        " 40000.0,'2026-06-01',0,?)", (longa, raw))
+    db.commit()
+
+    d = relatorios.dados_fracionamento(db, 2026, limites={"compras": 100000})
+    grupo = d["unidades"][0]
+    assert len(grupo["objeto"]) <= 90
+    assert grupo["objeto"].endswith("…")
+    # a dispensa individual (não o rótulo agregado) preserva o texto inteiro
+    assert d["dispensas"][0]["objeto"] == longa
+
+
 def test_janela_movel_ve_o_que_o_exercicio_esconde(db):
     """Achado do usuário (2026-08-25): fracionamento dividido na virada
     dez/jan não aparece no corte por exercício civil — cada dispensa cai

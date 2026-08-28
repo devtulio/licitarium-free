@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.45.1 — 2026-08-28
+
+**O gráfico do limite de dispensa quebrava com objeto muito longo**
+
+A 1.45.0 trocou o rótulo do grupo (antes um radical curto de 2 palavras)
+pela descrição do objeto — que no PNCP costuma ser o edital inteiro, às
+vezes 150+ caracteres. O gráfico (no Painel e no PDF do relatório de
+Fracionamento) foi desenhado para rótulo curto: com o texto inteiro, a
+barra saía empurrada pra fora do cartão ou o rótulo desaparecia — no PDF,
+chegava a gerar páginas em branco. O rótulo do grupo agora corta em 90
+caracteres; a tabela com a lista de dispensas continua mostrando o objeto
+completo.
+
 ## 1.45.0 — 2026-08-25
 
 **Motor do Alerta de Fracionamento reformulado — agrupa por similaridade,
