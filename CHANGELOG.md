@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.45.8 — 2026-08-30
+
+**Correção: fórmula de Vencimento quebrava no Excel real (#NAME?), e mais acabamento nas planilhas**
+
+Achado revisando 4 planilhas exportadas: a coluna Vencimento (dias) usava
+`HOJE()` — nome de função em português — mas o Excel guarda fórmulas
+sempre em inglês por baixo do capô, então a fórmula quebrava com
+`#NAME?` ao abrir de verdade (só não aparecia nos testes automatizados,
+que checam o texto da fórmula, não a execução). Trocado por `TODAY()`.
+
+Também, comparando com planilhas que o usuário poliu à mão: colunas
+`VALOR*` ganharam máscara contábil ("R$ 1.234,56"); CNPJ do órgão e
+CNPJ/CPF do fornecedor viram número de verdade com a máscara oficial
+(11 dígitos = CPF, 14 = CNPJ — decidido pelo tamanho); e toda coluna
+ficou centralizada, menos Objeto/Descrição/Fornecedor (texto livre
+longo, à esquerda) — mesmo padrão visual das quatro planilhas
+(Contratações, Contratos, Atas, PCA).
+
 ## 1.45.7 — 2026-08-30
 
 **Correção: quem já tinha a coluna de fornecedor da Ata ficava com o separador velho**

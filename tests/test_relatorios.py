@@ -118,7 +118,8 @@ def test_escrever_planilha_traduz_cabecalho_e_formata_numero(tmp_path):
     assert cab2.value == "OBJETO DESCONHECIDO XYZ"  # sem entrada: Title Case + maiúsculo
     assert cab1.font.bold is True
     assert ws["A2"].value == 1234.5                 # número real, não string
-    assert ws["A2"].number_format == "#,##0.00"
+    assert ws["A2"].number_format == (               # valor: máscara contábil R$
+        '_-"R$"\\ * #,##0.00_-;\\-"R$"\\ * #,##0.00_-;_-"R$"\\ * "-"??_-;_-@_-')
     assert ws.freeze_panes == "A2"
 
 
@@ -164,9 +165,33 @@ def test_escrever_planilha_data_iso_vira_datetime_de_verdade(tmp_path):
     assert ws["B2"].number_format == "DD/MM/YYYY HH:MM"
     assert ws["C2"].value == dt.datetime(2026, 8, 20, 0, 0, 0)
     assert ws["C2"].number_format == "DD/MM/YYYY"       # meia-noite: só data
-    assert ws["D2"].value == "=C2-HOJE()"                # vencimento (dias), auto
+    assert ws["D2"].value == "=C2-TODAY()"               # vencimento (dias), auto
     assert ws["D2"].number_format == "0"
     assert ws["E2"].value == "abc-1"                     # não-data intocada
+
+
+def test_escrever_planilha_documento_e_alinhamento(tmp_path):
+    """Refinado a partir de planilhas reais do usuário (2026-08-30):
+    orgao_cnpj/fornecedor_ni viram NÚMERO com a máscara oficial (CPF de 11
+    dígitos ou CNPJ de 14, decidido pelo tamanho — não dá pra aplicar
+    máscara de número em texto); toda coluna centralizada, exceto
+    objeto/descricao/fornecedor_nome (texto livre longo, à esquerda)."""
+    import openpyxl as oxl
+    caminho = tmp_path / "doc.xlsx"
+    relatorios.escrever_planilha(caminho, [
+        {"orgao_cnpj": "45148970000177", "fornecedor_ni": "04063331000121",
+         "objeto": "obj", "ano": 2026},
+    ])
+    wb = oxl.load_workbook(caminho)
+    ws = wb.active
+    mascara = r'[<=99999999999]000\.000\.000\-00;00\.000\.000\/0000\-00'
+    assert ws["A2"].value == 45148970000177        # número, não texto
+    assert ws["A2"].number_format == mascara
+    assert ws["A2"].alignment.horizontal == "center"
+    assert ws["B2"].value == 4063331000121          # CNPJ de fornecedor
+    assert ws["B2"].number_format == mascara
+    assert ws["C2"].alignment.horizontal == "left"   # objeto: texto livre
+    assert ws["D2"].alignment.horizontal == "center"  # ano: número comum
 
 
 def test_gerar_executivo_sem_planilha(db, tmp_path):

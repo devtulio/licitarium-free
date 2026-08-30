@@ -102,5 +102,7 @@ def test_exportar_contratos_numero_limpo_e_uma_linha_por_fornecedor_na_ata(
     cabecalho = [c.value for c in ws[1]]
     linha1 = dict(zip(cabecalho, [c.value for c in ws[2]]))
     linha2 = dict(zip(cabecalho, [c.value for c in ws[3]]))
+    # CNPJ/CPF vira número de verdade (leva máscara própria — não dá pra
+    # mascarar número em texto), pedido do usuário (2026-08-30)
     assert {linha1["CNPJ/CPF DO FORNECEDOR"], linha2["CNPJ/CPF DO FORNECEDOR"]} \
-        == {"111", "222"}
+        == {111, 222}

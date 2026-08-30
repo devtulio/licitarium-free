@@ -474,9 +474,16 @@ def escrever_planilha(caminho, linhas):
     se o usuário editar estimado/homologado na própria planilha.
 
     Quando há `vigencia_fim` (contratos, atas), entra **Vencimento (dias)**
-    logo depois, por fórmula `=vigencia_fim-HOJE()` — recalcula sozinha
+    logo depois, por fórmula `=vigencia_fim-TODAY()` — recalcula sozinha
     toda vez que a planilha abre, nunca fica desatualizada. `objeto` sai
     sempre em CAIXA ALTA. Ambos pedido do usuário (2026-08-30).
+
+    Refinado de novo (2026-08-30) a partir de planilhas que o usuário
+    poliu à mão: colunas `valor*` ganham máscara contábil ("R$ 1.234,56");
+    `orgao_cnpj`/`fornecedor_ni` viram NÚMERO com a máscara oficial de
+    CNPJ/CPF (o mesmo campo mostra CPF de 11 dígitos ou CNPJ de 14,
+    conforme o tamanho); toda coluna centralizada, menos objeto/descrição/
+    razão social do fornecedor (texto livre longo, fica à esquerda).
     """
     import datetime as dt
 
@@ -488,6 +495,13 @@ def escrever_planilha(caminho, linhas):
     wb = Workbook()
     ws = wb.active
     chaves = list(linhas[0].keys())
+
+    COLUNAS_DOCUMENTO = {"orgao_cnpj", "fornecedor_ni"}
+    COLUNAS_TEXTO_LONGO = {"objeto", "descricao", "fornecedor_nome"}
+    MASCARA_DOCUMENTO = (r'[<=99999999999]000\.000\.000\-00;'
+                        r'00\.000\.000\/0000\-00')
+    MASCARA_MOEDA = ('_-"R$"\\ * #,##0.00_-;\\-"R$"\\ * #,##0.00_-;'
+                     '_-"R$"\\ * "-"??_-;_-@_-')
 
     def _para_data(chave, valor):
         # data_publicacao/data_encerramento_proposta/vigencia_* chegam como
@@ -502,6 +516,15 @@ def escrever_planilha(caminho, linhas):
             return dt.datetime.fromisoformat(valor)
         except ValueError:
             return valor
+
+    def _para_documento(chave, valor):
+        # orgao_cnpj/fornecedor_ni chegam como texto só de dígitos — vira
+        # NÚMERO de verdade pra levar a máscara oficial (000.000.000-00 pro
+        # CPF de 11, 00.000.000/0000-00 pro CNPJ de 14), como no modelo do
+        # usuário — não dá pra aplicar máscara de número em texto.
+        if chave not in COLUNAS_DOCUMENTO or not isinstance(valor, str):
+            return valor
+        return int(valor) if valor.isdigit() else valor
 
     par = col_est = col_hom = None
     for k in chaves:
@@ -541,10 +564,12 @@ def escrever_planilha(caminho, linhas):
                                if linha.get(par[0]) and linha.get(par[1]) is not None
                                else None)
             elif k == "_vencimento":
-                valores.append(f"={col_vig}{r}-HOJE()"
+                valores.append(f"={col_vig}{r}-TODAY()"
                                if linha.get("vigencia_fim") else None)
             elif k == "objeto" and isinstance(linha.get(k), str):
                 valores.append(linha[k].upper())
+            elif k in COLUNAS_DOCUMENTO:
+                valores.append(_para_documento(k, linha.get(k)))
             else:
                 valores.append(_para_data(k, linha.get(k)))
         ws.append(valores)
@@ -555,11 +580,18 @@ def escrever_planilha(caminho, linhas):
     for i, larg in enumerate(larguras, 1):
         ws.column_dimensions[get_column_letter(i)].width = larg + 2
     for i, k in enumerate(chaves, 1):
+        alinhamento = Alignment(
+            horizontal="left" if k in COLUNAS_TEXTO_LONGO else "center")
         for cel in next(ws.iter_cols(min_col=i, max_col=i, min_row=2)):
+            cel.alignment = alinhamento
             if k == "_desagio":
                 cel.number_format = "0.00%"
             elif k == "_vencimento":
                 cel.number_format = "0"
+            elif k in COLUNAS_DOCUMENTO:
+                cel.number_format = MASCARA_DOCUMENTO
+            elif "valor" in k:
+                cel.number_format = MASCARA_MOEDA
             elif isinstance(cel.value, dt.datetime):
                 cel.number_format = ("DD/MM/YYYY HH:MM"
                                      if cel.value.time() != dt.time()
