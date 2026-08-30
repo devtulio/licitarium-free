@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.45.6"
+VERSAO = "1.45.7"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -425,6 +425,22 @@ def abrir_db():
                 f"""UPDATE atas SET
                      fornecedor_ni = (SELECT GROUP_CONCAT(ni, '{pncp.SEPARADOR_FORNECEDOR}') FROM ({par})),
                      fornecedor_nome = (SELECT GROUP_CONCAT(nome, '{pncp.SEPARADOR_FORNECEDOR}') FROM ({par}))""")
+        db.commit()
+    elif colunas_a and "fornecedor_ni" in colunas_a and db.execute(
+            "SELECT 1 FROM atas WHERE fornecedor_ni LIKE '%,%' LIMIT 1").fetchone():
+        # achado do usuário (2026-08-30): quem já tinha a coluna (v1.45.5)
+        # ficou com o separador antigo (vírgula) gravado — a migração acima
+        # só roda quando a coluna é CRIADA, nunca de novo. Reprojeta pra
+        # trocar por SEPARADOR_FORNECEDOR (idempotente: sem vírgula sobrando,
+        # o LIKE acima não acha nada e este bloco para de rodar sozinho)
+        par = ("SELECT DISTINCT fornecedor_ni ni, fornecedor_nome nome"
+              " FROM itens WHERE contratacao_controle=atas.contratacao_controle"
+              " AND tem_resultado=1 AND fornecedor_ni IS NOT NULL"
+              " ORDER BY fornecedor_ni")
+        db.execute(
+            f"""UPDATE atas SET
+                 fornecedor_ni = (SELECT GROUP_CONCAT(ni, '{pncp.SEPARADOR_FORNECEDOR}') FROM ({par})),
+                 fornecedor_nome = (SELECT GROUP_CONCAT(nome, '{pncp.SEPARADOR_FORNECEDOR}') FROM ({par}))""")
         db.commit()
     colunas_c = {r[1] for r in db.execute("PRAGMA table_info(contratacoes)")}
     if colunas_c and "itens_versao" not in colunas_c:

@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import licitarium
+import pncp
 
 
 @pytest.fixture
@@ -281,6 +282,39 @@ def test_migracao_atas_reprojeta_do_raw(tmp_path, monkeypatch):
     assert r["objeto"] == "RP de teste"
     assert (c["numero_contrato"], c["ano_contrato"],
             c["sequencial_contrato"]) == ("0033/26", 2026, 35)
+
+
+def test_migracao_atas_reprojeta_fornecedor_com_separador_velho(tmp_path, monkeypatch):
+    """Achado do usuário em planilha real (2026-08-30): quem instalou a
+    v1.45.5 ganhou a coluna fornecedor_ni/nome com vírgula como separador
+    — a migração que reprojeta com o separador novo (\\x1f, v1.45.6) só
+    roda quando a coluna é CRIADA, nunca revisita quem já tinha. Detecta
+    vírgula sobrando e reprojeta de novo, sem exigir dropar a coluna."""
+    monkeypatch.setattr(licitarium, "DIR_DADOS", tmp_path)
+    monkeypatch.setattr(licitarium, "ARQUIVO_DB", tmp_path / "m2.db")
+    # abre uma vez pra materializar o schema completo (via executescript),
+    # depois grava o cenário "v1.45.5 instalada" por cima: fornecedor com
+    # o separador velho (vírgula)
+    licitarium.abrir_db().close()
+    db = licitarium.abrir_db()
+    db.execute("INSERT INTO atas (numero_controle, contratacao_controle,"
+              " fornecedor_ni, fornecedor_nome) VALUES ('A1', 'C1',"
+              " '111,222', 'FORN A,FORN B')")
+    db.execute("INSERT INTO itens (id, contratacao_controle, tem_resultado,"
+              " fornecedor_ni, fornecedor_nome)"
+              " VALUES ('C1#1','C1',1,'111','FORN A')")
+    db.execute("INSERT INTO itens (id, contratacao_controle, tem_resultado,"
+              " fornecedor_ni, fornecedor_nome)"
+              " VALUES ('C1#2','C1',1,'222','FORN B')")
+    db.commit()
+    db.close()
+
+    db = licitarium.abrir_db()
+    r = db.execute("SELECT fornecedor_ni, fornecedor_nome FROM atas"
+                   " WHERE numero_controle='A1'").fetchone()
+    db.close()
+    assert r["fornecedor_ni"] == f"111{pncp.SEPARADOR_FORNECEDOR}222"
+    assert r["fornecedor_nome"] == f"FORN A{pncp.SEPARADOR_FORNECEDOR}FORN B"
 
 
 def test_filtro_por_orgao(api):

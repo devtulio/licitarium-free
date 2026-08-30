@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.45.7 — 2026-08-30
+
+**Correção: quem já tinha a coluna de fornecedor da Ata ficava com o separador velho**
+
+Achado conferindo as próprias planilhas geradas: quem instalou a 1.45.5
+antes desta versão ficou com o fornecedor da Ata gravado com vírgula
+como separador — a correção da 1.45.6 (separador que nunca aparece em
+texto) só rodava pra quem estava instalando a coluna pela primeira vez,
+nunca revisitava quem já tinha. Resultado: a exportação continuava
+saindo com todos os fornecedores amontoados numa linha só, em vez de
+uma linha por fornecedor. Corrigido: a abertura do programa agora detecta
+o separador velho e reprojeta sozinha, sem precisar apagar nada.
+
 ## 1.45.6 — 2026-08-30
 
 **Número do contrato limpo, Vencimento (dias), Objeto em caixa alta, e um fornecedor por linha na Ata**
