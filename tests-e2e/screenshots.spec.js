@@ -19,3 +19,19 @@ for (const tema of ["portal", "pergaminho", "observatorio", "civil"]) {
     await page.screenshot({ path: path.join(DESTINO, `${tema}.png`) });
   });
 }
+
+// docs/screenshots/montar-pca.png ficava órfão (não gerado por nenhum
+// teste, nunca usado no README) e desatualizado — mostrava "Exportar CSV",
+// trocado por "Exportar planilha" na v1.45.2. Gerado aqui de propósito, na
+// mesma rodada dos outros, e passa a ilustrar a seção "Montar PCA" do
+// README (achado 2026-08-30: texto sem nenhum retrato).
+test("screenshot montar PCA", async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 860 });
+  await abrirApp(page);
+  await expect(page.locator("#splash")).toBeHidden();
+  await page.locator("#btn-pca").click();
+  await expect(page.locator("#veu-pca")).toBeVisible();
+  await page.locator("#pca-gerar").click();
+  await expect(page.locator("#pca-lista .linha:not(.cab)")).not.toHaveCount(0);
+  await page.screenshot({ path: path.join(DESTINO, "montar-pca.png") });
+});

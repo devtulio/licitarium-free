@@ -76,6 +76,8 @@ A lista é editável e os ajustes manuais sobrevivem a uma nova geração. A
 entrega é uma **minuta para revisão**, não um arquivo de importação: os itens
 do PNCP não trazem código de catálogo, então a conferência humana é necessária.
 
+![Montar minuta do PCA](docs/screenshots/montar-pca.png)
+
 ### Relatórios
 
 Sete relatórios em HTML timbrado (prontos para imprimir em PDF) e, quando faz
