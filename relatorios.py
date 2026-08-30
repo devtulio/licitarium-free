@@ -16,6 +16,7 @@ from collections import Counter
 from datetime import date, datetime
 
 import pca_builder
+import pncp
 
 # a arte vem de marca.py, gerado por design/gerar_marca.py a partir do
 # design/estandarte-t3.svg — antes era uma cópia mantida à mão aqui
@@ -471,6 +472,11 @@ def escrever_planilha(caminho, linhas):
     homologado` (contratações, itens), entra uma coluna **Deságio**
     calculada por FÓRMULA do Excel (não valor congelado) — continua certa
     se o usuário editar estimado/homologado na própria planilha.
+
+    Quando há `vigencia_fim` (contratos, atas), entra **Vencimento (dias)**
+    logo depois, por fórmula `=vigencia_fim-HOJE()` — recalcula sozinha
+    toda vez que a planilha abre, nunca fica desatualizada. `objeto` sai
+    sempre em CAIXA ALTA. Ambos pedido do usuário (2026-08-30).
     """
     import datetime as dt
 
@@ -508,8 +514,18 @@ def escrever_planilha(caminho, linhas):
         col_est = get_column_letter(chaves.index(par[0]) + 1)
         col_hom = get_column_letter(chaves.index(par[1]) + 1)
 
+    col_vig = None
+    if "vigencia_fim" in chaves:
+        pos = chaves.index("vigencia_fim") + 1
+        chaves = chaves[:pos] + ["_vencimento"] + chaves[pos:]
+        col_vig = get_column_letter(chaves.index("vigencia_fim") + 1)
+
     def rotulo(k):
-        return ("DESÁGIO" if k == "_desagio" else _rotulo_campo(k)).upper()
+        if k == "_desagio":
+            return "DESÁGIO"
+        if k == "_vencimento":
+            return "VENCIMENTO (DIAS)"
+        return _rotulo_campo(k).upper()
 
     ws.append([rotulo(k) for k in chaves])
     for cel in ws[1]:
@@ -524,12 +540,17 @@ def escrever_planilha(caminho, linhas):
                 valores.append(f"=({col_est}{r}-{col_hom}{r})/{col_est}{r}"
                                if linha.get(par[0]) and linha.get(par[1]) is not None
                                else None)
+            elif k == "_vencimento":
+                valores.append(f"={col_vig}{r}-HOJE()"
+                               if linha.get("vigencia_fim") else None)
+            elif k == "objeto" and isinstance(linha.get(k), str):
+                valores.append(linha[k].upper())
             else:
                 valores.append(_para_data(k, linha.get(k)))
         ws.append(valores)
         for i, k in enumerate(chaves):
-            texto = "" if k == "_desagio" or linha.get(k) is None \
-                else str(linha[k])
+            sintetica = k in ("_desagio", "_vencimento")
+            texto = "" if sintetica or linha.get(k) is None else str(linha[k])
             larguras[i] = min(60, max(larguras[i], len(texto)))
     for i, larg in enumerate(larguras, 1):
         ws.column_dimensions[get_column_letter(i)].width = larg + 2
@@ -537,6 +558,8 @@ def escrever_planilha(caminho, linhas):
         for cel in next(ws.iter_cols(min_col=i, max_col=i, min_row=2)):
             if k == "_desagio":
                 cel.number_format = "0.00%"
+            elif k == "_vencimento":
+                cel.number_format = "0"
             elif isinstance(cel.value, dt.datetime):
                 cel.number_format = ("DD/MM/YYYY HH:MM"
                                      if cel.value.time() != dt.time()
@@ -608,6 +631,11 @@ def dados_contratos(db, ano=None, vigentes=False, orgao=None):
                    vigencia_inicio, vigencia_fim, data_publicacao
             FROM contratos{sql_where}
             ORDER BY data_publicacao""", args)]
+    # "0033/26" (PNCP) → "33/2026" — achado do usuário (2026-08-30): a
+    # planilha exportada mostrava o número cru, o relatório impresso já
+    # normalizava só na hora de desenhar a tabela
+    for l in linhas:
+        l["numero"] = num_contrato(l["numero"], l["ano_contrato"]) or l["numero"]
     return {"linhas": linhas,
             "totais": {"n": len(linhas),
                        "valor": sum(l["valor_global"] or 0 for l in linhas)}}
@@ -629,11 +657,17 @@ def dados_atas(db, ano=None, vigentes=False, orgao=None):
                    json_extract(raw, '$.numeroAtaRegistroPreco') numero,
                    json_extract(raw, '$.anoAta') ano_ata,
                    json_extract(raw, '$.objetoContratacao') objeto,
-                   contratacao_controle, vigencia_inicio, vigencia_fim,
+                   contratacao_controle, fornecedor_ni, fornecedor_nome,
+                   vigencia_inicio, vigencia_fim,
                    json_extract(raw, '$.dataPublicacaoPncp') data_publicacao
             FROM atas{sql_where}
             ORDER BY vigencia_inicio""", args)]
-    return {"linhas": linhas, "totais": {"n": len(linhas)}}
+    total_atas = len(linhas)  # antes do fan-out: fornecedor não conta ata 2x
+    # uma linha por fornecedor — mesmo padrão da planilha de Contratos
+    # (pedido do usuário, 2026-08-30); a tabela guarda agregado (pode haver
+    # mais de um vencedor numa ARP com vários itens)
+    linhas = pncp.separar_fornecedores(linhas)
+    return {"linhas": linhas, "totais": {"n": total_atas}}
 
 
 def dados_executivo(db, ano, orgao=None):
@@ -1302,8 +1336,7 @@ o do edital; valor homologado é o valor final, quando já há resultado.</div>
 def render_contratos(d, municipio, uf, periodo_txt, brasao=None,
                      categoria=None, acervo=None):
     linhas = "".join(f"""<tr>
-      <td class="ctr">{_e(num_contrato(l['numero'], l['ano_contrato'])
-                          or l['numero_controle'])}</td>
+      <td class="ctr">{_e(l['numero'] or l['numero_controle'])}</td>
       <td class="ctr">{_e(l['fornecedor_nome'])}<br>
           <small>{_e(documento(l['fornecedor_ni']))}</small></td>
       <td class="obj">{_e(l['objeto'])}</td>

@@ -773,6 +773,26 @@ def test_parar_sem_coleta_em_curso_nao_mente():
     assert not api._sync_parar.is_set()     # não deixa armadilha armada
 
 
+def test_separar_fornecedores_uma_linha_por_fornecedor():
+    """Pedido do usuário (2026-08-30): "separar cada ata com seu respectivo
+    fornecedor, como na planilha de contratos" — a ARP pode ter mais de um
+    vencedor (vários itens); `_atualizar_fornecedor_ata` guarda agregado
+    pareado por posição, `separar_fornecedores` desfaz em linhas."""
+    linhas = [
+        {"numero_controle": "A1",
+         "fornecedor_ni": f"111{pncp.SEPARADOR_FORNECEDOR}222",
+         "fornecedor_nome": f"FORN X{pncp.SEPARADOR_FORNECEDOR}FORN Y"},
+        {"numero_controle": "A2", "fornecedor_ni": None, "fornecedor_nome": None},
+    ]
+    r = pncp.separar_fornecedores(linhas)
+    assert len(r) == 3
+    assert r[0] == {"numero_controle": "A1", "fornecedor_ni": "111",
+                    "fornecedor_nome": "FORN X"}
+    assert r[1] == {"numero_controle": "A1", "fornecedor_ni": "222",
+                    "fornecedor_nome": "FORN Y"}
+    assert r[2] == linhas[1]  # sem fornecedor: passa direto, sem duplicar
+
+
 def test_get_404_em_listagem_falha_em_vez_de_fingir_vazio(monkeypatch):
     """Sincronizado do Licitarium Pro (2026-08-16): numa listagem de consulta
     'sem registros' é 204/corpo vazio, nunca 404 — um 404 é falha do portal.

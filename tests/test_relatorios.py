@@ -164,7 +164,9 @@ def test_escrever_planilha_data_iso_vira_datetime_de_verdade(tmp_path):
     assert ws["B2"].number_format == "DD/MM/YYYY HH:MM"
     assert ws["C2"].value == dt.datetime(2026, 8, 20, 0, 0, 0)
     assert ws["C2"].number_format == "DD/MM/YYYY"       # meia-noite: só data
-    assert ws["D2"].value == "abc-1"                     # não-data intocada
+    assert ws["D2"].value == "=C2-HOJE()"                # vencimento (dias), auto
+    assert ws["D2"].number_format == "0"
+    assert ws["E2"].value == "abc-1"                     # não-data intocada
 
 
 def test_gerar_executivo_sem_planilha(db, tmp_path):

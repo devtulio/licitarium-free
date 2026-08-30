@@ -692,21 +692,55 @@ def _upsert_item(db, contratacao, item, resultado):
     return 1
 
 
+# separador dos fornecedores concatenados em atas.fornecedor_ni/fornecedor_nome
+# (SEPARADOR_FORNECEDOR): "\x1f" (unit separator) — nunca aparece em texto
+# digitado, ao contrário de vírgula (comum em razão social). A exportação
+# refaz uma linha por fornecedor a partir daqui (licitarium.Api._separar_
+# fornecedores_ata); a busca por LIKE continua funcionando (substring).
+SEPARADOR_FORNECEDOR = "\x1f"
+
+
+def separar_fornecedores(linhas, chave_ni="fornecedor_ni", chave_nome="fornecedor_nome"):
+    """Desfaz o agregado de `_atualizar_fornecedor_ata` — uma linha por
+    fornecedor, mesmo padrão de Contratos (que já tem 1 fornecedor por
+    linha, sem precisar disso). Pedido do usuário (2026-08-30): "separar
+    cada ata com seu respectivo fornecedor". Linha sem fornecedor (item
+    sem resultado ainda) passa direto, sem duplicar."""
+    resultado = []
+    for linha in linhas:
+        nis = linha.get(chave_ni)
+        if not nis:
+            resultado.append(linha)
+            continue
+        nomes = (linha.get(chave_nome) or "").split(SEPARADOR_FORNECEDOR)
+        for ni, nome in zip(nis.split(SEPARADOR_FORNECEDOR), nomes):
+            copia = dict(linha)
+            copia[chave_ni] = ni
+            copia[chave_nome] = nome
+            resultado.append(copia)
+    return resultado
+
+
 def _atualizar_fornecedor_ata(db, contratacao_controle):
     """A ata (ARP) não traz fornecedor no próprio JSON do PNCP — só o
     resultado dos itens da contratação de origem tem. Depois de gravar os
     itens, agrega os fornecedores homologados (pode haver mais de um numa
     ata com vários itens) na(s) ata(s) vinculada(s) a essa contratação, pra
     aparecer na planilha exportada (pedido do usuário, 2026-08-30).
+
+    `fornecedor_ni` e `fornecedor_nome` precisam ficar pareados por posição
+    (o N-ésimo NI é do N-ésimo nome) — os dois GROUP_CONCAT leem da MESMA
+    subconsulta materializada uma vez, com ORDER BY determinístico, então a
+    ordem bate nos dois; ler de duas subconsultas DISTINCT separadas não
+    garantiria isso (cada uma dedupa/ordena por conta própria).
     """
+    par = ("SELECT DISTINCT fornecedor_ni ni, fornecedor_nome nome FROM itens"
+          " WHERE contratacao_controle=? AND tem_resultado=1"
+          " AND fornecedor_ni IS NOT NULL ORDER BY fornecedor_ni")
     db.execute(
-        """UPDATE atas SET
-             fornecedor_ni = (SELECT GROUP_CONCAT(DISTINCT fornecedor_ni)
-                               FROM itens WHERE contratacao_controle=?
-                                 AND tem_resultado=1 AND fornecedor_ni IS NOT NULL),
-             fornecedor_nome = (SELECT GROUP_CONCAT(DISTINCT fornecedor_nome)
-                                 FROM itens WHERE contratacao_controle=?
-                                   AND tem_resultado=1 AND fornecedor_nome IS NOT NULL)
+        f"""UPDATE atas SET
+             fornecedor_ni = (SELECT GROUP_CONCAT(ni, '{SEPARADOR_FORNECEDOR}') FROM ({par})),
+             fornecedor_nome = (SELECT GROUP_CONCAT(nome, '{SEPARADOR_FORNECEDOR}') FROM ({par}))
            WHERE contratacao_controle=?""",
         (contratacao_controle, contratacao_controle, contratacao_controle))
 

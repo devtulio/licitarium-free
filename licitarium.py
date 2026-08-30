@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.45.5"
+VERSAO = "1.45.6"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -414,14 +414,17 @@ def abrir_db():
         # nada pra reprojetar mesmo (sem itens, sem resultado)
         if db.execute("SELECT name FROM sqlite_master"
                       " WHERE type='table' AND name='itens'").fetchone():
+            # mesma subconsulta reaproveitada nos dois GROUP_CONCAT — garante
+            # que o N-ésimo NI pareia com o N-ésimo nome (ver pncp.
+            # _atualizar_fornecedor_ata, mesma lógica)
+            par = ("SELECT DISTINCT fornecedor_ni ni, fornecedor_nome nome"
+                  " FROM itens WHERE contratacao_controle=atas.contratacao_controle"
+                  " AND tem_resultado=1 AND fornecedor_ni IS NOT NULL"
+                  " ORDER BY fornecedor_ni")
             db.execute(
-                """UPDATE atas SET
-                     fornecedor_ni = (SELECT GROUP_CONCAT(DISTINCT fornecedor_ni)
-                                       FROM itens WHERE contratacao_controle=atas.contratacao_controle
-                                         AND tem_resultado=1 AND fornecedor_ni IS NOT NULL),
-                     fornecedor_nome = (SELECT GROUP_CONCAT(DISTINCT fornecedor_nome)
-                                         FROM itens WHERE contratacao_controle=atas.contratacao_controle
-                                           AND tem_resultado=1 AND fornecedor_nome IS NOT NULL)""")
+                f"""UPDATE atas SET
+                     fornecedor_ni = (SELECT GROUP_CONCAT(ni, '{pncp.SEPARADOR_FORNECEDOR}') FROM ({par})),
+                     fornecedor_nome = (SELECT GROUP_CONCAT(nome, '{pncp.SEPARADOR_FORNECEDOR}') FROM ({par}))""")
         db.commit()
     colunas_c = {r[1] for r in db.execute("PRAGMA table_info(contratacoes)")}
     if colunas_c and "itens_versao" not in colunas_c:
@@ -1646,6 +1649,13 @@ class Api:
                 pagina += 1
             if not itens:
                 return {"ok": False, "erro": "nada a exportar"}
+            if tipo == "atas":
+                itens = pncp.separar_fornecedores(itens)
+            if tipo == "contratos":
+                for i in itens:
+                    if i.get("sequencial_contrato") and i.get("ano_contrato"):
+                        i["numero_contrato"] = \
+                            f"{i['sequencial_contrato']}/{i['ano_contrato']}"
             colunas = COLUNAS_EXPORT.get(tipo)
             if colunas:
                 chaves = [c for c in colunas if c in itens[0].keys()]

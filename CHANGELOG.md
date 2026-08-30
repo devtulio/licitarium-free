@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.45.6 — 2026-08-30
+
+**Número do contrato limpo, Vencimento (dias), Objeto em caixa alta, e um fornecedor por linha na Ata**
+
+Achados do usuário em screenshots das planilhas: (1) número do contrato
+saía cru do PNCP ("0049/26") — agora sai sequencial/ano sem zero à
+esquerda ("49/2026"), tanto na exportação da lista quanto no relatório de
+Contratos. (2) Contratos e Atas ganharam coluna **Vencimento (dias)**, por
+fórmula do Excel (não congelada — recalcula sozinha toda vez que a
+planilha abre). (3) Objeto sai sempre em CAIXA ALTA nas três planilhas
+(Contratações, Contratos, Atas).
+
+Planilha de Atas: quando a ARP tem mais de um fornecedor vencedor (vários
+itens, resultados diferentes), cada um vira sua própria linha — mesmo
+padrão que Contratos já tinha, em vez de amontoar tudo numa célula só.
+
 ## 1.45.5 — 2026-08-30
 
 **Datas de verdade na planilha exportada, e fornecedor na de Atas**
