@@ -6,11 +6,19 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+import openpyxl
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import licitarium
 import relatorios
+
+
+def _ler_planilha(caminho):
+    """Linhas da planilha exportada, cabeçalho incluso — cada uma como
+    tupla de valores das células, na ordem das colunas."""
+    ws = openpyxl.load_workbook(caminho, read_only=True).active
+    return [tuple(c.value for c in linha) for linha in ws.iter_rows()]
 
 
 @pytest.fixture
@@ -82,21 +90,40 @@ def test_dados_executivo(db):
     assert d["meses"]["03"]["n"] == 1
 
 
-def test_gerar_html_e_csv(db, tmp_path):
+def test_gerar_html_e_xlsx(db, tmp_path):
     r = relatorios.gerar(db, "contratacoes", {"ano": 2026},
                          "Testópolis", "SP", tmp_path)
     html = Path(r["html"]).read_text(encoding="utf-8")
     assert "Testópolis" in html and "MERENDA" not in html  # caixa alta é CSS
     assert "Merenda" in html and "Art. 75, II" in html
     assert "2 contratações" in html
-    csv_texto = Path(r["csv"]).read_text(encoding="utf-8-sig")
-    assert csv_texto.splitlines()[0].startswith("sequencial;ano;")
-    assert len(csv_texto.splitlines()) == 3  # cabeçalho + 2 linhas
+    linhas = _ler_planilha(r["xlsx"])
+    assert linhas[0][0] == "Sequencial"          # cabeçalho traduzido
+    assert len(linhas) == 3                      # cabeçalho + 2 linhas
 
 
-def test_gerar_executivo_sem_csv(db, tmp_path):
+def test_escrever_planilha_traduz_cabecalho_e_formata_numero(tmp_path):
+    """Motor central da exportação (pedido do usuário 2026-08-29: trocar o
+    CSV cru por planilha "bonitinha"). Cabeçalho traduzido e em negrito,
+    número com formato de milhar — não texto cru."""
+    import openpyxl as oxl
+    caminho = tmp_path / "teste.xlsx"
+    relatorios.escrever_planilha(
+        caminho, [{"valor_homologado": 1234.5, "objeto_desconhecido_xyz": "Merenda"}])
+    wb = oxl.load_workbook(caminho)
+    ws = wb.active
+    cab1, cab2 = ws["A1"], ws["B1"]
+    assert cab1.value == "Valor homologado"        # rótulo do dicionário
+    assert cab2.value == "Objeto Desconhecido Xyz"  # sem entrada: Title Case
+    assert cab1.font.bold is True
+    assert ws["A2"].value == 1234.5                 # número real, não string
+    assert ws["A2"].number_format == "#,##0.00"
+    assert ws.freeze_panes == "A2"
+
+
+def test_gerar_executivo_sem_planilha(db, tmp_path):
     r = relatorios.gerar(db, "executivo", {"ano": 2026}, "T", "SP", tmp_path)
-    assert r["csv"] is None
+    assert r["xlsx"] is None
     assert "Resumo Executivo" in Path(r["html"]).read_text(encoding="utf-8")
 
 
@@ -163,12 +190,12 @@ def test_render_detalhe_cabecalho_e_municipio_objeto_desce_pro_corpo():
             'contratação qualquer</p>') in html
 
 
-def test_gerar_economia_sem_itens_nao_gera_csv(db, tmp_path):
+def test_gerar_economia_sem_itens_nao_gera_planilha(db, tmp_path):
     """Sem item com par estimado/homologado, por_familia fica vazia — mesmo
     critério de "sem dados" que os outros relatórios já usam (linhas_csv
     vazia não gera arquivo)."""
     r = relatorios.gerar(db, "economia", {"ano": 2026}, "T", "SP", tmp_path)
-    assert r["csv"] is None
+    assert r["xlsx"] is None
     html = Path(r["html"]).read_text(encoding="utf-8")
     assert "Economia e Comparativos" in html
     # 300 estimados (A+B) - 80 homologados (só A) = 220
@@ -187,7 +214,8 @@ def test_economia_usa_graficos_prontos_nos_quatro_slots(db, tmp_path):
         assert marcador in html
 
 
-def test_gerar_economia_com_itens_traz_familia_no_documento_e_no_csv(db, tmp_path):
+def test_gerar_economia_com_itens_traz_familia_no_documento_e_na_planilha(
+        db, tmp_path):
     db.execute(
         "INSERT INTO itens (id, contratacao_controle, ano, descricao,"
         " categoria, valor_total_estimado, valor_total_homologado,"
@@ -195,9 +223,9 @@ def test_gerar_economia_com_itens_traz_familia_no_documento_e_no_csv(db, tmp_pat
         " 'Alimentação',100.0,80.0,0,'{}')")
     db.commit()
     r = relatorios.gerar(db, "economia", {"ano": 2026}, "T", "SP", tmp_path)
-    assert r["csv"] is not None
-    csv_texto = Path(r["csv"]).read_text(encoding="utf-8-sig")
-    assert "MERENDA ESCOLAR" in csv_texto
+    assert r["xlsx"] is not None
+    linhas = _ler_planilha(r["xlsx"])
+    assert any("MERENDA ESCOLAR" in str(v) for linha in linhas for v in linha)
     html = Path(r["html"]).read_text(encoding="utf-8")
     assert "MERENDA ESCOLAR" in html
     assert "Alimentação" in html            # tabela por categoria
@@ -314,7 +342,7 @@ def test_fracionamento(db, tmp_path):
                          "Testópolis", "SP", tmp_path)
     html = Path(r["html"]).read_text(encoding="utf-8")
     assert "Alerta de Fracionamento" in html and "autocontrole" in html
-    assert r["csv"] and Path(r["csv"]).exists()
+    assert r["xlsx"] and Path(r["xlsx"]).exists()
 
 
 def test_fracionamento_tem_o_medidor_de_limite(db, tmp_path):

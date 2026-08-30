@@ -3,3 +3,6 @@
 # CI instala sem trava. Sem o teto, um pywebview 7 quebraria o build sem
 # aviso nenhum (auditoria de dívida técnica, 2026-08-09).
 pywebview>=5.0,<7
+# exportação em .xlsx (troca do CSV cru, pedido do usuário 2026-08-29) —
+# pura Python, sem dependência nativa/compilação
+openpyxl>=3.1,<4

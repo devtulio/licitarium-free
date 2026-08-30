@@ -4,7 +4,6 @@ Entry point: janela pywebview + banco SQLite + ponte Api exposta ao JS.
 A versão vigente é a constante VERSAO, logo abaixo — e só ela.
 """
 import base64
-import csv
 import json
 import shutil
 import re
@@ -28,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.45.1"
+VERSAO = "1.45.2"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -161,6 +160,40 @@ MSG_SYNC_ATIVO = ("uma sincronização está em andamento — aguarde terminar "
 TABELAS = {"contratacoes": "contratacoes", "contratos": "contratos",
            "atas": "atas", "pca": "pca_itens", "itens": "itens"}
 CHAVES = {"pca": "id", "itens": "id"}  # demais usam numero_controle
+
+# Colunas exportadas na planilha da lista (Api.exportar_planilha) — a tabela
+# guarda `raw` (o JSON bruto) e campos internos (sync_em, itens_versao…) que
+# não servem pra quem abre a planilha; aqui é só o que interessa, na ordem
+# em que aparece. Sem entrada pra um tipo, a planilha sai com TODAS as
+# colunas da tabela (comportamento antigo do CSV, preservado como fallback).
+COLUNAS_EXPORT = {
+    "contratacoes": ["numero_controle", "ano", "sequencial",
+                     "modalidade_nome", "orgao_nome", "unidade", "objeto",
+                     "situacao", "valor_estimado", "valor_homologado",
+                     "data_publicacao", "data_encerramento_proposta"],
+    "contratos": ["numero_controle", "numero_contrato", "ano_contrato",
+                 "orgao_cnpj", "fornecedor_nome", "fornecedor_ni", "objeto",
+                 "valor_global", "vigencia_inicio", "vigencia_fim",
+                 "data_publicacao"],
+    "atas": ["numero_controle", "numero_ata", "ano_ata", "orgao_cnpj",
+             "objeto", "vigencia_inicio", "vigencia_fim"],
+    "pca": ["numero_item", "descricao", "categoria", "grupo", "quantidade",
+            "valor_total", "ano", "orgao_cnpj", "unidade"],
+    "itens": ["descricao", "unidade", "quantidade",
+              "valor_unitario_estimado", "valor_unitario_homologado",
+              "fornecedor_nome", "data_resultado", "ano"],
+}
+
+# Ordem de severidade da coluna Status (contratos/atas) — mesmo limiar de
+# 60 dias do chip de alerta e do JS (`statusVigencia`, ui/app.js): Encerrado
+# < Vence em N dias < Vigente < sem vigência. Expressão ÚNICA de propósito
+# (sem vírgula/desempate): quem chama faz `f"{coluna_ord} {direcao}"` — uma
+# vírgula deixaria o ASC/DESC do clique valer só para o último termo.
+STATUS_VIGENCIA_ORDEM = (
+    "(CASE WHEN vigencia_fim IS NULL THEN 3"
+    " WHEN date(vigencia_fim) < date('now','localtime') THEN 0"
+    " WHEN date(vigencia_fim) <= date('now','localtime','+60 day') THEN 1"
+    " ELSE 2 END)")
 ORDENAVEIS = {
     "contratacoes": {"numero": "(ano*100000+COALESCE(sequencial,0))",
                      "modalidade": "modalidade_nome", "objeto": "objeto",
@@ -169,12 +202,13 @@ ORDENAVEIS = {
     "contratos": {"numero":
                   "(COALESCE(ano_contrato,0)*100000+COALESCE(sequencial_contrato,0))",
                   "objeto": "objeto", "vigencia_inicio": "vigencia_inicio",
-                  "vigencia_fim": "vigencia_fim", "valor": "valor_global"},
+                  "vigencia_fim": "vigencia_fim", "valor": "valor_global",
+                  "status": STATUS_VIGENCIA_ORDEM},
     "atas": {"numero":
              "(COALESCE(ano_ata,0)*100000+CAST(COALESCE(numero_ata,'0') AS INTEGER))",
              "origem": "contratacao_controle", "objeto": "objeto",
              "vigencia_inicio": "vigencia_inicio",
-             "vigencia_fim": "vigencia_fim"},
+             "vigencia_fim": "vigencia_fim", "status": STATUS_VIGENCIA_ORDEM},
     "pca": {"item": "numero_item", "descricao": "descricao",
             "categoria": "categoria", "quantidade": "quantidade",
             "valor": "valor_total"},
@@ -1548,28 +1582,29 @@ class Api:
                 "municipio": manifesto.get("municipio"),
                 "exportado_em": manifesto.get("exportedAt")}
 
-    def exportar_csv(self, tipo, filtros=None):
+    def exportar_planilha(self, tipo, filtros=None):
+        """Exporta em .xlsx — substituiu o CSV cru (pedido do usuário,
+        2026-08-29): cabeçalho traduzido/destacado, coluna com largura pelo
+        conteúdo, número formatado. `COLUNAS_EXPORT` decide o que entra e em
+        que ordem; sem entrada pro tipo, sai a linha inteira (fallback)."""
         if tipo == "minuta_pca":
             ano = (filtros or {}).get("ano") or date.today().year + 1
             linhas = self._linhas_minuta_csv(ano)
             if not linhas:
                 return {"ok": False, "erro": "gere a minuta antes de exportar"}
             destino = self._janela.create_file_dialog(
-                DIALOGO_SALVAR, save_filename=f"minuta_pca_{ano}.csv",
-                file_types=("CSV (*.csv)",))
+                DIALOGO_SALVAR, save_filename=f"minuta_pca_{ano}.xlsx",
+                file_types=("Planilha Excel (*.xlsx)",))
             if not destino:
                 return {"ok": False, "erro": None}
             caminho = destino if isinstance(destino, str) else destino[0]
-            with open(caminho, "w", newline="", encoding="utf-8-sig") as f:
-                w = csv.DictWriter(f, fieldnames=linhas[0].keys(), delimiter=";")
-                w.writeheader()
-                w.writerows(linhas)
+            relatorios.escrever_planilha(caminho, linhas)
             return {"ok": True, "arquivo": caminho, "linhas": len(linhas)}
         if tipo not in TABELAS:
             return {"ok": False, "erro": "tipo inválido"}
         destino = self._janela.create_file_dialog(
-            DIALOGO_SALVAR, save_filename=f"{tipo}.csv",
-            file_types=("CSV (*.csv)",))
+            DIALOGO_SALVAR, save_filename=f"{tipo}.xlsx",
+            file_types=("Planilha Excel (*.xlsx)",))
         if not destino:
             return {"ok": False, "erro": None}  # cancelado
         caminho = destino if isinstance(destino, str) else destino[0]
@@ -1587,10 +1622,13 @@ class Api:
                 pagina += 1
             if not itens:
                 return {"ok": False, "erro": "nada a exportar"}
-            with open(caminho, "w", newline="", encoding="utf-8-sig") as f:
-                w = csv.DictWriter(f, fieldnames=itens[0].keys(), delimiter=";")
-                w.writeheader()
-                w.writerows(itens)
+            colunas = COLUNAS_EXPORT.get(tipo)
+            if colunas:
+                chaves = [c for c in colunas if c in itens[0].keys()]
+                linhas = [{k: i[k] for k in chaves} for i in itens]
+            else:
+                linhas = itens
+            relatorios.escrever_planilha(caminho, linhas)
             return {"ok": True, "arquivo": caminho, "linhas": len(itens)}
         finally:
             db.close()

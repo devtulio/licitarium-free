@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.45.2 — 2026-08-29
+
+**Coluna Status agora ordena, e a exportação virou planilha de verdade**
+
+A coluna Status de Contratos e Atas não respondia a clique — mostra a
+mesma informação de "Vigência final" (Vigente/Vence em N dias/Encerrado),
+mas não tinha ordenação própria. Agora ordena por gravidade: encerrado
+primeiro, depois vencendo, depois vigente.
+
+O botão "Exportar CSV" virou "Exportar planilha": gera um .xlsx com
+cabeçalho traduzido e destacado, coluna com largura pelo conteúdo e
+número já formatado — pronto pra abrir sem precisar arrumar nada. Vale
+para a lista (Contratações/Contratos/Atas/PCA), a Minuta do PCA e a
+planilha que acompanha cada relatório. Colunas técnicas internas (o JSON
+bruto do PNCP, carimbos de sincronização) saíram do arquivo — só o que
+interessa a quem abre a planilha.
+
 ## 1.45.1 — 2026-08-28
 
 **O gráfico do limite de dispensa quebrava com objeto muito longo**

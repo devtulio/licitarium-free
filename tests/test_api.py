@@ -1,6 +1,7 @@
 """Testes da ponte Api (listar/ordenação/detalhe) com banco temporário."""
 import re
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,37 @@ def test_ordenacao_invalida_cai_no_padrao(api):
     r = api.listar("contratacoes", {"ord": "raw; DROP TABLE config", "dir": "asc"})
     # coluna fora da whitelist é ignorada -> padrão data_publicacao DESC
     assert [i["numero_controle"] for i in r["itens"]] == ["B", "A", "C"]
+
+
+def test_status_de_contrato_e_ata_ordena_por_severidade(api):
+    """Achado do usuário (2026-08-29): a coluna Status não era clicável —
+    `COLUNAS` mapeava a chave de ordenação como `null`. Corrigido com uma
+    ordem de severidade própria (Encerrado < Vence em N dias < Vigente <
+    sem vigência), mesmo limiar de 60 dias do JS (`statusVigencia`)."""
+    hoje = date.today()
+    db = licitarium.abrir_db()
+    db.executemany(
+        "INSERT INTO contratos (numero_controle, objeto, vigencia_fim)"
+        " VALUES (?,?,?)",
+        [("CT-VIG", "Contrato vigente", (hoje + timedelta(days=200)).isoformat()),
+         ("CT-VENC", "Contrato vencendo", (hoje + timedelta(days=10)).isoformat()),
+         ("CT-ENC", "Contrato encerrado", (hoje - timedelta(days=5)).isoformat())])
+    db.executemany(
+        "INSERT INTO atas (numero_controle, objeto, vigencia_fim) VALUES (?,?,?)",
+        [("AT-VIG", "Ata vigente", (hoje + timedelta(days=200)).isoformat()),
+         ("AT-ENC", "Ata encerrada", (hoje - timedelta(days=5)).isoformat())])
+    db.commit()
+    db.close()
+
+    r = api.listar("contratos", {"ord": "status", "dir": "asc"})
+    assert [i["numero_controle"] for i in r["itens"]] == \
+        ["CT-ENC", "CT-VENC", "CT-VIG"]
+    r = api.listar("contratos", {"ord": "status", "dir": "desc"})
+    assert [i["numero_controle"] for i in r["itens"]] == \
+        ["CT-VIG", "CT-VENC", "CT-ENC"]
+
+    r = api.listar("atas", {"ord": "status", "dir": "asc"})
+    assert [i["numero_controle"] for i in r["itens"]] == ["AT-ENC", "AT-VIG"]
 
 
 def test_listar_e_detalhe_pca(api):

@@ -297,8 +297,8 @@ assinatura de código (SmartScreen documentado no README) · cruzamento com SGCD
 
 ## 9. Decisões finais (2026-07-29)
 
-1. **Dependências**: só stdlib (`urllib.request` + helper com retry/backoff). Única dep externa: `pywebview`.
-2. **Export CSV**: na v1.
+1. **Dependências**: só stdlib (`urllib.request` + helper com retry/backoff). Única dep externa: `pywebview`. **Exceção aberta na v1.45.2**: `openpyxl` (pura Python, sem dependência nativa), só pra exportação em planilha — ver item 2.
+2. **Export CSV**: na v1. **Trocado por .xlsx na v1.45.2** (pedido do usuário): cabeçalho traduzido/destacado, coluna com largura pelo conteúdo, número formatado — `relatorios.escrever_planilha`.
 3. **PCA**: fica para v1.1 (schema `pca_itens` já previsto; v1 lança com contratações + contratos + atas).
 4. **Identidade visual**: própria, independente da família — ver §10.
 

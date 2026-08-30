@@ -41,7 +41,7 @@ guarda): o lugar que guarda as licitações. **SVB · HASTA · PVBLICA.**
 ### Acervo
 
 Quatro abas, todas com busca, filtros (ano, modalidade, situação, órgão),
-ordenação por clique, colunas ajustáveis com o mouse e exportação CSV:
+ordenação por clique, colunas ajustáveis com o mouse e exportação em planilha (.xlsx):
 
 | Aba | Conteúdo |
 |---|---|
@@ -79,7 +79,7 @@ do PNCP não trazem código de catálogo, então a conferência humana é necess
 ### Relatórios
 
 Sete relatórios em HTML timbrado (prontos para imprimir em PDF) e, quando faz
-sentido, também em CSV:
+sentido, também em planilha (.xlsx):
 
 | Relatório | Uso |
 |---|---|
@@ -159,8 +159,8 @@ python licitarium.py
 
 Requisitos: Windows 10/11 com WebView2 (já incluído no Windows 11; no Windows 10,
 [instale o runtime](https://developer.microsoft.com/microsoft-edge/webview2/)).
-A única dependência externa é o `pywebview` — todo o resto é biblioteca padrão
-do Python.
+Duas dependências externas: `pywebview` (janela) e `openpyxl` (exportação em
+.xlsx) — todo o resto é biblioteca padrão do Python.
 
 **Python: use 3.12.** É a versão que o CI exercita e a que empacota o exe. O
 código não usa sintaxe posterior ao 3.8, então versões mais antigas provavelmente
@@ -181,7 +181,7 @@ projeção dele (campo novo na interface não exige baixar tudo de novo).
 licitarium.py        entry: janela + classe Api (ponte com o JS)
 pncp.py              cliente da API do PNCP + motor de sincronização
 pca_builder.py       motor da minuta do PCA (agrupamento, ABC, projeções)
-relatorios.py        geração dos relatórios em HTML/CSV
+relatorios.py        geração dos relatórios em HTML/XLSX
 ui/index.html        marcação
 ui/estilo.css        quatro temas por data-theme + fontes vendorizadas
 ui/fonts/             EB Garamond, Public Sans, Lato (woff2, sem CDN)

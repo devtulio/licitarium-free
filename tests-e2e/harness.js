@@ -413,7 +413,7 @@ function scriptPonte(temaBanco = "portal") {
         }
         return { ok: true };
       },
-      exportar_csv: async () => ({ ok: false, erro: null }),
+      exportar_planilha: async () => ({ ok: false, erro: null }),
       abrir_pncp: async () => true,
       imprimir_detalhe: async (tipo, nc, titulo, subtitulo, meta_html,
                                raw_html) => {

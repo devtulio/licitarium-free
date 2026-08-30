@@ -426,11 +426,11 @@ const COLUNAS = {
                  ["Situação","situacao"]],
   contratos:    [["Contrato","numero"], ["Objeto / Fornecedor","objeto"],
                  ["Vigência inicial","vigencia_inicio"],
-                 ["Vigência final","vigencia_fim"], ["Status",null],
+                 ["Vigência final","vigencia_fim"], ["Status","status"],
                  ["Valor","valor"]],
   atas:         [["Ata","numero"], ["Contratação de origem","origem"],
                  ["Objeto","objeto"], ["Vigência inicial","vigencia_inicio"],
-                 ["Vigência final","vigencia_fim"], ["Status",null]],
+                 ["Vigência final","vigencia_fim"], ["Status","status"]],
   pca:          [["Item","item"], ["Descrição","descricao"],
                  ["Categoria","categoria"], ["Qtde","quantidade"],
                  ["Valor","valor"]],
@@ -1153,9 +1153,9 @@ $("pca-mesclar").addEventListener("click", async () => {
 });
 
 $("pca-csv").addEventListener("click", async () => {
-  const r = await api.exportar_csv("minuta_pca", { ano: +$("pca-ano").value });
+  const r = await api.exportar_planilha("minuta_pca", { ano: +$("pca-ano").value });
   $("pca-status").textContent = r.ok
-    ? `CSV com ${r.linhas} itens em ${r.arquivo}` : (r.erro || "");
+    ? `Planilha com ${r.linhas} itens em ${r.arquivo}` : (r.erro || "");
 });
 $("pca-relatorio").addEventListener("click", async () => {
   const r = await api.gerar_relatorio("minuta_pca", { ano: +$("pca-ano").value });
@@ -1247,7 +1247,7 @@ $("rel-gerar").addEventListener("click", async () => {
   const r = await api.gerar_relatorio($("rel-tipo").value, params);
   $("rel-gerar").disabled = false;
   $("rel-status").textContent = r.ok
-    ? "Aberto no navegador" + (r.csv ? " · CSV gerado ao lado" : "")
+    ? "Aberto no navegador" + (r.xlsx ? " · planilha gerada ao lado" : "")
     : (r.erro || "Falha ao gerar");
 });
 
@@ -1469,8 +1469,8 @@ window.onSyncFim = async st => {
 
 // ── exportação ────────────────────────────────────────────────────────────
 $("btn-csv").addEventListener("click", async () => {
-  const r = await api.exportar_csv(estado.tipo, filtrosAtuais());
+  const r = await api.exportar_planilha(estado.tipo, filtrosAtuais());
   if (r.ok) $("sync-msg").textContent =
-    `CSV exportado: ${r.linhas} linhas em ${r.arquivo}`;
+    `Planilha exportada: ${r.linhas} linhas em ${r.arquivo}`;
   else if (r.erro) alert(r.erro);
 });

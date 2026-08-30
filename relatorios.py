@@ -1,9 +1,11 @@
 """Relatórios do Licitarium — relações oficiais (TCE) e resumo executivo.
 
 Gera HTML standalone timbrado (imprimível pelo navegador, título vira nome do
-PDF) e CSV para as relações. Só stdlib.
+PDF) e planilha .xlsx para as relações. Só stdlib, com uma exceção: a
+exportação em planilha usa `openpyxl` (pura Python, sem dependência nativa),
+importado só dentro de `escrever_planilha` — o resto do módulo continua sem
+precisar dela.
 """
-import csv
 import hashlib
 import html
 import json
@@ -424,6 +426,71 @@ def data_br(s):
         return "–"
     p = str(s)[:10].split("-")
     return f"{p[2]}/{p[1]}/{p[0]}" if len(p) == 3 else str(s)
+
+
+# ── exportação em planilha ──────────────────────────────────────────────────
+# Rótulo amigável pro cabeçalho — a mesma chave técnica (coluna do SQL/campo
+# dos dicts de dados_*) aparece em vários relatórios e no export da lista, daí
+# um dicionário só. O que não está aqui vira Title Case da própria chave
+# (`_rotulo_campo`), sem quebrar — só menos bonito.
+ROTULOS_EXPORT = {
+    "numero_controle": "Número de controle", "numero": "Número",
+    "sequencial": "Sequencial", "ano": "Ano",
+    "ano_contrato": "Ano do contrato", "ano_ata": "Ano da ata",
+    "modalidade_nome": "Modalidade", "amparo": "Amparo legal",
+    "objeto": "Objeto", "unidade": "Unidade",
+    "orgao_cnpj": "CNPJ do órgão", "orgao_nome": "Órgão",
+    "fornecedor_nome": "Fornecedor", "fornecedor_ni": "CNPJ/CPF do fornecedor",
+    "valor_estimado": "Valor estimado", "valor_homologado": "Valor homologado",
+    "valor_global": "Valor", "valor_total": "Valor total",
+    "valor_unitario": "Valor unitário", "quantidade": "Quantidade",
+    "margem": "Margem", "categoria": "Categoria", "descricao": "Descrição",
+    "grupo": "Grupo", "situacao": "Situação",
+    "contratacao_controle": "Contratação de origem", "numero_item": "Item",
+    "data_publicacao": "Publicação",
+    "data_encerramento_proposta": "Encerramento da proposta",
+    "vigencia_inicio": "Vigência inicial", "vigencia_fim": "Vigência final",
+}
+
+
+def _rotulo_campo(chave):
+    return ROTULOS_EXPORT.get(chave) or " ".join(
+        p.capitalize() for p in chave.split("_"))
+
+
+def escrever_planilha(caminho, linhas):
+    """Grava `linhas` (lista de dicts, mesma chave em todas) num .xlsx
+    legível: cabeçalho traduzido e destacado, congelado no topo, largura de
+    coluna pelo conteúdo, número com separador de milhar. Substitui o CSV
+    cru — pedido do usuário (2026-08-29), abre "bonitinho" no Excel/
+    LibreOffice sem precisar reformatar nada.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    chaves = list(linhas[0].keys())
+    ws.append([_rotulo_campo(k) for k in chaves])
+    for cel in ws[1]:
+        cel.font = Font(bold=True, color="FFFFFF")
+        cel.fill = PatternFill("solid", fgColor="1351B4")
+        cel.alignment = Alignment(vertical="center")
+    ws.freeze_panes = "A2"
+    larguras = [len(_rotulo_campo(k)) for k in chaves]
+    for linha in linhas:
+        ws.append([linha.get(k) for k in chaves])
+        for i, k in enumerate(chaves):
+            texto = "" if linha.get(k) is None else str(linha[k])
+            larguras[i] = min(60, max(larguras[i], len(texto)))
+    for i, larg in enumerate(larguras, 1):
+        ws.column_dimensions[get_column_letter(i)].width = larg + 2
+    for row in ws.iter_rows(min_row=2):
+        for cel in row:
+            if isinstance(cel.value, float):
+                cel.number_format = "#,##0.00"
+    wb.save(caminho)
 
 
 # ── consultas ───────────────────────────────────────────────────────────────
@@ -1959,12 +2026,9 @@ def gerar(db, tipo, params, municipio, uf, destino):
         nome += f"_orgao_{orgao}"
     caminho_html = destino / f"{nome}.html"
     caminho_html.write_text(conteudo, encoding="utf-8")
-    caminho_csv = None
+    caminho_xlsx = None
     if linhas_csv:
-        caminho_csv = destino / f"{nome}.csv"
-        with open(caminho_csv, "w", newline="", encoding="utf-8-sig") as f:
-            w = csv.DictWriter(f, fieldnames=linhas_csv[0].keys(), delimiter=";")
-            w.writeheader()
-            w.writerows(linhas_csv)
+        caminho_xlsx = destino / f"{nome}.xlsx"
+        escrever_planilha(caminho_xlsx, linhas_csv)
     return {"html": str(caminho_html),
-            "csv": str(caminho_csv) if caminho_csv else None}
+            "xlsx": str(caminho_xlsx) if caminho_xlsx else None}
