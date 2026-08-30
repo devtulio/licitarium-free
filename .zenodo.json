@@ -1,11 +1,11 @@
 {
   "title": "Licitarium",
-  "description": "Repositório local de contratações públicas municipais — espelho pesquisável do PNCP (Lei 14.133/2021). Sincroniza contratações, contratos e atas de registro de preços do município para um banco SQLite local, com interface desktop.",
+  "description": "Repositório local de contratações públicas — espelho pesquisável do PNCP (Lei 14.133/2021). Sincroniza contratações, contratos, atas de registro de preços e o Plano de Contratações Anual do município para um banco SQLite local, com interface desktop.",
   "upload_type": "software",
   "license": "MIT",
   "creators": [
     {
-      "name": "Ribeiro, Túlio"
+      "name": "Silva, Túlio Ribeiro de Moura e"
     }
   ],
   "keywords": [
