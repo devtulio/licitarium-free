@@ -45,14 +45,21 @@ jobs:
       - name: Anexar exe à release
         # o nome do exe carrega a versão ("Licitarium Free v1.35.0.exe"), então o
         # caminho vem por glob; falha explicitamente se não gerou exatamente um.
-        # --clobber: o release "solta a X.Y.Z" já sobe o exe na hora de criar
-        # o release (gh release create ... exe) — sem --clobber, este job
-        # sempre achava o asset já lá e falhava (achado 2026-08-13, todo tag
-        # desde pelo menos v1.30.1 mostrava ✗ vermelho por causa disso)
+        # --clobber: se a release "solta a X.Y.Z" já subiu o exe na hora de
+        # criar a release (gh release create ... exe), reenviar sem --clobber
+        # sempre achava o asset já lá e falhava (achado 2026-08-13). Se a
+        # release ainda não existe (tag subida sem gh release create antes,
+        # achado 2026-08-30), cria na hora — sem notas (ficam em branco,
+        # editáveis depois); o objetivo aqui é nunca depender de um passo
+        # manual externo pra soltar de verdade.
         shell: pwsh
         run: |
           $exe = @(Get-ChildItem dist/*.exe)
           if ($exe.Count -ne 1) { throw "esperava 1 exe em dist/, achei $($exe.Count)" }
+          gh release view ${{ github.ref_name }} 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create ${{ github.ref_name }} --title ${{ github.ref_name }} --generate-notes
+          }
           gh release upload ${{ github.ref_name }} $exe[0].FullName --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
