@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.45.3 — 2026-08-30
+
+**Metadados e documentação em dia**
+
+Sem mudança de comportamento. Descrição do GitHub e do Zenodo
+atualizadas (sem "municipais" redundante, autoria batendo com a
+licença), screenshot novo da tela "Montar PCA" no README (o antigo
+estava desatualizado e não era usado em lugar nenhum), e a memória
+interna do projeto reorganizada para não confundir com o Licitarium Pro.
+
 ## 1.45.2 — 2026-08-29
 
 **Coluna Status agora ordena, e a exportação virou planilha de verdade**
