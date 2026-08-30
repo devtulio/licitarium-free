@@ -98,13 +98,14 @@ def test_gerar_html_e_xlsx(db, tmp_path):
     assert "Merenda" in html and "Art. 75, II" in html
     assert "2 contratações" in html
     linhas = _ler_planilha(r["xlsx"])
-    assert linhas[0][0] == "Sequencial"          # cabeçalho traduzido
+    assert linhas[0][0] == "SEQUENCIAL"          # cabeçalho traduzido, caixa alta
     assert len(linhas) == 3                      # cabeçalho + 2 linhas
 
 
 def test_escrever_planilha_traduz_cabecalho_e_formata_numero(tmp_path):
     """Motor central da exportação (pedido do usuário 2026-08-29: trocar o
-    CSV cru por planilha "bonitinha"). Cabeçalho traduzido e em negrito,
+    CSV cru por planilha "bonitinha"). Cabeçalho em CAIXA ALTA e negrito
+    (2026-08-30, a partir de um modelo que o próprio usuário poliu à mão),
     número com formato de milhar — não texto cru."""
     import openpyxl as oxl
     caminho = tmp_path / "teste.xlsx"
@@ -113,12 +114,35 @@ def test_escrever_planilha_traduz_cabecalho_e_formata_numero(tmp_path):
     wb = oxl.load_workbook(caminho)
     ws = wb.active
     cab1, cab2 = ws["A1"], ws["B1"]
-    assert cab1.value == "Valor homologado"        # rótulo do dicionário
-    assert cab2.value == "Objeto Desconhecido Xyz"  # sem entrada: Title Case
+    assert cab1.value == "VALOR HOMOLOGADO"        # rótulo do dicionário, maiúsculo
+    assert cab2.value == "OBJETO DESCONHECIDO XYZ"  # sem entrada: Title Case + maiúsculo
     assert cab1.font.bold is True
     assert ws["A2"].value == 1234.5                 # número real, não string
     assert ws["A2"].number_format == "#,##0.00"
     assert ws.freeze_panes == "A2"
+
+
+def test_escrever_planilha_calcula_desagio_por_formula(tmp_path):
+    """Modelo do usuário (2026-08-30): quando há par estimado/homologado, a
+    planilha ganha coluna Deságio calculada por FÓRMULA do Excel — não um
+    número congelado, senão editar estimado/homologado na planilha deixa o
+    deságio mentindo."""
+    import openpyxl as oxl
+    caminho = tmp_path / "desagio.xlsx"
+    relatorios.escrever_planilha(caminho, [
+        {"objeto": "Merenda", "valor_estimado": 100.0, "valor_homologado": 80.0},
+        {"objeto": "Sem homologação ainda", "valor_estimado": 50.0,
+         "valor_homologado": None},
+    ])
+    wb = oxl.load_workbook(caminho)  # com fórmula, não data_only
+    ws = wb.active
+    cabecalho = [c.value for c in ws[1]]
+    # Deságio entra logo depois do par (mesmo lugar do modelo do usuário:
+    # colunas I/J estimado/homologado, K deságio — nunca entre os dois)
+    assert cabecalho == ["OBJETO", "VALOR ESTIMADO", "VALOR HOMOLOGADO", "DESÁGIO"]
+    assert ws["D2"].value == "=(B2-C2)/B2"
+    assert ws["D2"].number_format == "0.00%"
+    assert ws["D3"].value is None  # sem homologado, sem fórmula (não divide por nada)
 
 
 def test_gerar_executivo_sem_planilha(db, tmp_path):

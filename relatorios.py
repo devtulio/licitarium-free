@@ -460,36 +460,77 @@ def _rotulo_campo(chave):
 
 def escrever_planilha(caminho, linhas):
     """Grava `linhas` (lista de dicts, mesma chave em todas) num .xlsx
-    legível: cabeçalho traduzido e destacado, congelado no topo, largura de
-    coluna pelo conteúdo, número com separador de milhar. Substitui o CSV
-    cru — pedido do usuário (2026-08-29), abre "bonitinho" no Excel/
-    LibreOffice sem precisar reformatar nada.
+    legível: cabeçalho em caixa alta e destacado, congelado no topo, largura
+    de coluna pelo conteúdo, número com separador de milhar, e virada em
+    **Tabela do Excel** de verdade (filtro por coluna, listras) — não só um
+    intervalo estilizado. Substitui o CSV cru — pedido do usuário
+    (2026-08-29), refinado em 2026-08-30 a partir de uma planilha que o
+    próprio usuário poliu à mão: o modelo aqui é o dele.
+
+    Quando o conjunto de colunas traz um par `<algo>_estimado`/`<algo>_
+    homologado` (contratações, itens), entra uma coluna **Deságio**
+    calculada por FÓRMULA do Excel (não valor congelado) — continua certa
+    se o usuário editar estimado/homologado na própria planilha.
     """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.table import Table, TableStyleInfo
 
     wb = Workbook()
     ws = wb.active
     chaves = list(linhas[0].keys())
-    ws.append([_rotulo_campo(k) for k in chaves])
+
+    par = col_est = col_hom = None
+    for k in chaves:
+        if k.endswith("_estimado") and k[:-9] + "_homologado" in chaves:
+            par = (k, k[:-9] + "_homologado")
+            break
+    if par:
+        pos = max(chaves.index(par[0]), chaves.index(par[1])) + 1
+        chaves = chaves[:pos] + ["_desagio"] + chaves[pos:]
+        col_est = get_column_letter(chaves.index(par[0]) + 1)
+        col_hom = get_column_letter(chaves.index(par[1]) + 1)
+
+    def rotulo(k):
+        return ("DESÁGIO" if k == "_desagio" else _rotulo_campo(k)).upper()
+
+    ws.append([rotulo(k) for k in chaves])
     for cel in ws[1]:
         cel.font = Font(bold=True, color="FFFFFF")
         cel.fill = PatternFill("solid", fgColor="1351B4")
         cel.alignment = Alignment(vertical="center")
-    ws.freeze_panes = "A2"
-    larguras = [len(_rotulo_campo(k)) for k in chaves]
-    for linha in linhas:
-        ws.append([linha.get(k) for k in chaves])
+    larguras = [len(rotulo(k)) for k in chaves]
+    for r, linha in enumerate(linhas, start=2):
+        valores = []
+        for k in chaves:
+            if k == "_desagio":
+                valores.append(f"=({col_est}{r}-{col_hom}{r})/{col_est}{r}"
+                               if linha.get(par[0]) and linha.get(par[1]) is not None
+                               else None)
+            else:
+                valores.append(linha.get(k))
+        ws.append(valores)
         for i, k in enumerate(chaves):
-            texto = "" if linha.get(k) is None else str(linha[k])
+            texto = "" if k == "_desagio" or linha.get(k) is None \
+                else str(linha[k])
             larguras[i] = min(60, max(larguras[i], len(texto)))
     for i, larg in enumerate(larguras, 1):
         ws.column_dimensions[get_column_letter(i)].width = larg + 2
-    for row in ws.iter_rows(min_row=2):
-        for cel in row:
-            if isinstance(cel.value, float):
+    for i, k in enumerate(chaves, 1):
+        for cel in next(ws.iter_cols(min_col=i, max_col=i, min_row=2)):
+            if k == "_desagio":
+                cel.number_format = "0.00%"
+            elif isinstance(cel.value, float):
                 cel.number_format = "#,##0.00"
+
+    n_linhas, n_colunas = len(linhas) + 1, len(chaves)
+    tabela = Table(displayName="Tabela1",
+                   ref=f"A1:{get_column_letter(n_colunas)}{n_linhas}")
+    tabela.tableStyleInfo = TableStyleInfo(name="TableStyleMedium9",
+                                           showRowStripes=True)
+    ws.add_table(tabela)
+    ws.freeze_panes = "A2"
     wb.save(caminho)
 
 

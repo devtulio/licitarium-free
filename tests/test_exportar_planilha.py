@@ -52,8 +52,10 @@ def test_exportar_lista_cura_colunas_e_traduz_cabecalho(api, tmp_path):
     cabecalho = [c.value for c in ws[1]]
     # colunas técnicas/internas não vazam pra planilha do usuário
     assert "raw" not in cabecalho and "sync_em" not in cabecalho
-    assert "Objeto" in cabecalho and "Situação" in cabecalho
-    assert "Valor homologado" in cabecalho
+    assert "OBJETO" in cabecalho and "SITUAÇÃO" in cabecalho
+    assert "VALOR HOMOLOGADO" in cabecalho
+    # par estimado/homologado presente → coluna Deságio por fórmula
+    assert "DESÁGIO" in cabecalho
     linha = dict(zip(cabecalho, [c.value for c in ws[2]]))
-    assert linha["Objeto"] == "Aquisição de merenda escolar"
-    assert linha["Valor homologado"] == 900.0
+    assert linha["OBJETO"] == "Aquisição de merenda escolar"
+    assert linha["VALOR HOMOLOGADO"] == 900.0

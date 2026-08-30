@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.45.4 — 2026-08-30
+
+**Planilha exportada fica no modelo que o usuário já usa em produção**
+
+Cabeçalho em caixa alta, e a lista virou uma Tabela de Excel de verdade
+(filtro por coluna, listras) — não só um intervalo estilizado. Quando a
+planilha tem um par valor estimado/homologado (Contratações e Itens),
+ganha coluna **Deságio** calculada por fórmula do Excel — não um número
+congelado, então continua certa se o valor estimado ou homologado for
+editado depois, na própria planilha.
+
 ## 1.45.3 — 2026-08-30
 
 **Metadados e documentação em dia**
