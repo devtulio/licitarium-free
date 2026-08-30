@@ -692,6 +692,25 @@ def _upsert_item(db, contratacao, item, resultado):
     return 1
 
 
+def _atualizar_fornecedor_ata(db, contratacao_controle):
+    """A ata (ARP) não traz fornecedor no próprio JSON do PNCP — só o
+    resultado dos itens da contratação de origem tem. Depois de gravar os
+    itens, agrega os fornecedores homologados (pode haver mais de um numa
+    ata com vários itens) na(s) ata(s) vinculada(s) a essa contratação, pra
+    aparecer na planilha exportada (pedido do usuário, 2026-08-30).
+    """
+    db.execute(
+        """UPDATE atas SET
+             fornecedor_ni = (SELECT GROUP_CONCAT(DISTINCT fornecedor_ni)
+                               FROM itens WHERE contratacao_controle=?
+                                 AND tem_resultado=1 AND fornecedor_ni IS NOT NULL),
+             fornecedor_nome = (SELECT GROUP_CONCAT(DISTINCT fornecedor_nome)
+                                 FROM itens WHERE contratacao_controle=?
+                                   AND tem_resultado=1 AND fornecedor_nome IS NOT NULL)
+           WHERE contratacao_controle=?""",
+        (contratacao_controle, contratacao_controle, contratacao_controle))
+
+
 def _itens_pendentes(db, contratacao, itens):
     """Filtra os itens que realmente precisam ser (re)gravados.
 
@@ -768,6 +787,7 @@ def sync_itens(db, progresso=None, limite=None):
                        " itens_sync_em=? WHERE numero_controle=?",
                        (c["data_atualizacao"], datetime.now().isoformat(),
                         c["numero_controle"]))
+            _atualizar_fornecedor_ata(db, c["numero_controle"])
             db.commit()
         except ItensIndisponiveis:
             # NÃO carimba `itens_versao`: a contratação continua pendente e

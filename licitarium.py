@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.45.4"
+VERSAO = "1.45.5"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS atas (
   numero_controle TEXT PRIMARY KEY, contratacao_controle TEXT, orgao_cnpj TEXT,
   numero_ata TEXT, ano_ata INTEGER, objeto TEXT,
   vigencia_inicio TEXT, vigencia_fim TEXT, data_atualizacao TEXT,
+  fornecedor_ni TEXT, fornecedor_nome TEXT,
   raw TEXT, sync_em TEXT);
 CREATE TABLE IF NOT EXISTS itens (
   id TEXT PRIMARY KEY, contratacao_controle TEXT, orgao_cnpj TEXT,
@@ -176,7 +177,8 @@ COLUNAS_EXPORT = {
                  "valor_global", "vigencia_inicio", "vigencia_fim",
                  "data_publicacao"],
     "atas": ["numero_controle", "numero_ata", "ano_ata", "orgao_cnpj",
-             "objeto", "vigencia_inicio", "vigencia_fim"],
+             "objeto", "fornecedor_nome", "fornecedor_ni",
+             "vigencia_inicio", "vigencia_fim"],
     "pca": ["numero_item", "descricao", "categoria", "grupo", "quantidade",
             "valor_total", "ano", "orgao_cnpj", "unidade"],
     "itens": ["descricao", "unidade", "quantidade",
@@ -399,6 +401,27 @@ def abrir_db():
         db.execute("ALTER TABLE atas ADD COLUMN objeto TEXT")
         db.execute("UPDATE atas SET"
                    " objeto=json_extract(raw,'$.objetoContratacao')")
+        db.commit()
+    if colunas_a and "fornecedor_ni" not in colunas_a:
+        # a ata não traz fornecedor no próprio JSON do PNCP — vem do
+        # resultado dos itens da contratação de origem (ver
+        # pncp._atualizar_fornecedor_ata); acervo já sincronizado recupera
+        # na hora, sem esperar a próxima coleta
+        db.execute("ALTER TABLE atas ADD COLUMN fornecedor_ni TEXT")
+        db.execute("ALTER TABLE atas ADD COLUMN fornecedor_nome TEXT")
+        # tabela `itens` só existe depois do executescript(SCHEMA) mais
+        # abaixo — banco recém-criado ainda não a tem; nesse caso não há
+        # nada pra reprojetar mesmo (sem itens, sem resultado)
+        if db.execute("SELECT name FROM sqlite_master"
+                      " WHERE type='table' AND name='itens'").fetchone():
+            db.execute(
+                """UPDATE atas SET
+                     fornecedor_ni = (SELECT GROUP_CONCAT(DISTINCT fornecedor_ni)
+                                       FROM itens WHERE contratacao_controle=atas.contratacao_controle
+                                         AND tem_resultado=1 AND fornecedor_ni IS NOT NULL),
+                     fornecedor_nome = (SELECT GROUP_CONCAT(DISTINCT fornecedor_nome)
+                                         FROM itens WHERE contratacao_controle=atas.contratacao_controle
+                                           AND tem_resultado=1 AND fornecedor_nome IS NOT NULL)""")
         db.commit()
     colunas_c = {r[1] for r in db.execute("PRAGMA table_info(contratacoes)")}
     if colunas_c and "itens_versao" not in colunas_c:
@@ -897,7 +920,8 @@ class Api:
                 campos = {"contratacoes": ["objeto", "numero_controle"],
                           "contratos": ["objeto", "fornecedor_nome",
                                         "numero_controle", "numero_contrato"],
-                          "atas": ["numero_controle", "numero_ata", "objeto"],
+                          "atas": ["numero_controle", "numero_ata", "objeto",
+                                   "fornecedor_nome"],
                           "pca": ["descricao", "grupo"],
                           "itens": ["descricao", "fornecedor_nome"]}[tipo]
                 where.append("(" + " OR ".join(f"{c} LIKE ?" for c in campos)

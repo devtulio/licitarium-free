@@ -403,6 +403,36 @@ def test_sync_itens_grava_resultado_e_marca_versao(db, monkeypatch):
         "SELECT valor_unitario_estimado FROM itens").fetchone()[0] == 26.0
 
 
+def test_sync_itens_preenche_fornecedor_da_ata_vinculada(db, monkeypatch):
+    """A ata (ARP) não traz fornecedor no próprio JSON do PNCP — só o
+    resultado do item da contratação de origem tem. Pedido do usuário
+    (2026-08-30): CNPJ/razão social do fornecedor na planilha de atas."""
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, data_atualizacao, data_publicacao)"
+        " VALUES ('C1', 2026, 30, '111', '2026-07-01', '2026-06-01')")
+    db.execute(
+        "INSERT INTO atas (numero_controle, contratacao_controle)"
+        " VALUES ('A1', 'C1')")
+    db.commit()
+    item = {"numeroItem": 1, "descricao": "PAPEL A4", "temResultado": True,
+            "dataAtualizacao": "2026-06-20"}
+    resultado = {"niFornecedor": "999", "nomeRazaoSocialFornecedor": "FORN X",
+                 "dataResultado": "2026-06-20"}
+
+    def fake_get(caminho, params, base=None, **kw):
+        if caminho.endswith("/resultados"):
+            return [resultado]
+        return [item] if params.get("pagina") == 1 else []
+    monkeypatch.setattr(pncp, "_get", fake_get)
+
+    pncp.sync_itens(db)
+    ata = db.execute("SELECT fornecedor_ni, fornecedor_nome FROM atas"
+                     " WHERE numero_controle='A1'").fetchone()
+    assert ata["fornecedor_ni"] == "999"
+    assert ata["fornecedor_nome"] == "FORN X"
+
+
 def test_item_inalterado_nao_custa_requisicao_nem_apaga_preco(db, monkeypatch):
     """A economia da revisita não pode custar o preço já homologado.
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.45.5 — 2026-08-30
+
+**Datas de verdade na planilha exportada, e fornecedor na de Atas**
+
+As colunas de data (Publicação, Encerramento da proposta, Vigência) saíam
+como texto cru ("2026-08-26T11:19:47") na planilha exportada — agora
+viram data/hora de verdade, formatadas, prontas pra ordenar e filtrar no
+Excel como qualquer outra data. Vale para Contratações, Contratos e Atas.
+
+A planilha de Atas ganhou CNPJ e razão social do fornecedor — o PNCP não
+manda esse dado na própria ata (é uma vinculação genérica com a
+contratação de registro de preços), então o sistema busca no resultado
+dos itens da contratação de origem. Acervo já sincronizado recupera na
+hora, na próxima abertura; itens sem resultado gravado ainda ficam sem
+fornecedor até a próxima sincronização.
+
 ## 1.45.4 — 2026-08-30
 
 **Planilha exportada fica no modelo que o usuário já usa em produção**

@@ -145,6 +145,28 @@ def test_escrever_planilha_calcula_desagio_por_formula(tmp_path):
     assert ws["D3"].value is None  # sem homologado, sem fórmula (não divide por nada)
 
 
+def test_escrever_planilha_data_iso_vira_datetime_de_verdade(tmp_path):
+    """Achado do usuário (2026-08-30, screenshot): publicação/encerramento
+    saíam como texto ISO cru ("2026-08-26T11:19:47") — não dá pra Excel
+    ordenar/filtrar como data assim. Campos data_*/vigencia_* viram
+    datetime real, formatado; hora meia-noite mostra só a data."""
+    import datetime as dt
+
+    import openpyxl as oxl
+    caminho = tmp_path / "datas.xlsx"
+    relatorios.escrever_planilha(caminho, [
+        {"objeto": "Merenda", "data_publicacao": "2026-08-26T11:19:47",
+         "vigencia_fim": "2026-08-20T00:00:00", "numero_controle": "abc-1"},
+    ])
+    wb = oxl.load_workbook(caminho)
+    ws = wb.active
+    assert ws["B2"].value == dt.datetime(2026, 8, 26, 11, 19, 47)
+    assert ws["B2"].number_format == "DD/MM/YYYY HH:MM"
+    assert ws["C2"].value == dt.datetime(2026, 8, 20, 0, 0, 0)
+    assert ws["C2"].number_format == "DD/MM/YYYY"       # meia-noite: só data
+    assert ws["D2"].value == "abc-1"                     # não-data intocada
+
+
 def test_gerar_executivo_sem_planilha(db, tmp_path):
     r = relatorios.gerar(db, "executivo", {"ano": 2026}, "T", "SP", tmp_path)
     assert r["xlsx"] is None

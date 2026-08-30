@@ -472,6 +472,8 @@ def escrever_planilha(caminho, linhas):
     calculada por FÓRMULA do Excel (não valor congelado) — continua certa
     se o usuário editar estimado/homologado na própria planilha.
     """
+    import datetime as dt
+
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -480,6 +482,20 @@ def escrever_planilha(caminho, linhas):
     wb = Workbook()
     ws = wb.active
     chaves = list(linhas[0].keys())
+
+    def _para_data(chave, valor):
+        # data_publicacao/data_encerramento_proposta/vigencia_* chegam como
+        # texto ISO ("2026-08-26T11:19:47") — vira datetime de verdade (não
+        # texto), pra Excel ordenar/filtrar como data e mostrar formatado,
+        # não a string crua. Pedido do usuário (2026-08-30).
+        if not (chave.startswith("data_") or chave.startswith("vigencia_")):
+            return valor
+        if not isinstance(valor, str) or not valor:
+            return valor
+        try:
+            return dt.datetime.fromisoformat(valor)
+        except ValueError:
+            return valor
 
     par = col_est = col_hom = None
     for k in chaves:
@@ -509,7 +525,7 @@ def escrever_planilha(caminho, linhas):
                                if linha.get(par[0]) and linha.get(par[1]) is not None
                                else None)
             else:
-                valores.append(linha.get(k))
+                valores.append(_para_data(k, linha.get(k)))
         ws.append(valores)
         for i, k in enumerate(chaves):
             texto = "" if k == "_desagio" or linha.get(k) is None \
@@ -521,6 +537,10 @@ def escrever_planilha(caminho, linhas):
         for cel in next(ws.iter_cols(min_col=i, max_col=i, min_row=2)):
             if k == "_desagio":
                 cel.number_format = "0.00%"
+            elif isinstance(cel.value, dt.datetime):
+                cel.number_format = ("DD/MM/YYYY HH:MM"
+                                     if cel.value.time() != dt.time()
+                                     else "DD/MM/YYYY")
             elif isinstance(cel.value, float):
                 cel.number_format = "#,##0.00"
 
