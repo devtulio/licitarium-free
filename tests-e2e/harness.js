@@ -360,6 +360,9 @@ function scriptPonte(temaBanco = "portal") {
             descricao: "FILTRO DE AR",
             unidade: "UND", categoria: "Material", quantidade: 220,
             valor_unitario: 100, margem: 10, incluir: 1, valor_total: 22000,
+            valor_ano_anterior: 10000,
+            ata_vigente: { numero_ata: "9", ano_ata: 2026,
+                          vigencia_fim: "2027-03-01" },
             origem: { recorrente: true, unidades_divergentes: true } },
           { id: 2, chave: "REFORMA PRACA", familia: "REFORMA", abc: "A",
             descricao: "REFORMA DE PRAÇA",
@@ -386,7 +389,8 @@ function scriptPonte(temaBanco = "portal") {
         });
         return { itens, gerado_em: "2026-07-31T10:00:00",
                  familias: Object.values(fam).sort((a, b) => b.valor - a.valor),
-                 parametros: { margem: 10, base: "media" },
+                 parametros: { margem: 10, base: "media", ipca_ate: "2026-07",
+                              precos_corrigidos: 2, total_precos: 3 },
                  totais: { grupos: inc.length, excluidos: itens.length - inc.length,
                            valor: inc.reduce((s, i) => s + i.valor_total, 0) } };
       },

@@ -451,6 +451,8 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
   width:100%; padding:3px 6px; font-size:12.5px; }
 .linha .aviso-un { color:var(--warn); cursor:help; }
 .linha .tag-unico { font-size:11px; color:var(--warn); letter-spacing:.04em; }
+.linha .tag-alta { color:var(--erro); }
+.linha .tag-baixa { color:var(--ok); }
 #pca-lista { max-height:58vh; overflow-y:auto; }
 .veu { padding-top:24px; }
 .cfg { padding:18px 20px; margin-bottom:14px; }

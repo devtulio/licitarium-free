@@ -1024,6 +1024,7 @@ function parametrosPca() {
     margem: parseFloat($("pca-margem").value) || 0,
     palavras: +$("pca-palavras").value,
     so_recorrentes: $("pca-recorrentes").checked,
+    corrigir_ipca: $("pca-ipca").checked,
   };
 }
 
@@ -1042,6 +1043,19 @@ $("pca-ano").addEventListener("change", carregarMinuta);
 
 let familiaFiltro = null;      // família selecionada na revisão em 2 níveis
 let selecionados = new Set();  // itens marcados para mesclar
+
+// comparar às cegas com o ano passado é o jeito mais rápido de achar item
+// fora da curva na revisão — mostrado só quando o desvio é relevante
+function deltaPca(atual, anterior) {
+  if (!anterior) return "";
+  const variacao = (atual - anterior) / anterior;
+  if (Math.abs(variacao) < 0.1) return "";
+  const sinal = variacao > 0 ? "▲" : "▼";
+  const classe = variacao > 0 ? "tag-alta" : "tag-baixa";
+  return `<span class="tag-unico ${classe}" title="Era ${dinheiro(anterior)}
+      no plano do ano passado">${sinal} ${Math.round(Math.abs(variacao) * 100)}%
+      vs. ano passado</span>`;
+}
 
 async function carregarMinuta() {
   const dados = await api.listar_minuta_pca(+$("pca-ano").value);
@@ -1063,11 +1077,16 @@ async function carregarMinuta() {
       carregarMinuta();
     }));
   const classeA = dados.itens.filter(i => i.abc === "A").length;
+  const p = dados.parametros || {};
   $("pca-totais").innerHTML = dados.itens.length
     ? `<b>${t.grupos}</b> itens no plano · <b>${dinheiro(t.valor)}</b>
        ${classeA ? ` · <b>${classeA}</b> itens classe A concentram 80% do valor` : ""}
        ${t.excluidos ? ` · ${t.excluidos} excluído(s)` : ""}
-       ${dados.gerado_em ? ` · gerado em ${dataBr(dados.gerado_em)}` : ""}`
+       ${dados.gerado_em ? ` · gerado em ${dataBr(dados.gerado_em)}` : ""}
+       ${p.ipca_ate ? ` · preços a valor de ${dataBr(p.ipca_ate + "-01")}
+         pelo IPCA (${p.precos_corrigidos} de ${p.total_precos} corrigidos)`
+         : (p.corrigir_ipca === false ? "" :
+            " · sem série do IPCA sincronizada ainda: preços sem correção")}`
     : `Nenhuma minuta para este exercício — ajuste os parâmetros e clique em
        <b>Gerar</b>.`;
   const cab = `<div class="linha cab g-pca-minuta">
@@ -1097,6 +1116,12 @@ async function carregarMinuta() {
           ? `<span class="tag-unico" title="Preços do grupo variam de
               ${dinheiro(i.origem.preco_min)} a ${dinheiro(i.origem.preco_max)}:
               provável lote lançado como item">PREÇO DISPERSO</span>` : ""}
+        ${i.ata_vigente
+          ? `<span class="tag-unico" title="Ata ${esc(i.ata_vigente.numero_ata)}/${i.ata_vigente.ano_ata}
+              vigente até ${dataBr(i.ata_vigente.vigencia_fim)}: talvez não precise
+              entrar de novo no plano">COBERTO POR ATA</span>` : ""}
+        ${i.valor_ano_anterior
+          ? deltaPca(i.valor_total, i.valor_ano_anterior) : ""}
         ${i.mesclado
           ? '<button class="tag-mesclado" data-dividir="' + i.id + '" title="Desfazer a mesclagem">MESCLADO ⤢</button>' : ""}</span>
       <span><input type="text" data-campo="unidade" value="${esc(i.unidade ?? "")}">

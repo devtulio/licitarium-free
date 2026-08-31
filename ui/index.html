@@ -178,6 +178,7 @@
           <option value="ultimo">Último exercício</option>
           <option value="maior">Maior exercício</option>
           <option value="soma">Soma do período</option>
+          <option value="tendencia">Tendência (regressão linear)</option>
         </select></div>
       <div><label for="pca-estatistica">Preço unitário</label>
         <select id="pca-estatistica">
@@ -197,6 +198,8 @@
         </select></div>
       <label class="check-filtro" style="align-self:end">
         <input type="checkbox" id="pca-recorrentes" checked> Só recorrentes</label>
+      <label class="check-filtro" style="align-self:end" title="Traz preços de anos anteriores a valor de hoje pela série do IPCA (Banco Central), antes de calcular a mediana/média">
+        <input type="checkbox" id="pca-ipca" checked> Corrigir preço pelo IPCA</label>
       <button class="btn" id="pca-gerar" style="align-self:end">Gerar</button>
     </div>
     <div class="pca-totais" id="pca-totais"></div>

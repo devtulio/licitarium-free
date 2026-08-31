@@ -64,12 +64,20 @@ Usa o histórico de itens já contratados para sugerir o **Plano de Contrataçõ
 Anual** do exercício seguinte:
 
 - agrupa itens semelhantes por radical da descrição, descartando prefixo
-  burocrático ("AQUISIÇÃO DE", "CONTRATAÇÃO DE EMPRESA PARA");
-- projeta o quantitativo (média dos anos disponíveis, último, maior ou soma);
+  burocrático ("AQUISIÇÃO DE", "CONTRATAÇÃO DE EMPRESA PARA"), e funde grupos
+  de radical diferente cuja descrição se sobrepõe muito (mesma técnica de
+  similaridade do Alerta de Fracionamento);
+- traz os preços a valor de hoje pela série do **IPCA** (Banco Central) antes
+  de projetar — comparar reais de anos diferentes sem corrigir subestima o
+  próximo exercício;
+- projeta o quantitativo (média dos anos disponíveis, último, maior, soma ou
+  **tendência** por regressão linear, para item em consumo crescente);
 - estima o preço (mediana, média, mais recente ou menor);
 - aplica margem de segurança — padrão de 10%, editável por item;
 - classifica em **curva ABC** e agrupa por **família** (PNEU, FILTRO, FRALDA…);
-- sinaliza unidade divergente, ocorrência única e preço disperso;
+- sinaliza unidade divergente, ocorrência única, preço disperso, item **já
+  coberto por ata de registro de preços vigente** e a **variação de valor
+  contra o plano do exercício anterior**;
 - permite **mesclar e dividir** grupos, com preço ponderado pelo volume.
 
 A lista é editável e os ajustes manuais sobrevivem a uma nova geração. A

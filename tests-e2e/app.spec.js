@@ -388,6 +388,21 @@ test("PCA: famílias filtram, ABC classifica e mesclagem funde itens",
   await expect(page.locator("#pca-status")).toContainText("desfeita");
 });
 
+test("PCA: mostra correção do IPCA, delta vs ano anterior e ata vigente",
+    async ({ page }) => {
+  await page.locator("#btn-pca").click();
+  await page.locator("#pca-gerar").click();
+  // resumo do topo diz até quando os preços foram trazidos e quantos
+  await expect(page.locator("#pca-totais")).toContainText("IPCA");
+  await expect(page.locator("#pca-totais")).toContainText("2 de 3 corrigidos");
+  const linhas = page.locator("#pca-lista .linha:not(.cab)");
+  // item 1 (FILTRO AR MOTOR) tem ata vigente e cresceu 120% vs ano passado
+  await expect(linhas.nth(0).getByText("COBERTO POR ATA")).toBeVisible();
+  await expect(linhas.nth(0).locator(".tag-alta")).toContainText("120%");
+  // envio do parâmetro: caixa de correção IPCA marcada por padrão
+  await expect(page.locator("#pca-ipca")).toBeChecked();
+});
+
 test("modal do PCA ocupa a janela e a descrição tem espaço", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.locator("#btn-pca").click();
@@ -415,7 +430,8 @@ test("parâmetros do PCA chegam ao motor", async ({ page }) => {
   const c = await page.evaluate(() => window.__chamadas.find(
     x => x.metodo === "gerar_minuta_pca"));
   expect(c.params).toEqual({ base: "ultimo", estatistica: "recente",
-                             margem: 25, palavras: 2, so_recorrentes: false });
+                             margem: 25, palavras: 2, so_recorrentes: false,
+                             corrigir_ipca: true });
 });
 
 test("valor sem homologação é marcado como estimado", async ({ page }) => {

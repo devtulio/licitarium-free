@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.46.0 — 2026-08-30
+
+**Montar PCA: correção pelo IPCA, agrupamento por similaridade, tendência, ata vigente e comparação com o ano anterior**
+
+Cinco melhorias no motor da minuta do PCA, a pedido do usuário depois de uma
+revisão a fundo da funcionalidade:
+
+- **Correção monetária pelo IPCA**: os preços históricos são trazidos a
+  valor de hoje pela série do Banco Central antes de calcular a
+  mediana/média — comparar reais de 2024 com reais de 2026 sem corrigir
+  subestimava o custo do próximo exercício. Ligado por padrão (dá pra
+  desligar); sem série sincronizada ainda, vira um no-op transparente.
+  Motor portado do antigo módulo de pesquisa de preços (removido do Free
+  na v1.44.0).
+- **Agrupamento por similaridade**: o corte fixo de N palavras não juntava
+  "CIMENTO PORTLAND CP II 50KG" com "CIMENTO CP II PORTLAND SACO 50KG"
+  (radicais diferentes) — agora uma segunda passada funde grupos cuja
+  descrição se sobrepõe muito (Jaccard de tokens, mesma técnica do Alerta
+  de Fracionamento).
+- **Projeção por tendência**: nova opção de quantidade "Tendência" projeta
+  por regressão linear sobre os anos disponíveis — item em consumo
+  crescente ano a ano não fica mais mal servido pela média plana.
+- **Coberto por ata vigente**: item cuja família já tem uma ata de
+  registro de preços em vigor ganha o selo "COBERTO POR ATA" — talvez não
+  precise entrar de novo no plano.
+- **Comparação com o ano anterior**: cada item mostra a variação de valor
+  contra o plano do exercício passado (▲/▼, quando passa de 10%) — pega
+  item fora da curva sem precisar comparar planilha por planilha.
+
 ## 1.45.8 — 2026-08-30
 
 **Correção: fórmula de Vencimento quebrava no Excel real (#NAME?), e mais acabamento nas planilhas**
