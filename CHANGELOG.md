@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.46.1 — 2026-09-04
+
+**Gráfico do Limite anual de dispensa: barra na largura do cartão, texto abaixo**
+
+Pedido do usuário depois de verificar o gráfico visualmente: o layout
+horizontal herdado do ECharts (barra estreita ao lado do rótulo)
+desperdiçava a largura do cartão. Reescrito em HTML puro — a barra ocupa
+a largura inteira do cartão e o texto (objeto e status) fica abaixo dela.
+Mesma lógica de sempre por baixo (achata no teto acima de 100%, cores por
+faixa de gravidade); refeito também no documento impresso, que não
+carrega o CSS da tela.
+
 ## 1.46.0 — 2026-08-30
 
 **Montar PCA: correção pelo IPCA, agrupamento por similaridade, tendência, ata vigente e comparação com o ano anterior**

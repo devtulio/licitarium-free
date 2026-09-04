@@ -1968,6 +1968,20 @@ _CSS_PAINEL_RESTO = """
   .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
   .chip { font-size:9pt; padding:5px 12px; border-radius:99px;
           border:1px solid var(--borda); background:var(--superficie); }
+  /* Limite anual de dispensa — HTML puro desde a v1.46.1 (2026-09-04, pedido
+     do usuário: barra na largura do cartão, texto abaixo). Igual à tela
+     (estilo.css), reescrito com os tokens do papel; sem isto a barra some
+     no PDF (mesmo motivo do calendário acima). */
+  .lim-item + .lim-item { margin-top:10px; }
+  .lim-trilho { position:relative; height:7px; border-radius:3px;
+               background:var(--cabecalho); }
+  .lim-barra { height:100%; border-radius:3px; }
+  .lim-estouro { position:absolute; right:-8px; top:50%;
+                transform:translateY(-50%); font-size:9pt; line-height:1; }
+  .lim-legenda { display:flex; justify-content:space-between; align-items:baseline;
+                gap:10px; margin-top:4px; }
+  .lim-obj { font-size:8pt; color:var(--suave); }
+  .lim-val { font-size:8.5pt; font-weight:600; }
 """
 
 

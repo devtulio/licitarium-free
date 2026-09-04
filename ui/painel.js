@@ -648,59 +648,47 @@ function grafCalor(el, calor, meses) {
 }
 
 // ── medidores do limite anual de dispensa ─────────────────────────────────
-function grafLimites(el, objetos, limite, larg = 500) {
+// HTML puro, não ECharts (2026-09-04, pedido do usuário): a barra ocupa a
+// largura inteira do cartão e o texto (objeto + status) fica ABAIXO dela —
+// o layout anterior (barra estreita ao lado do rótulo, herdado do ECharts
+// horizontal-bar) desperdiçava a largura do cartão nisso.
+function grafLimites(el, objetos, limite) {
   if (!objetos.length) {
     el.innerHTML = `<div class="vazio">Nenhuma dispensa registrada no exercício.</div>`;
     return;
   }
-  el.style.height = (objetos.length * 44 + 10) + "px";
-  const chart = _iniciarEchart(el);
+  el.style.height = "";                 // altura fixa era só do modo ECharts
   const cor = (o) => o.pct >= 90 ? "var(--erro)" : o.pct >= 75 ? "var(--warn)"
                                                                 : "var(--s3)";
   // barra cheia diz "chegou ao limite"; passar dele é outra informação, e
   // "874%" numa barra igual à de 100% esconde justamente a gravidade — o
   // valor em R$ (mais largo, variável) fica só no tooltip; o rótulo
-  // sempre visível é curto de propósito, pra nunca ser cortado pela borda
-  // do cartão (achado da verificação visual: "R$ 165.322,98 · 264% do..."
-  // saía cortado com grid.right estreito demais)
+  // sempre visível é curto de propósito
   const rotuloStatus = (o) => {
     const vezes = (o.pct / 100).toFixed(1).replace(".", ",");
     return o.pct > 100 ? `${vezes}× o limite` : `${pct(o.pct, 0)} do limite`;
   };
-  chart.setOption({
-    animation: false,
-    grid: { left: 4, right: 110, top: 4, bottom: 4, containLabel: true },
-    xAxis: { type: "value", min: 0, max: 100, show: false },
-    yAxis: { type: "category", inverse: true,
-      data: objetos.map(o => `${o.objeto} · ${o.n} ${
-        o.n === 1 ? "dispensa" : "dispensas"}`),
-      axisLine: { show: false }, axisTick: { show: false }, axisLabel: ROT_TXT },
-    series: [
-      { name: "trilho", type: "bar", barWidth: 14, barGap: "-100%", silent: true,
-        data: objetos.map(() => 100),
-        itemStyle: { color: "var(--surface2)", borderRadius: 4 } },
-      { name: "limite", type: "bar", barWidth: 14,
-        data: objetos.map(o => ({ value: Math.min(100, o.pct || 0),
-          itemStyle: { color: cor(o), borderRadius: 4 } })),
-        emphasis: { disabled: true },
-        // distance maior que o normal: a seta de estouro (abaixo) mora bem
-        // ali no fim da barra e sem essa folga o rótulo nascia por cima
-        // dela — achado da verificação visual (2026-08-13)
-        label: { show: true, position: "right", distance: 16, ...VAL_TXT,
-          formatter: p => rotuloStatus(objetos[p.dataIndex]) },
-        markPoint: { symbol: "triangle", symbolSize: 9, silent: true,
-          data: objetos.flatMap((o, i) => o.pct > 100
-            ? [{ coord: [100, i], itemStyle: { color: "var(--erro)" },
-                 symbolOffset: [6, 0], symbolRotate: 90 }] : []) }
-      }
-    ]
-  });
+  el.innerHTML = objetos.map(o => `
+    <div class="lim-item">
+      <div class="lim-trilho">
+        <div class="lim-barra" style="width:${Math.min(100, o.pct || 0)}%;
+             background:${cor(o)}"></div>
+        ${o.pct > 100 ? `<span class="lim-estouro" style="color:${cor(o)}"
+             aria-hidden="true">▸</span>` : ""}
+      </div>
+      <div class="lim-legenda">
+        <span class="lim-obj">${esc(o.objeto)} · ${o.n}
+          ${o.n === 1 ? "dispensa" : "dispensas"}</span>
+        <span class="lim-val" style="color:${cor(o)}">${rotuloStatus(o)}</span>
+      </div>
+    </div>`).join("");
   // a linha inteira do objeto mostra o total contra o limite
-  ligarBaloEixo(chart, el, (i) => {
+  el.querySelectorAll(".lim-item").forEach((item, i) => {
     const o = objetos[i];
-    return o ? [{ v: dinheiro(o.total),
-                  l: `${o.objeto} · de ${dinheiro(limite)}` }] : null;
-  }, 1);
+    item.addEventListener("mousemove", e => mostrarTt(e.clientX, e.clientY,
+      [{ v: dinheiro(o.total), l: `${o.objeto} · de ${dinheiro(limite)}` }]));
+    item.addEventListener("mouseleave", esconderTt);
+  });
 }
 
 // ── funil: onde os processos do exercício pararam ─────────────────────────
@@ -846,7 +834,7 @@ const DESENHO = {
                                         P.dados.analise.fornecedores_total),
   calor: (el, l) => grafCalor(el, P.dados.analise.calor, P.dados.analise.meses_calor),
   limites: (el, l) => grafLimites(el, P.dados.vigilancia.limites,
-                              P.dados.vigilancia.limite_compras, l),
+                              P.dados.vigilancia.limite_compras),
   funil: (el, l) => grafFunil(el, P.dados.vigilancia.funil, l),
   agenda: (el, l) => grafAgenda(el, P.dados.vigilancia.agenda),
   economia_modalidade: (el, l) => grafBarras(el, P.dados.economia.por_modalidade, {

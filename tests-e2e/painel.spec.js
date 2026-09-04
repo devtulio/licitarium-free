@@ -297,6 +297,36 @@ test("vigilância mostra medidores, funil e agenda", async ({ page }) => {
   await expect(v).toContainText("Publicadas");
 });
 
+test("limite anual de dispensa: barra na largura do cartão, texto abaixo",
+    async ({ page }) => {
+  // pedido do usuário (2026-09-04): o gráfico de ECharts (barra estreita
+  // ao lado do rótulo) virou HTML puro — barra ocupa a largura do
+  // cartão, texto vem abaixo. Mede geometria real, não confia no olho.
+  await page.locator('.subabas button[data-vista="vigilancia"]').click();
+  const graf = page.locator('#p-vigilancia [data-graf="limites"]');
+  const itens = graf.locator(".lim-item");
+  await expect(itens.first()).toBeVisible();
+  const geo = await itens.evaluateAll(els => els.map(el => {
+    const trilho = el.querySelector(".lim-trilho").getBoundingClientRect();
+    const barra = el.querySelector(".lim-barra").getBoundingClientRect();
+    const legenda = el.querySelector(".lim-legenda").getBoundingClientRect();
+    return { larguraCartao: trilho.width, larguraBarra: barra.width,
+             pctBarra: barra.width / trilho.width,
+             legendaAbaixo: legenda.top >= trilho.bottom };
+  }));
+  // barra usa a largura inteira do cartão (a faixa cinza de fundo), não
+  // uma coluna estreita reservada pro rótulo do lado
+  for (const g of geo) {
+    expect(g.larguraCartao).toBeGreaterThan(300);
+    expect(g.legendaAbaixo).toBe(true);
+  }
+  // pct >100% (fixture: 263,9%, 239,3%...) todos achatam no teto: mesma
+  // largura de barra, cheia — não estica além do cartão
+  const larguras = geo.map(g => Math.round(g.larguraBarra));
+  expect(new Set(larguras).size).toBe(1);
+  expect(geo[0].pctBarra).toBeGreaterThan(0.95);   // ~100%, achatada no teto
+});
+
 test("os alertas viram chips clicáveis acima das subabas",
     async ({ page }) => {
   const chips = page.locator("#painel-chips .chip");

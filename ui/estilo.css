@@ -454,6 +454,20 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .linha .tag-alta { color:var(--erro); }
 .linha .tag-baixa { color:var(--ok); }
 #pca-lista { max-height:58vh; overflow-y:auto; }
+/* limite anual de dispensa (Painel → Vigilância): barra na largura inteira
+   do cartão, texto abaixo dela — HTML puro, não ECharts (2026-09-04,
+   pedido do usuário: o layout horizontal anterior desperdiçava a largura). */
+.lim-item + .lim-item { margin-top:14px; }
+.lim-trilho { position:relative; height:8px; border-radius:4px;
+             background:var(--surface2); }
+.lim-barra { height:100%; border-radius:4px; }
+.lim-estouro { position:absolute; right:-9px; top:50%;
+              transform:translateY(-50%); font-size:11px; line-height:1; }
+.lim-legenda { display:flex; justify-content:space-between; align-items:baseline;
+              gap:10px; margin-top:5px; }
+.lim-obj { font-size:10.5px; color:var(--muted); overflow:hidden;
+          text-overflow:ellipsis; white-space:nowrap; }
+.lim-val { font-size:11px; font-weight:600; white-space:nowrap; }
 .veu { padding-top:24px; }
 .cfg { padding:18px 20px; margin-bottom:14px; }
 .cfg h2 { font-size:14px; margin-bottom:10px; }
