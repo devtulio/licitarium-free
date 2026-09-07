@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.47.0"
+VERSAO = "1.48.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -786,6 +786,33 @@ class Api:
     # (referencia=1 em contratacoes/itens) — nunca entram nos relatórios
     # oficiais, que filtram WHERE referencia=0 em toda consulta do acervo
     # próprio.
+
+    def opcoes_sync(self):
+        """Dados pro modal de escopo do botão Sincronizar (portado do
+        Pretiarium Free 2026-09-07): nome do município próprio e, de cada
+        referência, se já sincronizou alguma vez (`last_sync_ref_<ibge>`
+        — mesma chave que `pncp.sincronizar_tudo` usa pro escopo
+        "pendentes", não um cálculo à parte que pudesse divergir) e um
+        semáforo de status (`_status_municipio_referencia`, mesmo usado
+        em Configurações — mesma regra nos dois lugares, não um cálculo
+        cada um por sua conta)."""
+        db = abrir_db()
+        try:
+            proprio_nome = db.execute(
+                "SELECT valor FROM config WHERE chave='municipio_nome'"
+            ).fetchone()
+            referencia = [{
+                "ibge": r["ibge"], "nome": r["nome"], "uf": r["uf"],
+                "nunca_sincronizado": not pncp._config(
+                    db, f"last_sync_ref_{r['ibge']}"),
+                "status": _status_municipio_referencia(db, r["ibge"])}
+                for r in db.execute(
+                    "SELECT ibge, nome, uf FROM municipios_referencia "
+                    "ORDER BY nome")]
+            return {"proprio_nome": proprio_nome[0] if proprio_nome else "",
+                    "referencia": referencia}
+        finally:
+            db.close()
 
     def listar_municipios_referencia(self):
         db = abrir_db()

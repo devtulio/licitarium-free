@@ -56,7 +56,11 @@
       <button class="btn ghost" id="btn-pca">Montar PCA</button>
       <button class="btn ghost" id="btn-relatorios">Relatórios</button>
       <button class="btn ghost" id="btn-config">Configurações</button>
-      <button class="btn" id="btn-sync">Sincronizar</button>
+      <div class="grupo-sync">
+        <button class="btn" id="btn-sync">Sincronizar</button>
+        <button class="btn btn-sync-opcoes" id="btn-sync-opcoes"
+          title="Escolher o que sincronizar" aria-label="Opções de sincronização">▾</button>
+      </div>
     </div>
   </header>
   <main>
@@ -476,6 +480,26 @@
       <p><b style="color:var(--text)">Licitarium <span id="sobre-versao"></span></b><br>
       Repositório local de contratações públicas, espelhando o PNCP.<br>
       Código aberto (MIT) · sub hasta publica · MMXXVI</p>
+    </div>
+  </div>
+</div>
+
+<!-- escopo do botão Sincronizar (pedido do usuário, portado do Pretiarium
+     Free 2026-09-07): clique normal continua sincronizando tudo sem
+     fricção nova; o ▾ ao lado abre isto pra quem quer restringir. -->
+<div id="veu-sync-opcoes" class="veu oculto" role="dialog" aria-modal="true"
+     aria-label="O que sincronizar">
+  <div class="modal" style="background:none; border:none; box-shadow:none; width:min(440px,100%)">
+    <div class="card cfg">
+      <div style="display:flex; justify-content:space-between">
+        <h2>O que sincronizar</h2>
+        <button class="fechar" data-fecha="veu-sync-opcoes" aria-label="Fechar">×</button>
+      </div>
+      <div class="opcoes-sync" id="opcoes-sync-lista"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px">
+        <button class="btn ghost" data-fecha="veu-sync-opcoes">Cancelar</button>
+        <button class="btn" id="btn-sync-opcoes-ir">Sincronizar</button>
+      </div>
     </div>
   </div>
 </div>

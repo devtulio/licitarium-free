@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.48.0 — 2026-09-07
+
+**Escolher o que sincronizar**
+
+O botão Sincronizar ganha um ▾ ao lado: abre uma modal pra restringir a
+coleta a só o próprio município, só aos municípios de referência que
+nunca sincronizaram, ou a um município específico (com o mesmo semáforo
+de status usado em Configurações). Clique normal no botão continua
+sincronizando tudo, sem fricção nova. Portado do Pretiarium Free antes de
+seu arquivamento.
+
 ## 1.47.0 — 2026-09-07
 
 **Nova aba Preços — pesquisa de preços praticados (art. 23, Lei 14.133)**

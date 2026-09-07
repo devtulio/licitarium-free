@@ -1451,6 +1451,70 @@ document.addEventListener("keydown", e => {
 // ── sincronização ─────────────────────────────────────────────────────────
 $("btn-sync").addEventListener("click", () => api.sincronizar());
 
+// escopo (portado do Pretiarium Free, 2026-09-07): clique normal em
+// Sincronizar continua disparando tudo, sem fricção nova — o ▾ ao lado é
+// que abre esta modal pra quem quer restringir. Radios com o valor
+// guardado em data-escopo; o campo de município só aparece quando esse é
+// o escolhido.
+$("btn-sync-opcoes")?.addEventListener("click", async () => {
+  const d = await api.opcoes_sync();
+  const pendentes = d.referencia.filter(m => m.nunca_sincronizado);
+  $("opcoes-sync-lista").innerHTML = `
+    <label class="opcao-sync">
+      <input type="radio" name="escopo-sync" value="tudo" checked>
+      <span><b>Tudo</b><br><span class="dim">Seu município + todos os
+        ${d.referencia.length} de referência</span></span></label>
+    <label class="opcao-sync">
+      <input type="radio" name="escopo-sync" value="proprio">
+      <span><b>Só o meu município</b><br><span class="dim">${esc(d.proprio_nome)}
+        — pula os de referência</span></span></label>
+    <label class="opcao-sync">
+      <input type="radio" name="escopo-sync" value="pendentes"
+        ${pendentes.length ? "" : "disabled"}>
+      <span><b>Só quem nunca sincronizou</b><br><span class="dim">
+        ${pendentes.length
+          ? `${pendentes.length} município${pendentes.length === 1 ? "" : "s"} de referência ainda não visitado${pendentes.length === 1 ? "" : "s"} (+ seu município)`
+          : "todos já sincronizaram alguma vez"}</span></span></label>
+    <label class="opcao-sync">
+      <input type="radio" name="escopo-sync" value="municipio">
+      <span><b>Escolher um município</b></span></label>
+    <select id="opcoes-sync-municipio" class="oculto" style="width:100%; margin-top:8px">
+      <option value="${d.proprio_nome ? "proprio" : ""}">${esc(d.proprio_nome)} (seu município)</option>
+      ${d.referencia.map(m => {
+        // semáforo: vermelho nunca sincronizou, amarelo tem contratação
+        // com item pendente, verde completo — <option> só aceita cor de
+        // texto de verdade na maioria dos motores, daí a bolinha unicode
+        // como reforço visual
+        const COR = {vermelho: "#e05252", amarelo: "#c9972f", verde: "#3fae6a"};
+        const ROTULO = {vermelho: " — nunca sincronizado",
+          amarelo: " — itens pendentes", verde: ""};
+        return `<option value="${esc(m.ibge)}" style="color:${COR[m.status]}">
+          ● ${esc(m.nome)} — ${esc(m.uf)}${ROTULO[m.status]}</option>`;
+      }).join("")}
+    </select>`;
+  $("opcoes-sync-lista").querySelectorAll('input[name="escopo-sync"]').forEach(r =>
+    r.addEventListener("change", () =>
+      $("opcoes-sync-municipio").classList.toggle(
+        "oculto", r.value !== "municipio" || !r.checked)));
+  abrirModal("veu-sync-opcoes");
+});
+
+$("btn-sync-opcoes-ir")?.addEventListener("click", () => {
+  const escopo = document.querySelector(
+    'input[name="escopo-sync"]:checked')?.value ?? "tudo";
+  let ibgeEscolhido = null;
+  if (escopo === "municipio") {
+    const v = $("opcoes-sync-municipio").value;
+    if (v && v !== "proprio") ibgeEscolhido = v;
+    // "proprio" no seletor vira escopo "proprio" de verdade — não existe
+    // ibge_escolhido pro município próprio no motor, ele já é implícito
+    api.sincronizar(true, v === "proprio" ? "proprio" : "municipio", ibgeEscolhido);
+  } else {
+    api.sincronizar(true, escopo, null);
+  }
+  fecharModal("veu-sync-opcoes");
+});
+
 // O botão de parar só existe enquanto há o que parar — habilitado por
 // evento de progresso, não por palpite de quem abre as Configurações.
 $("btn-parar-sync").addEventListener("click", async () => {

@@ -217,6 +217,30 @@ def test_sincronizar_escopo_invalido_recusa(api):
     assert r == {"ok": False, "erro": "escopo inválido: 'chute'"}
 
 
+# ── opções do modal de sincronização ────────────────────────────────────
+
+def test_opcoes_sync_traz_proprio_e_referencia(api):
+    api.adicionar_municipio_referencia("3536604", "Orindiúva", "SP")
+    d = api.opcoes_sync()
+    assert d["proprio_nome"] == "São Paulo"
+    assert len(d["referencia"]) == 1
+    ref = d["referencia"][0]
+    assert ref == {"ibge": "3536604", "nome": "Orindiúva", "uf": "SP",
+                    "nunca_sincronizado": True, "status": "vermelho"}
+
+
+def test_opcoes_sync_reflete_last_sync(api):
+    api.adicionar_municipio_referencia("3536604", "Orindiúva", "SP")
+    db = licitarium.abrir_db()
+    try:
+        pncp._config(db, "last_sync_ref_3536604", "2026-09-07T10:00:00")
+        db.commit()
+    finally:
+        db.close()
+    d = api.opcoes_sync()
+    assert d["referencia"][0]["nunca_sincronizado"] is False
+
+
 def test_rodar_sync_repassa_escopo_e_ibge_escolhido(api, monkeypatch):
     chamadas = []
 

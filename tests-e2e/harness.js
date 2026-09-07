@@ -298,7 +298,11 @@ function scriptPonte(temaBanco = "portal") {
         return window.__respostaImportar ?? { ok: true, itens: 2674,
           municipio: "Orindiúva", exportado_em: "2026-08-05T09:00:00" };
       },
-      sincronizar: async () => true,
+      sincronizar: async (forcado, escopo, ibge_escolhido) => {
+        window.__chamadas.push({ metodo: "sincronizar", forcado, escopo,
+                                 ibge_escolhido });
+        return true;
+      },
       status_sync: async () => (window.__syncRodando
         ? { rodando: true, msg: "Contratações — 1 de 3…" } : { rodando: false }),
       parar_sync: async () => {
@@ -447,6 +451,18 @@ function scriptPonte(temaBanco = "portal") {
           { ibge: "3533908", nome: "Olímpia", uf: "SP", itens: 340, mb: 4.2,
             status: "ok" },
         ];
+      },
+      opcoes_sync: async () => {
+        window.__chamadas.push({ metodo: "opcoes_sync" });
+        return window.__opcoesSync ?? {
+          proprio_nome: "Orindiúva",
+          referencia: [
+            { ibge: "3533908", nome: "Olímpia", uf: "SP",
+              nunca_sincronizado: false, status: "verde" },
+            { ibge: "3548500", nome: "São José do Rio Preto", uf: "SP",
+              nunca_sincronizado: true, status: "vermelho" },
+          ],
+        };
       },
       estimar_municipio_referencia: async codigo => {
         window.__chamadas.push({ metodo: "estimar_municipio_referencia",

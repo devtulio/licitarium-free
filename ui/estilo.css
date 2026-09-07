@@ -118,6 +118,14 @@ button { font-family:var(--font-ui); cursor:pointer; }
 .btn:disabled { opacity:.55; cursor:default; }
 .btn.ghost { background:transparent; color:var(--text);
              border:1px solid var(--border); font-weight:400; }
+/* botão "▾" ao lado de Sincronizar (portado do Pretiarium Free,
+   2026-09-07): clique normal continua sincronizando tudo, sem fricção
+   nova; o ▾ abre o modal de escopo pra quem quer restringir (só o
+   próprio, só quem nunca rodou, um município específico). */
+.grupo-sync { display:flex; }
+.grupo-sync .btn:first-child { border-top-right-radius:0; border-bottom-right-radius:0; }
+.btn-sync-opcoes { padding:9px 10px; margin-left:1px;
+  border-top-left-radius:0; border-bottom-left-radius:0; }
 input, select { background:var(--surface); color:var(--text);
   border:1px solid var(--border); border-radius:var(--radius);
   padding:8px 10px; font-size:13px; font-family:var(--font-ui); }
@@ -489,6 +497,12 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    quando tudo é âmbar, nada é (auditoria de interface, 2026-08-14). */
 .aviso { font-size:12px; color:var(--warn); margin-top:8px; }
 .ajuda { font-size:12px; color:var(--muted); margin-top:8px; }
+/* modal "O que sincronizar" (portado do Pretiarium Free, 2026-09-07) */
+.opcoes-sync { display:flex; flex-direction:column; gap:2px; }
+.opcao-sync { display:flex; gap:10px; align-items:flex-start; padding:9px 4px;
+  border-radius:var(--radius); cursor:pointer; font-size:13px; }
+.opcao-sync:hover { background:var(--surface2); }
+.opcao-sync input { margin-top:3px; flex:none; }
 /* Campo com rótulo próprio, empilhado. O placeholder não serve de rótulo:
    some no primeiro caractere digitado e leitor de tela não o anuncia
    (auditoria de interface, 2026-08-14). */
