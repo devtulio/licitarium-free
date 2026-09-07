@@ -303,9 +303,9 @@ async function iniciarApp(e) {
   // o programa consertou algo no banco para conseguir abrir: dizer, senão o
   // usuário só descobre pelo dado que faltou
   if (e.aviso_abertura) alert(`Licitarium\n\n${e.aviso_abertura}`);
-  // sync ao abrir: não forçado, então respeita o intervalo mínimo — abrir o
-  // programa várias vezes seguidas não repete a coleta inteira
-  api.sincronizar(false);
+  // quem decide sincronizar é o usuário, clicando — sem sync automático
+  // ao abrir (2026-09-07, mesmo comportamento que o Pretiarium Free
+  // sempre teve)
   api.checar_atualizacao().then(at => {
     if (!at) return;
     const alvo = $("rodape-versao");
@@ -1784,6 +1784,180 @@ $("pr-pag-ant").addEventListener("click", () => {
   estado.paginaPrecos--; carregarPrecos(); });
 $("pr-pag-prox").addEventListener("click", () => {
   estado.paginaPrecos++; carregarPrecos(); });
+
+// ── situação do banco de preços (portado do Pretiarium Free, 2026-09-07) ──
+let situacaoPrecosCarregada = false;
+$("tela-precos")?.querySelectorAll(".subabas button[data-vista-precos]")
+  .forEach(b => b.addEventListener("click", () => {
+    const vista = b.dataset.vistaPrecos;
+    marcarAba($("tela-precos").querySelectorAll(".subabas button"), x => x === b);
+    $("precos-pesquisar").classList.toggle("oculto", vista !== "pesquisar");
+    $("precos-situacao").classList.toggle("oculto", vista !== "situacao");
+    if (vista === "situacao" && !situacaoPrecosCarregada) carregarSituacaoPrecos();
+  }));
+
+async function carregarSituacaoPrecos() {
+  if (!api.painel_precos) return;
+  const d = await api.painel_precos();
+  situacaoPrecosCarregada = true;
+  $("pk-itens").textContent = d.total.toLocaleString("pt-BR");
+  $("pk-homologado").textContent = `${d.pct_homologado}%`;
+  $("pk-municipios").textContent = d.municipios.length;
+  $("pk-fornecedores").textContent = d.fornecedores.toLocaleString("pt-BR");
+  desenharGraficoAnoPainel($("painel-grafico-ano"), d.por_ano);
+  desenharGraficoTipoPainel($("painel-grafico-tipo"), d.material_servico);
+  $("painel-municipios").innerHTML = listaPainelHtml("Municípios no banco",
+    d.municipios.map(m => `<div class="linha">
+      <span class="rot">${esc(m.nome)} · ${esc(m.uf)}${m.referencia
+        ? ` <span class="dim">(referência)</span>` : ""}</span>
+      <span class="dim">${m.itens.toLocaleString("pt-BR")} itens ·
+        ${m.pct_homologado}% fechado</span></div>`));
+  $("painel-top-itens").innerHTML = listaPainelHtml(
+    "Itens mais frequentes", d.top_itens.map(it => `<div class="linha">
+      <span class="rot" title="${esc(it.descricao)}">${esc(it.descricao)}</span>
+      <span class="dim">${it.n.toLocaleString("pt-BR")}</span></div>`));
+  $("painel-fornecedores").innerHTML = listaPainelHtml(
+    "Fornecedores mais frequentes",
+    d.fornecedores_top.map(f => `<div class="linha">
+      <span class="rot" title="${esc(f.fornecedor)}">${esc(f.fornecedor)}</span>
+      <span class="dim">${f.n.toLocaleString("pt-BR")}</span></div>`));
+  $("painel-unidades").innerHTML = listaPainelHtml(
+    "Unidades mais usadas", d.unidades.map(u => `<div class="linha">
+      <span class="rot">${esc(u.unidade)}</span>
+      <span class="dim">${u.n.toLocaleString("pt-BR")}</span></div>`));
+  const sel = $("painel-concentracao-item");
+  sel.innerHTML = d.top_itens.map(it =>
+    `<option value="${esc(it.descricao)}">${esc(it.descricao)}</option>`).join("");
+  if (sel.value) await carregarConcentracao(sel.value);
+}
+
+function listaPainelHtml(titulo, linhas) {
+  return `<h3 class="tit-painel">${esc(titulo)}</h3>
+    <div class="lista-painel">${linhas.length ? linhas.join("")
+      : `<div class="dim">Nada no banco ainda.</div>`}</div>`;
+}
+
+$("painel-concentracao-item")?.addEventListener("change", e =>
+  carregarConcentracao(e.target.value));
+
+async function carregarConcentracao(descricao) {
+  if (!api.concentracao_fornecedores) return;
+  const d = await api.concentracao_fornecedores(descricao);
+  const risco = d.corte !== null && d.corte + 1 <= d.fornecedores.length / 2;
+  $("painel-concentracao-aviso").className =
+    "aviso-concentracao " + (risco ? "risco" : d.fornecedores.length ? "ok" : "");
+  $("painel-concentracao-aviso").innerHTML = !d.fornecedores.length
+    ? "Sem fornecedor identificado nos preços coletados deste item."
+    : d.corte !== null
+      ? `<b>${d.corte + 1} de ${d.fornecedores.length} fornecedores</b> já somam` +
+        ` <b>${d.fornecedores[d.corte].acumulado_pct}%</b> dos ${d.total}` +
+        ` preços coletados.`
+      : `Distribuição espalhada entre os ${d.fornecedores.length} fornecedores.`;
+  desenharConcentracaoLorenz($("painel-concentracao-svg"), d);
+  desenharConcentracaoLista($("painel-concentracao-lista"), d);
+}
+
+function desenharConcentracaoLorenz(el, d) {
+  if (!window.echarts || !el) return;
+  const linhas = d.fornecedores;
+  if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
+  if (!linhas.length) { el.innerHTML = ""; return; }
+  const accent = _corTemaEchart("--accent", "#1351b4");
+  const muted = _corTemaEchart("--muted", "#5b6066");
+  const n = linhas.length;
+  const curva = [[0, 0], ...linhas.map((l, i) => [i + 1, l.acumulado_pct])];
+  const igual = [[0, 0], [n, 100]];
+  const chart = echarts.init(el, null, { renderer: "svg" });
+  el.__echart = chart;
+  chart.setOption({
+    animation: false,
+    grid: { left: 40, right: 12, top: 12, bottom: 24 },
+    xAxis: { type: "value", min: 0, max: n,
+      axisLine: { lineStyle: { color: muted } },
+      axisLabel: { color: muted } },
+    yAxis: { type: "value", min: 0, max: 100,
+      axisLabel: { color: muted, formatter: "{value}%" },
+      splitLine: { lineStyle: { color: muted, opacity: .2 } } },
+    tooltip: { trigger: "axis", axisPointer: { type: "line" },
+      formatter: params => {
+        const p = params.find(x => x.seriesName === "Concentração real");
+        if (!p || p.dataIndex === 0) return "";
+        const l = linhas[p.dataIndex - 1];
+        return `<b>${esc(l.fornecedor)}</b><br>${l.n} preços (${l.pct}%)` +
+          `<br>acumulado: <b>${l.acumulado_pct}%</b>`;
+      } },
+    series: [
+      { name: "Distribuição igual", type: "line", data: igual,
+        showSymbol: false, lineStyle: { color: muted, type: "dashed", width: 1.2 },
+        tooltip: { show: false } },
+      { name: "Concentração real", type: "line", data: curva,
+        showSymbol: false, smooth: false,
+        lineStyle: { color: accent, width: 2.5 },
+        markPoint: d.corte === null ? undefined : {
+          symbol: "circle", symbolSize: 8,
+          itemStyle: { color: accent },
+          label: { show: true, position: "top", color: muted, fontSize: 11,
+            formatter: () => `${d.corte + 1} = ${linhas[d.corte].acumulado_pct}%` },
+          data: [{ coord: [d.corte + 1, linhas[d.corte].acumulado_pct] }] } },
+    ],
+  });
+  requestAnimationFrame(() => chart.resize());
+}
+
+function desenharConcentracaoLista(container, d) {
+  container.innerHTML = d.fornecedores.map((l, i) => `
+    <div class="barra-concentracao">
+      <span class="nome-concentracao" title="${esc(l.fornecedor)}">${esc(l.fornecedor)}</span>
+      <div class="fundo-concentracao">
+        <i style="width:${l.pct}%"></i>${i === d.corte
+          ? '<div class="limiar-concentracao"></div>' : ""}</div>
+      <span class="acum-concentracao">${l.n} · ${l.acumulado_pct}%</span>
+    </div>`).join("");
+}
+
+function desenharGraficoAnoPainel(el, porAno) {
+  if (!window.echarts || !el || !porAno.length) { if (el) el.innerHTML = ""; return; }
+  const s1 = _corTemaEchart("--s1", "#2a78d6");
+  const muted = _corTemaEchart("--muted", "#5b6066");
+  if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
+  const chart = echarts.init(el, null, { renderer: "svg" });
+  el.__echart = chart;
+  chart.setOption({
+    animation: false,
+    grid: { left: 40, right: 12, top: 12, bottom: 24 },
+    xAxis: { type: "category", data: porAno.map(p => p.ano),
+      axisLine: { lineStyle: { color: muted } } },
+    yAxis: { type: "value", splitLine: { lineStyle: { color: muted, opacity: .2 } } },
+    tooltip: { trigger: "axis" },
+    series: [{ type: "bar", data: porAno.map(p => p.n),
+      itemStyle: { color: s1, borderRadius: [3, 3, 0, 0] },
+      barMaxWidth: 48 }],
+  });
+}
+
+function desenharGraficoTipoPainel(el, materialServico) {
+  if (!window.echarts || !el || !materialServico.length)
+    { if (el) el.innerHTML = ""; return; }
+  const s1 = _corTemaEchart("--s1", "#2a78d6");
+  const s2 = _corTemaEchart("--s2", "#eb6834");
+  const muted = _corTemaEchart("--muted", "#5b6066");
+  const cores = [s1, s2, muted];
+  if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
+  const chart = echarts.init(el, null, { renderer: "svg" });
+  el.__echart = chart;
+  chart.setOption({
+    animation: false,
+    tooltip: { formatter: p => `${p.name}: ${p.value.toLocaleString("pt-BR")}
+      (${p.percent}%)` },
+    legend: { bottom: 0, textStyle: { color: muted, fontSize: 11 } },
+    series: [{ type: "pie", radius: ["40%", "68%"], center: ["50%", "44%"],
+      data: materialServico.map((m, i) => ({ name: m.tipo, value: m.n,
+        itemStyle: { color: cores[i % cores.length] } })),
+      label: { color: muted, fontSize: 11,
+        formatter: p => `${p.name}\n${p.percent}%` },
+      labelLine: { lineStyle: { color: muted } } }],
+  });
+}
 
 // ── municípios de referência — card em Configurações ────────────────────
 async function carregarMunicipiosReferencia() {

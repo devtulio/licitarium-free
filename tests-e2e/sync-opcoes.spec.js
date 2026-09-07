@@ -1,11 +1,12 @@
 const { test, expect } = require("@playwright/test");
 const { abrirApp } = require("./harness");
 
-test.beforeEach(async ({ page }) => {
-  await abrirApp(page);
-  // boot já dispara um sincronizar(false) automático — zera pra medir só
-  // as chamadas que o teste dispara
-  await page.evaluate(() => { window.__chamadas = []; });
+test.beforeEach(async ({ page }) => abrirApp(page));
+
+test("abrir o app sozinho não dispara sincronização — decide o usuário",
+    async ({ page }) => {
+  const chamadas = await page.evaluate(() => window.__chamadas);
+  expect(chamadas.some(c => c.metodo === "sincronizar")).toBe(false);
 });
 
 test("clique normal em Sincronizar não abre a modal", async ({ page }) => {

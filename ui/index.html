@@ -109,6 +109,57 @@
       <div id="p-economia" class="vista oculto"></div>
     </section>
     <section id="tela-precos" class="oculto" aria-label="Pesquisa de preços">
+      <div class="subabas" role="tablist" aria-label="Visões da pesquisa de preços">
+        <button data-vista-precos="pesquisar" class="on" role="tab"
+          aria-selected="true">Pesquisar</button>
+        <button data-vista-precos="situacao" role="tab"
+          aria-selected="false">Situação do banco</button>
+      </div>
+      <div id="precos-situacao" class="vista oculto">
+        <div class="kpis" id="precos-kpis">
+          <div class="card kpi"><div class="n" id="pk-itens">–</div>
+            <div class="l">itens no banco</div></div>
+          <div class="card kpi"><div class="n" id="pk-homologado">–</div>
+            <div class="l">com preço fechado</div></div>
+          <div class="card kpi"><div class="n" id="pk-municipios">–</div>
+            <div class="l">municípios no banco</div></div>
+          <div class="card kpi"><div class="n" id="pk-fornecedores">–</div>
+            <div class="l">fornecedores distintos</div></div>
+        </div>
+        <div class="grade-painel">
+          <div class="card" style="padding:16px">
+            <h3 class="tit-painel">Itens por ano</h3>
+            <div id="painel-grafico-ano" style="height:220px"></div>
+          </div>
+          <div class="card" style="padding:16px">
+            <h3 class="tit-painel">Material × serviço</h3>
+            <div id="painel-grafico-tipo" style="height:220px"></div>
+          </div>
+        </div>
+        <div class="topo-painel" style="margin-bottom:8px">
+          <h3 class="tit-painel" style="margin:0">Concentração de fornecedores</h3>
+          <select id="painel-concentracao-item" style="max-width:340px"></select>
+        </div>
+        <div id="painel-concentracao-aviso" class="aviso-concentracao"></div>
+        <div class="grade-painel">
+          <div class="card" style="padding:16px">
+            <div id="painel-concentracao-svg" style="height:220px"></div>
+            <div class="legenda-eixo-concentracao">fornecedores, do maior para o menor</div>
+          </div>
+          <div class="card" style="padding:16px" id="painel-concentracao-lista-card">
+            <div id="painel-concentracao-lista"></div>
+          </div>
+        </div>
+        <div class="grade-painel">
+          <div class="card" style="padding:16px" id="painel-municipios"></div>
+          <div class="card" style="padding:16px" id="painel-top-itens"></div>
+        </div>
+        <div class="grade-painel">
+          <div class="card" style="padding:16px" id="painel-fornecedores"></div>
+          <div class="card" style="padding:16px" id="painel-unidades"></div>
+        </div>
+      </div>
+      <div id="precos-pesquisar" class="vista">
       <div class="card precos oculto" id="precos-resumo"></div>
       <div class="filtros" id="filtros-precos">
         <input type="search" id="pr-busca" autocomplete="off"
@@ -142,6 +193,7 @@
           <span id="pr-pag-info" class="dim"></span>
           <button class="btn ghost" id="pr-pag-prox" aria-label="Próxima página">›</button>
         </div>
+      </div>
       </div>
     </section>
     <div class="filtros" id="filtros-lista">

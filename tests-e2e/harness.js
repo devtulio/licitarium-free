@@ -444,7 +444,41 @@ function scriptPonte(temaBanco = "portal") {
         { id: "erro", texto: "Preço com erro evidente de digitação" },
         { id: "outro", texto: "Outro motivo" },
       ],
-      painel_precos: async () => ({ itens: (DADOS.itens || []).length }),
+      painel_precos: async () => {
+        window.__chamadas.push({ metodo: "painel_precos" });
+        return window.__painelPrecos ?? {
+          total: 12, homologados: 9, pct_homologado: 75,
+          fornecedores: 3,
+          por_ano: [{ ano: 2025, n: 5 }, { ano: 2026, n: 7 }],
+          municipios: [
+            { nome: "Orindiúva", uf: "SP", referencia: false, itens: 8,
+              pct_homologado: 80 },
+            { nome: "Olímpia", uf: "SP", referencia: true, itens: 4,
+              pct_homologado: 60 },
+          ],
+          top_itens: [{ descricao: "PAPEL SULFITE A4", n: 6 },
+                      { descricao: "CANETA ESFEROGRAFICA AZUL", n: 3 }],
+          material_servico: [{ tipo: "Material", n: 10 },
+                              { tipo: "Serviço", n: 2 }],
+          fornecedores_top: [{ fornecedor: "Fornecedor A", n: 5 },
+                              { fornecedor: "Fornecedor B", n: 4 }],
+          unidades: [{ unidade: "UN", n: 7 }, { unidade: "CX", n: 5 }],
+        };
+      },
+      concentracao_fornecedores: async descricao => {
+        window.__chamadas.push({ metodo: "concentracao_fornecedores",
+                                 descricao });
+        return window.__concentracaoFornecedores ?? {
+          descricao, total: 6,
+          fornecedores: [
+            { fornecedor: "Fornecedor A", n: 4, pct: 66.7,
+              acumulado_pct: 66.7 },
+            { fornecedor: "Fornecedor B", n: 2, pct: 33.3,
+              acumulado_pct: 100 },
+          ],
+          corte: 0,
+        };
+      },
       listar_municipios_referencia: async () => {
         window.__chamadas.push({ metodo: "listar_municipios_referencia" });
         return window.__municipiosReferencia ?? [

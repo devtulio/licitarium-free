@@ -508,6 +508,41 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .bolinha-status.status-vermelho { background:var(--erro); }
 .bolinha-status.status-amarelo { background:var(--warn); }
 .bolinha-status.status-verde { background:var(--ok); }
+/* Situação do banco de preços (portado do Pretiarium Free, 2026-09-07) */
+#precos-situacao { display:flex; flex-direction:column; gap:16px; }
+#precos-kpis { grid-template-columns:repeat(4,1fr); margin-bottom:0; }
+#precos-kpis .kpi { cursor:default; }
+#precos-kpis .kpi:hover { border-color:var(--border); }
+.topo-painel { display:flex; justify-content:space-between; align-items:center; }
+.grade-painel { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.tit-painel { font-size:12.5px; color:var(--muted); font-weight:600;
+              letter-spacing:.04em; text-transform:uppercase;
+              margin-bottom:10px; }
+.lista-painel .linha { display:flex; justify-content:space-between;
+  gap:10px; padding:6px 0; border-bottom:1px solid var(--border); }
+.lista-painel .linha:last-child { border-bottom:none; }
+.lista-painel .rot { overflow:hidden; text-overflow:ellipsis;
+                      white-space:nowrap; }
+.aviso-concentracao { font-size:12.5px; margin-bottom:14px; }
+.aviso-concentracao.risco { color:var(--erro); }
+.aviso-concentracao.ok { color:var(--ok); }
+.aviso-concentracao b { color:var(--text); }
+.legenda-eixo-concentracao { font-size:11px; color:var(--muted);
+  text-align:center; margin-top:2px; }
+#painel-concentracao-lista { max-height:220px; overflow-y:auto; }
+.barra-concentracao { display:grid; grid-template-columns:1fr 1fr auto;
+  gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);
+  font-size:12px; }
+.barra-concentracao:last-child { border-bottom:none; }
+.nome-concentracao { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fundo-concentracao { position:relative; height:8px; background:var(--surface2);
+  border-radius:99px; overflow:hidden; }
+.fundo-concentracao i { display:block; height:100%; background:var(--accent);
+  border-radius:99px; }
+.limiar-concentracao { position:absolute; top:-4px; bottom:-4px; right:0;
+  width:2px; background:var(--erro); opacity:.55; }
+.acum-concentracao { color:var(--muted); font-variant-numeric:tabular-nums;
+  text-align:right; min-width:64px; font-size:11px; }
 /* Campo com rótulo próprio, empilhado. O placeholder não serve de rótulo:
    some no primeiro caractere digitado e leitor de tela não o anuncia
    (auditoria de interface, 2026-08-14). */

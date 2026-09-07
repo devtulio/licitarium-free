@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.49.0 — 2026-09-07
+
+**Situação do banco de preços + sync só por sua conta**
+
+Nova subaba **Situação do banco**, dentro de Preços: total de itens, %
+com preço fechado, municípios no banco (próprio e de referência),
+gráficos de itens por ano e material×serviço, rankings de itens/
+fornecedores/unidades mais frequentes, e concentração de fornecedores
+por item (curva + ranking) — "esse preço reflete o mercado, ou só um
+fornecedor dominante?". Portado do Pretiarium Free antes do
+arquivamento.
+
+O programa também **para de sincronizar sozinho ao abrir** — quem
+decide sincronizar agora é sempre o usuário, clicando em Sincronizar
+(mesmo comportamento que o Pretiarium Free sempre teve).
+
 ## 1.48.1 — 2026-09-07
 
 **Semáforo de status nos municípios de referência**
