@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.50.1 — 2026-09-07
+
+**Botão de descartar não tampa mais o processo**
+
+Na lista de itens da pesquisa de preços, o botão "✕" (descartar)
+usava o mesmo estilo de botão normal (padding grande) e espremia o
+número do processo pra fora da coluna. Botão compacto agora, e a
+coluna ganhou um pouco mais de espaço.
+
 ## 1.50.0 — 2026-09-07
 
 **Pesquisa de preços: gráficos, ordenação e seleção em lote**

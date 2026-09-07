@@ -276,7 +276,7 @@ nav.abas button.on { color:var(--accent); font-weight:600;
 .g-contratos    { grid-template-columns:var(--cols, 110px 1fr 100px 100px 110px 110px); }
 .g-atas         { grid-template-columns:var(--cols, 90px 210px 1fr 100px 100px 110px); }
 .g-pca          { grid-template-columns:var(--cols, 60px 1fr 150px 80px 110px); }
-.g-itens        { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 118px 212px 96px 70px); }
+.g-itens        { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 118px 212px 96px 88px); }
 /* cada modo da aba Preços acrescenta uma coluna de dinheiro entre o valor
    pago e o fornecedor, daí um padrão por variante. Todas leem o MESMO
    --cols: as variantes liam --cols-conteudo/-corrigido/-ambos, que nada
@@ -284,14 +284,24 @@ nav.abas button.on { color:var(--accent); font-weight:600;
    ainda corrompia a largura do modo base, porque a gravação era comum
    (auditoria, 2026-08-09). Hoje as larguras são guardadas por número de
    colunas, então cada modo tem as suas. */
-.g-itens.conteudo { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 110px 118px 190px 92px 66px); }
-.g-itens.corrigido { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 110px 118px 190px 92px 66px); }
-.g-itens.conteudo.corrigido { grid-template-columns:var(--cols, 26px minmax(0,1fr) 44px 54px 100px 100px 108px 160px 84px 60px); }
+.g-itens.conteudo { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 110px 118px 190px 92px 84px); }
+.g-itens.corrigido { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 110px 118px 190px 92px 84px); }
+.g-itens.conteudo.corrigido { grid-template-columns:var(--cols, 26px minmax(0,1fr) 44px 54px 100px 100px 108px 160px 84px 78px); }
 /* na aba Preços só a descrição quebra; o resto fica em uma linha.
    O cabeçalho fica de fora do overflow para não recortar a alça. */
 .g-itens > :nth-child(n+2) { white-space:nowrap; }
 .g-itens:not(.cab) > :nth-child(n+2) { overflow:hidden;
                                        text-overflow:ellipsis; }
+/* botão de descartar espremido contra o número do processo na coluna
+   estreita (achado do usuário, 2026-09-07): .btn.ghost tem padding de
+   botão normal (9px 18px) — compacto e redondo aqui, com o número numa
+   célula própria, não mais na mesma sequência de texto */
+.col-processo { display:flex; align-items:center; gap:6px; }
+.btn-descartar-item { flex:none; width:20px; height:20px; padding:0;
+  border-radius:50%; border:1px solid var(--border); background:transparent;
+  color:var(--muted); font-size:11px; line-height:1; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; }
+.btn-descartar-item:hover { color:var(--erro); border-color:var(--erro); }
 .precos { padding:12px 16px; margin-bottom:12px; }
 .precos h3 { font-size:12.5px; color:var(--muted); font-weight:600;
              letter-spacing:.04em; text-transform:uppercase;

@@ -14,6 +14,23 @@ async function buscarESelecionarTudo(page) {
   await page.waitForTimeout(100);
 }
 
+test("botão de descartar não tampa o número do processo (achado do usuário)",
+    async ({ page }) => {
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  const celula = page.locator("#pr-lista .linha:not(.cab) .col-processo").first();
+  const botao = celula.locator(".btn-descartar-item");
+  const numero = celula.locator("span");
+  // o botão de descartar é compacto (não usa mais o .btn.ghost de padding
+  // grande, que espremia o número do processo pra fora da coluna estreita)
+  const largura = await botao.evaluate(el =>
+    parseFloat(getComputedStyle(el).width));
+  expect(largura).toBeLessThanOrEqual(24);
+  await expect(numero).toHaveText(/\d+\/\d+/);
+  await expect(numero).toBeVisible();
+});
+
 test("gráficos de preço desenham: boxplot, série temporal e por município",
     async ({ page }) => {
   await buscarESelecionarTudo(page);
@@ -90,7 +107,7 @@ test("ordenar a lista de preços por clique manda ord/dir à ponte",
 
 test("arrastar a alça redimensiona a coluna de preços e persiste",
     async ({ page }) => {
-  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.setViewportSize({ width: 1400, height: 800 });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
@@ -106,8 +123,10 @@ test("arrastar a alça redimensiona a coluna de preços e persiste",
                         { steps: 5 });
   await page.mouse.up();
   const depois = await larguraDe(2);
-  expect(depois).toBeGreaterThan(antes + 30);
+  // a coluna Unid. é estreita e o flex (Descrição) tem piso de 170px —
+  // não cabem os 40px inteiros arrastados, mas tem que crescer de verdade
+  expect(depois).toBeGreaterThan(antes + 10);
   const salvo = await page.evaluate(() => window.__chamadas.filter(
     c => c.metodo === "set_config" && c.k === "colunas").pop());
-  expect(JSON.parse(salvo.v)["itens:8"][2]).toBeGreaterThan(antes + 30);
+  expect(JSON.parse(salvo.v)["itens:8"][2]).toBeGreaterThan(antes + 10);
 });

@@ -1738,10 +1738,10 @@ async function carregarPrecos() {
       <span class="dim" title="${esc(d.fornecedor_nome ?? "")}"
         >${esc(fornecedorCurto(d.fornecedor_nome))}</span>
       <span class="dim">${esc(d.municipio_nome ?? "–")}</span>
-      <span class="dim">
-        <button class="btn ghost" data-descartar="${esc(id)}"
-          title="Descartar este item da pesquisa">✕</button>
-        ${d.ano ?? ""}/${d.sequencial ?? ""}</span>
+      <span class="dim col-processo">
+        <button class="btn-descartar-item" data-descartar="${esc(id)}"
+          title="Descartar este item da pesquisa" aria-label="Descartar este item da pesquisa">✕</button>
+        <span>${d.ano ?? ""}/${d.sequencial ?? ""}</span></span>
     </div>`;
   }).join("");
   $("pr-lista").innerHTML = cab + (linhas || `<div class="vazio"><p>${
