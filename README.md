@@ -169,8 +169,10 @@ python licitarium.py
 
 Requisitos: Windows 10/11 com WebView2 (já incluído no Windows 11; no Windows 10,
 [instale o runtime](https://developer.microsoft.com/microsoft-edge/webview2/)).
-Duas dependências externas: `pywebview` (janela) e `openpyxl` (exportação em
-.xlsx) — todo o resto é biblioteca padrão do Python.
+Três dependências externas: `pywebview` (janela), `openpyxl` (exportação em
+.xlsx) e `motor_pncp` (HTTP resiliente contra o portal — retry, paralelismo
+adaptativo, disjuntor —, compartilhado com Licitarium Pro e Pretiarium Free)
+— todo o resto é biblioteca padrão do Python.
 
 **Python: use 3.12.** É a versão que o CI exercita e a que empacota o exe. O
 código não usa sintaxe posterior ao 3.8, então versões mais antigas provavelmente

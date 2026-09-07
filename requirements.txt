@@ -6,3 +6,9 @@ pywebview>=5.0,<7
 # exportação em .xlsx (troca do CSV cru, pedido do usuário 2026-08-29) —
 # pura Python, sem dependência nativa/compilação
 openpyxl>=3.1,<4
+# motor de sync compartilhado com Licitarium Pro e Pretiarium Free (que já
+# o usa em produção desde 2026-09-05) — HTTP resiliente contra o portal
+# (retry, paralelismo adaptativo, disjuntor) fica num lugar só, não
+# duplicado em cada sistema. Tag pinada, não `main` — mesma prática do
+# teto do pywebview acima.
+motor_pncp @ git+https://github.com/devtulio/motor-pncp.git@v0.4.1

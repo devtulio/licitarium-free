@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.46.2 — 2026-09-07
+
+**Motor de sync trocado pelo pacote compartilhado `motor_pncp`**
+
+Sem mudança de comportamento visível — é a Fase 1 de um trabalho maior
+(reabsorver a pesquisa de preços no Free, decisão do usuário depois de
+notar dois motores de sync quase idênticos rodando em paralelo entre
+Licitarium Free e Pretiarium Free). O HTTP resiliente contra o portal
+(retry, paralelismo adaptativo, disjuntor) saiu do `pncp.py` e virou o
+pacote `motor_pncp` (extraído do Pretiarium Free em 2026-09-05, tag
+`v0.4.1`), agora compartilhado entre os três sistemas da família. `pncp.py`
+fica só com schema, upsert e orquestração das fases.
+
+De quebra, fecha uma auditoria real (`relatorio_correcoes_motor_sync_pncp.md`):
+travamentos de 20-38min sem erro nenhum, causados por exceções que
+escapavam do tratamento e um `ThreadPoolExecutor` que não fechava direito
+numa falha. A correção do IPCA também ficou mais leve — antes rebaixava a
+série inteira a cada sincronização; agora só os últimos 60 dias, depois
+da primeira vez.
+
 ## 1.46.1 — 2026-09-04
 
 **Gráfico do Limite anual de dispensa: barra na largura do cartão, texto abaixo**
