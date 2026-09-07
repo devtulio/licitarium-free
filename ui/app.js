@@ -1978,14 +1978,22 @@ async function carregarMunicipiosReferencia() {
   if (!api.listar_municipios_referencia) return;
   const lista = await api.listar_municipios_referencia();
   lista.sort(ORDENS_REFERENCIA[$("ref-ordem").value]);
+  // a bolinha fala de COBERTURA da coleta (sincronizou tudo?), não de ter
+  // preço pronto pra pesquisa — uma cidade pequena pode estar 100%
+  // sincronizada (verde) e ainda não ter nenhum item homologado no PNCP;
+  // por isso o texto deixa as duas coisas separadas, nunca uma no lugar
+  // da outra (achado do usuário, 2026-09-07)
   $("cfg-referencia").innerHTML = lista.length ? lista.map(m =>
     `<div class="orgrow"><span><span class="bolinha-status status-${m.status}"
-         title="${{vermelho: "nunca sincronizado", amarelo: "itens pendentes",
-                  verde: "completo"}[m.status]}"></span>${esc(m.nome)} — ${esc(m.uf)}
+         title="Coleta: ${{vermelho: "nunca sincronizada",
+                  amarelo: "sincronização parcial", verde: "sincronização completa"
+                  }[m.status]}"></span>${esc(m.nome)} — ${esc(m.uf)}
        <small>IBGE ${esc(m.ibge)} · ${m.itens
          ? `${m.itens.toLocaleString("pt-BR")} ${m.itens === 1 ? "preço" : "preços"} no banco`
            + ` · ocupa ~${(m.mb || 0).toLocaleString("pt-BR")} MB`
-         : "ainda sem preços — aguardando homologação no PNCP"}</small></span>
+         : m.status === "verde"
+           ? "coleta completa, mas nenhum item homologado ainda no PNCP"
+           : "ainda sem preços — aguardando sincronização"}</small></span>
      <button class="btn ghost" data-remover-ref="${esc(m.ibge)}">Remover</button>
      </div>`).join("")
     : `<div class="dim">Nenhum município de referência cadastrado.</div>`;

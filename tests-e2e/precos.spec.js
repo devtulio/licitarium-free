@@ -85,6 +85,8 @@ test("Municípios de referência: ordenar e persistir a escolha",
         status: "verde" },
       { ibge: "3550308", nome: "Ábaco", uf: "SP", itens: 0, mb: 0,
         status: "vermelho" },
+      { ibge: "3500204", nome: "Adolfo", uf: "SP", itens: 0, mb: 0,
+        status: "verde" },
     ];
   });
   await page.locator("#btn-config").click();
@@ -95,7 +97,11 @@ test("Municípios de referência: ordenar e persistir a escolha",
     expect.arrayContaining([expect.stringContaining("Zebra")]));
   await expect((await nomes())[0]).toContain("Zebra");
   await expect(page.locator("#cfg-referencia")).toContainText(
-    "ainda sem preços — aguardando homologação no PNCP");
+    "ainda sem preços — aguardando sincronização");
+  // coleta completa (verde) mas sem homologação ainda: mensagem não pode
+  // confundir "sincronizou tudo" com "já tem preço pronto"
+  await expect(page.locator("#cfg-referencia")).toContainText(
+    "coleta completa, mas nenhum item homologado ainda no PNCP");
   // trocar pra nome (A-Z)
   await page.locator("#ref-ordem").selectOption("nome");
   await expect((await nomes())[0]).toContain("Ábaco");

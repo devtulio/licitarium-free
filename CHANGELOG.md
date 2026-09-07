@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.49.3 — 2026-09-07
+
+**Sincronizado ≠ tem preço pronto**
+
+No card de municípios de referência, deixa claro que a bolinha de
+status fala da COLETA (sincronizou tudo?), não de já ter preço pronto
+pra pesquisa: uma cidade pode estar 100% sincronizada e ainda não ter
+nenhum item homologado no PNCP. Mensagem nova avisa exatamente isso em
+vez de confundir as duas coisas.
+
 ## 1.49.2 — 2026-09-07
 
 **Atualização de documentação**
