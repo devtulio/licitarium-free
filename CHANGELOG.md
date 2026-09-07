@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.48.1 — 2026-09-07
+
+**Semáforo de status nos municípios de referência**
+
+Completa o que a 1.48.0 deixou de fora: o card de municípios de
+referência em Configurações ganha a bolinha colorida (vermelho/
+âmbar/verde) que já existia no seletor de município da modal de
+sincronizar — mesma regra dos dois lugares.
+
 ## 1.48.0 — 2026-09-07
 
 **Escolher o que sincronizar**

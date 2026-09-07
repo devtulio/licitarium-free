@@ -1790,7 +1790,9 @@ async function carregarMunicipiosReferencia() {
   if (!api.listar_municipios_referencia) return;
   const lista = await api.listar_municipios_referencia();
   $("cfg-referencia").innerHTML = lista.length ? lista.map(m =>
-    `<div class="orgrow"><span>${esc(m.nome)} — ${esc(m.uf)}
+    `<div class="orgrow"><span><span class="bolinha-status status-${m.status}"
+         title="${{vermelho: "nunca sincronizado", amarelo: "itens pendentes",
+                  verde: "completo"}[m.status]}"></span>${esc(m.nome)} — ${esc(m.uf)}
        <small>${m.itens} preço(s) no banco · ${m.mb} MB</small></span>
      <button class="btn ghost" data-remover-ref="${esc(m.ibge)}">Remover</button>
      </div>`).join("")

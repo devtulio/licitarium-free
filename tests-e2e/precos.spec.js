@@ -60,6 +60,9 @@ test("Municípios de referência: listar, estimar e adicionar",
   async ({ page }) => {
   await page.locator("#btn-config").click();
   await expect(page.locator("#cfg-referencia")).toContainText("Olímpia");
+  // semáforo de status (portado do Pretiarium Free): verde = já sincronizou
+  await expect(page.locator("#cfg-referencia .bolinha-status"))
+    .toHaveClass(/status-verde/);
   await page.locator("#ref-uf").selectOption("SP");
   await page.locator("#ref-busca").fill("Olímpia");
   await expect(page.locator("#ref-sugestoes button[data-c]").first())

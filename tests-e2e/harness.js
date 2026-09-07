@@ -449,7 +449,7 @@ function scriptPonte(temaBanco = "portal") {
         window.__chamadas.push({ metodo: "listar_municipios_referencia" });
         return window.__municipiosReferencia ?? [
           { ibge: "3533908", nome: "Olímpia", uf: "SP", itens: 340, mb: 4.2,
-            status: "ok" },
+            status: "verde" },
         ];
       },
       opcoes_sync: async () => {

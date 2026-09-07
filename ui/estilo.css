@@ -503,6 +503,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
   border-radius:var(--radius); cursor:pointer; font-size:13px; }
 .opcao-sync:hover { background:var(--surface2); }
 .opcao-sync input { margin-top:3px; flex:none; }
+.bolinha-status { display:inline-block; width:8px; height:8px;
+  border-radius:50%; margin-right:7px; vertical-align:middle; }
+.bolinha-status.status-vermelho { background:var(--erro); }
+.bolinha-status.status-amarelo { background:var(--warn); }
+.bolinha-status.status-verde { background:var(--ok); }
 /* Campo com rótulo próprio, empilhado. O placeholder não serve de rótulo:
    some no primeiro caractere digitado e leitor de tela não o anuncia
    (auditoria de interface, 2026-08-14). */
