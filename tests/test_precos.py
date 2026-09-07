@@ -271,6 +271,31 @@ def test_estatisticas_preco(api):
     assert r2["n"] == 2 and r2["maximo"] == 25.0
 
 
+def test_estatisticas_preco_respeita_filtro_de_unidade(api):
+    # achado 2026-09-07: sem `unidade`, o resumo olhava o termo inteiro
+    # mesmo com o filtro "Resma" ativo na tela — A#2 (CX) entrava junto
+    r = api.estatisticas_preco("papel a4", unidade="Resma")
+    assert r["n"] == 2          # A#1 e C#1 (RESMA) — A#2 (CX) fica fora
+    assert r["maximo"] == 25.0
+    assert r["total"] == 2
+
+
+def test_selecionar_todos_precos_respeita_filtro_de_unidade(api):
+    r = api.selecionar_todos_precos("papel a4", unidade="Resma")
+    assert r == {"ok": True, "n": 2}
+    assert set(api.selecionados("papel a4")) == {"A#1", "C#1"}
+
+
+def test_desselecionar_preco_sem_item_respeita_filtro_de_unidade(api):
+    # marca tudo (RESMA + CX), depois desmarca só o filtro "Resma" ativo
+    # — o item de outra unidade selecionado antes não pode sumir junto
+    api.selecionar_preco("papel a4", "A#1")
+    api.selecionar_preco("papel a4", "A#2")
+    api.selecionar_preco("papel a4", "C#1")
+    assert api.desselecionar_preco("papel a4", unidade="Resma") == {"ok": True}
+    assert api.selecionados("papel a4") == ["A#2"]
+
+
 def test_dados_grafico_precos(api):
     # sem seleção prévia, exigir_selecao recusa (mensagem de erro, não 500)
     r = api.dados_grafico_precos("papel a4")

@@ -165,10 +165,10 @@ function scriptPonte(temaBanco = "portal") {
         return { itens, total: itens.length };
       },
       estatisticas_preco: async (busca, ano, origem, excluidos,
-                                 porConteudo, corrigir, incluidos) => {
+                                 porConteudo, corrigir, incluidos, unidade) => {
         window.__chamadas.push({ metodo: "estatisticas_preco", busca, ano,
                                  origem, excluidos, porConteudo, corrigir,
-                                 incluidos });
+                                 incluidos, unidade });
         if (!/papel/i.test(busca || "")) return null;
         const total = (DADOS.itens || []).length;
         if (incluidos && !incluidos.length)
@@ -264,14 +264,22 @@ function scriptPonte(temaBanco = "portal") {
         window.__chamadas.push({ metodo: "selecionar_preco", busca, item_id });
         return { ok: true };
       },
-      desselecionar_preco: async (busca, item_id) => {
+      desselecionar_preco: async (busca, item_id, ano, origem, unidade) => {
         window.__chamadas.push({ metodo: "desselecionar_preco", busca,
-                                 item_id });
+                                 item_id, ano, origem, unidade });
+        // sem item_id é "desmarcar tudo do recorte atual" — mantém
+        // window.__selecionados coerente pro checkbox de cabeçalho não
+        // entrar em loop (marca → re-lê seleção vazia → desmarca de novo)
+        if (!item_id && window.__selecionados)
+          window.__selecionados[String(busca).toLowerCase().trim()] = [];
         return { ok: true };
       },
-      selecionar_todos_precos: async (busca, ano, origem) => {
+      selecionar_todos_precos: async (busca, ano, origem, unidade) => {
         window.__chamadas.push({ metodo: "selecionar_todos_precos", busca,
-                                 ano, origem });
+                                 ano, origem, unidade });
+        if (window.__selecionados)
+          window.__selecionados[String(busca).toLowerCase().trim()] =
+            (DADOS.itens || []).map(i => i.id);
         return { ok: true, n: (DADOS.itens || []).length };
       },
       fornecedores_pesquisa_precos: async (busca, ano, origem) => {

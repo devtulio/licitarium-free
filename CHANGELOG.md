@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.52.0 — 2026-09-07
+
+**Redesenho da seleção na pesquisa de preços**
+
+Item não marcado pra pesquisa oficial não some mais sem destino: a
+tela ganhou uma seção fixa **"Comparação com municípios de
+referência"**, sempre visível, com todos os itens da pesquisa
+(marcados ou não) comparados entre municípios — mesmo espírito do
+"Comparação de Preços vs Vizinhos" do Licitarium Pro: o sistema
+propõe o sinal de sobrepreço, você confirma ou descarta (motivo
+sempre exigido).
+
+O botão "Selecionar todos" virou um checkbox no cabeçalho da lista,
+que marca/desmarca exatamente o que a pesquisa + os filtros ativos
+trazem (ano, órgão, unidade, só homologados) — antes, "Selecionar
+todos" e o resumo estatístico ignoravam o filtro de unidade e
+operavam sobre o termo inteiro.
+
 ## 1.51.1 — 2026-09-07
 
 **Motor de sync atualizado (motor_pncp v0.4.1 → v0.4.2)**

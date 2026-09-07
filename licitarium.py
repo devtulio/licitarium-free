@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.51.1"
+VERSAO = "1.52.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -599,9 +599,14 @@ def _titulo_impressao_detalhe(db, tipo, d):
     return None
 
 
-def _where_pesquisa_precos(busca, ano=None, origem=None):
-    """Mesmo recorte de `estatisticas_preco` e `classificar_por_unidade`:
-    o que entra na pesquisa de preços para um termo, sem olhar descarte."""
+def _where_pesquisa_precos(busca, ano=None, origem=None, unidade=None):
+    """Mesmo recorte de `estatisticas_preco` e `selecionar_todos_precos`:
+    o que entra na pesquisa de preços para um termo, sem olhar descarte.
+
+    `unidade` (2026-09-07): antes só `api.listar` filtrava por unidade —
+    "selecionar todos" e o resumo estatístico ignoravam o filtro da tela
+    e operavam sobre o termo inteiro. Mesmo predicado que `listar` já usa
+    (`unidade_canonica`, função SQL registrada em `abrir_db`)."""
     where = ["valor_unitario_homologado IS NOT NULL"]
     args = []
     termo = _termo_fts(busca)
@@ -617,6 +622,9 @@ def _where_pesquisa_precos(busca, ano=None, origem=None):
         args.append(ano)
     if origem == "proprio":
         where.append("referencia=0")
+    if unidade:
+        where.append("unidade_canonica(unidade)=?")
+        args.append(unidade)
     return where, args
 
 
@@ -1510,8 +1518,12 @@ class Api:
         finally:
             db.close()
 
-    def desselecionar_preco(self, busca, item_id=None):
-        """Tira um item da seleção — ou todos, se não vier item."""
+    def desselecionar_preco(self, busca, item_id=None, ano=None, origem=None,
+                            unidade=None):
+        """Tira um item da seleção — ou todos do recorte atual (termo +
+        filtros), se não vier item. `unidade` (2026-09-07): desmarcar o
+        checkbox geral com um filtro de unidade ativo só limpa os itens
+        daquela unidade — não apaga seleção feita fora do filtro atual."""
         termo = relatorios.chave_termo(busca)
         if not termo:
             return {"ok": False}
@@ -1521,6 +1533,17 @@ class Api:
                 db.execute("DELETE FROM precos_selecionados"
                            " WHERE termo=? AND item_id=?",
                            (termo, str(item_id)))
+            elif unidade or ano or origem:
+                where, args = _where_pesquisa_precos(busca, ano, origem,
+                                                     unidade)
+                ids = [r[0] for r in db.execute(
+                    "SELECT id FROM itens WHERE " + " AND ".join(where),
+                    args).fetchall()]
+                for grupo in relatorios._blocos(ids):
+                    db.execute(
+                        "DELETE FROM precos_selecionados WHERE termo=?"
+                        f" AND item_id IN ({','.join('?' * len(grupo))})",
+                        (termo, *grupo))
             else:
                 db.execute("DELETE FROM precos_selecionados WHERE termo=?",
                            (termo,))
@@ -1529,13 +1552,16 @@ class Api:
         finally:
             db.close()
 
-    def selecionar_todos_precos(self, busca, ano=None, origem=None):
+    def selecionar_todos_precos(self, busca, ano=None, origem=None,
+                                unidade=None):
         """Marca tudo que a busca traz — sobre o recorte inteiro
-        (termo/ano/origem), não só a página visível."""
+        (termo/ano/origem/unidade), não só a página visível. `unidade`
+        (2026-09-07): antes ignorado aqui — "selecionar todos" com o
+        filtro "Kg" ativo selecionava TUDO do termo, não só o Kg."""
         termo = relatorios.chave_termo(busca)
         if not termo:
             return {"ok": False}
-        where, args = _where_pesquisa_precos(busca, ano, origem)
+        where, args = _where_pesquisa_precos(busca, ano, origem, unidade)
         db = abrir_db()
         try:
             ids = [r[0] for r in db.execute(
@@ -1555,13 +1581,19 @@ class Api:
 
     def estatisticas_preco(self, busca, ano=None, origem=None,
                            excluidos=None, por_conteudo=False,
-                           corrigir=False, incluidos=None):
+                           corrigir=False, incluidos=None, unidade=None):
         """Resumo do valor unitário homologado para um termo — a resposta de
         'quanto pagamos por isso?' que instrui a pesquisa de preços.
+
+        `unidade` (2026-09-07): sem isso, o resumo/comparação com
+        vizinhos ignorava o filtro de unidade da tela e olhava o termo
+        inteiro. `incluidos=None` (não `[]`) devolve a pesquisa inteira
+        (já filtrada por `unidade`), sem olhar seleção — é o que
+        alimenta a comparação com municípios de referência.
         """
         if not (busca or "").strip():
             return None
-        where0, args0 = _where_pesquisa_precos(busca, ano, origem)
+        where0, args0 = _where_pesquisa_precos(busca, ano, origem, unidade)
         db0 = abrir_db()
         try:
             total = db0.execute(
@@ -1571,7 +1603,7 @@ class Api:
             db0.close()
         if incluidos is not None and not incluidos:
             return {"n": 0, "nada_selecionado": True, "total": total}
-        where, args = _where_pesquisa_precos(busca, ano, origem)
+        where, args = _where_pesquisa_precos(busca, ano, origem, unidade)
         for grupo in relatorios._blocos(excluidos):
             where.append("id NOT IN (%s)" % ",".join("?" * len(grupo)))
             args += grupo

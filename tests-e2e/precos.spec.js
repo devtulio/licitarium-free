@@ -13,6 +13,7 @@ test("abrir a aba Preços esconde as outras telas", async ({ page }) => {
 
 test("buscar um termo lista os itens e mostra o resumo estatístico",
   async ({ page }) => {
+  await page.evaluate(() => { window.__selecionados = {}; });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);   // debounce da busca
@@ -21,7 +22,7 @@ test("buscar um termo lista os itens e mostra o resumo estatístico",
   await expect(page.locator("#precos-resumo")).toBeVisible();
   await expect(page.locator("#precos-resumo")).toContainText("selecionados");
 
-  await page.locator("#pr-selecionar-todos").click();
+  await page.locator("#pr-selecionar-cabecalho").check();
   await page.waitForTimeout(100);
   await expect(page.locator("#precos-resumo")).toContainText("mediana");
 });

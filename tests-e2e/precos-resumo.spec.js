@@ -7,10 +7,15 @@ test.beforeEach(async ({ page }) => abrirApp(page));
 // devolve o objeto de estatísticas completo (itens/fora_da_curva/
 // por_municipio) — mesmo gatilho que os testes já existentes usam
 async function buscarESelecionarTudo(page) {
+  // fresca, sem nada marcado — o mock por padrão devolve "tudo
+  // selecionado" (atalho pra não reescrever todo teste que não é sobre
+  // seleção), então zera aqui pra exercitar o checkbox de cabeçalho de
+  // verdade (senão ele já nasce marcado e .check() vira no-op)
+  await page.evaluate(() => { window.__selecionados = {}; });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
-  await page.locator("#pr-selecionar-todos").click();
+  await page.locator("#pr-selecionar-cabecalho").check();
   await page.waitForTimeout(100);
 }
 
@@ -129,4 +134,66 @@ test("arrastar a alça redimensiona a coluna de preços e persiste",
   const salvo = await page.evaluate(() => window.__chamadas.filter(
     c => c.metodo === "set_config" && c.k === "colunas").pop());
   expect(JSON.parse(salvo.v)["itens:8"][2]).toBeGreaterThan(antes + 10);
+});
+
+test("checkbox de cabeçalho marca tudo respeitando o filtro de unidade ativo",
+    async ({ page }) => {
+  await page.evaluate(() => { window.__selecionados = {}; });
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await page.locator("#pr-unidade").selectOption("Caixa");
+  await page.waitForTimeout(100);
+  await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
+  const chamada = await page.evaluate(() => window.__chamadas
+    .find(c => c.metodo === "selecionar_todos_precos"));
+  expect(chamada.unidade).toBe("Caixa");
+});
+
+test("desmarcar o checkbox de cabeçalho limpa só o recorte filtrado",
+    async ({ page }) => {
+  await buscarESelecionarTudo(page);
+  await page.locator("#pr-unidade").selectOption("Caixa");
+  await page.waitForTimeout(100);
+  await page.locator("#pr-selecionar-cabecalho").uncheck();
+  await page.waitForTimeout(100);
+  const chamada = await page.evaluate(() => window.__chamadas
+    .filter(c => c.metodo === "desselecionar_preco").pop());
+  expect(chamada.item_id).toBeFalsy();
+  expect(chamada.unidade).toBe("Caixa");
+});
+
+test("comparação com municípios de referência aparece mesmo sem nada selecionado",
+    async ({ page }) => {
+  await page.evaluate(() => { window.__selecionados = {}; });
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  // resumo (seleção) ainda vazio — comparação com vizinhos já mostra dado
+  await expect(page.locator("#precos-resumo")).toContainText(
+    "Nenhum item selecionado");
+  await expect(page.locator("#precos-vizinhos")).toBeVisible();
+  await expect(page.locator("#precos-vizinhos")).toContainText(
+    "Comparação com municípios de referência");
+  await expect(page.locator("#precos-vizinhos-grafico svg")).toBeVisible();
+  const chamada = await page.evaluate(() => window.__chamadas
+    .filter(c => c.metodo === "estatisticas_preco").pop());
+  expect(chamada.incluidos).toBeNull();
+});
+
+test("descartar um sinal na comparação com vizinhos exige motivo",
+    async ({ page }) => {
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await expect(page.locator("#precos-vizinhos")).toContainText("preço destoa");
+  await page.locator("#pr-descartar-sinal-vizinhos").click();
+  await expect(page.locator("#veu-descarte")).toBeVisible();
+  await page.locator("#desc-motivo").selectOption("erro");
+  await page.locator("#desc-confirmar").click();
+  const chamadas = await page.evaluate(() => window.__chamadas
+    .filter(c => c.metodo === "descartar_preco"));
+  expect(chamadas.map(c => c.item_id)).toEqual(["X-3#10"]);
+  expect(chamadas[0].motivo).toBe("erro");
 });
