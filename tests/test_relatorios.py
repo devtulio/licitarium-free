@@ -418,6 +418,44 @@ def test_fracionamento(db, tmp_path):
     assert r["xlsx"] and Path(r["xlsx"]).exists()
 
 
+def test_cobertura(db, tmp_path):
+    """Portado do Pretiarium Free: saúde do PIPELINE de coleta por
+    município (contratação tem itens em dia?), diferente de
+    dados_banco_precos (esse mede PREÇO FECHADO)."""
+    db.execute("INSERT INTO config (chave, valor) VALUES"
+               " ('municipio_ibge','1'), ('municipio_nome','Próprio'),"
+               " ('municipio_uf','SP')")
+    db.execute("INSERT INTO municipios_referencia (ibge, nome, uf)"
+               " VALUES ('2','Completa','SP'), ('3','Pendente','SP'),"
+               " ('4','SemDados','SP')")
+    # próprio (1): 1 contratação completa. Completa (2): 1 completa.
+    # Pendente (3): 1 completa + 1 com itens desatualizados.
+    # SemDados (4): nenhuma contratação — só aparece por estar na lista.
+    db.executemany(
+        "UPDATE contratacoes SET municipio_ibge=?, itens_versao=?,"
+        " data_atualizacao=? WHERE numero_controle=?",
+        [("1", "v1", "v1", "A"),
+         ("2", "v1", "v1", "B"),
+         ("3", "v1", "v1", "C")])
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " modalidade_nome, objeto, municipio_ibge, itens_versao,"
+        " data_atualizacao, raw) VALUES"
+        " ('D',2026,3,'Pregão','Pendente','3','v1','v2','{}')")
+    db.commit()
+    d = relatorios.dados_cobertura(db)
+    assert d["total_municipios"] == 4
+    assert d["total_contratacoes"] == 4
+    assert {m["nome"] for m in d["completos"]} == {"Próprio", "Completa"}
+    assert [m["nome"] for m in d["pendentes"]] == ["Pendente"]
+    assert d["pendentes"][0]["pendentes"] == 1
+    assert {m["nome"] for m in d["sem_dados"]} == {"SemDados"}
+    r = relatorios.gerar(db, "cobertura", {}, "Testópolis", "SP", tmp_path)
+    html = Path(r["html"]).read_text(encoding="utf-8")
+    assert "Cobertura da Coleta" in html and "Pendente" in html
+    assert r["xlsx"] is None
+
+
 def test_fracionamento_tem_o_medidor_de_limite(db, tmp_path):
     """Pedido do usuário (2026-08-08): a tabela já tinha o farol em texto
     ("ACIMA DO LIMITE"/"Atenção") — o gráfico (porta de
@@ -868,15 +906,17 @@ def test_moeda_nao_numerica_nao_derruba_o_relatorio():
 
 
 
-def test_categoria_relatorio_cobre_os_oito_tipos_em_quatro_cores():
+def test_categoria_relatorio_cobre_os_nove_tipos_em_cinco_cores():
     """Selo de procedência: cada tipo de relatório tem categoria e cor
-    (Cadastral/Analítico/Vigilância/Planejamento). A pesquisa de preços
-    voltou ao Free (2026-09-07) — só "comparados" (Pro) segue de fora."""
+    (Cadastral/Analítico/Vigilância/Planejamento/Operacional). A pesquisa
+    de preços voltou ao Free (2026-09-07), a cobertura da coleta também
+    (portada do Pretiarium Free) — só "comparados" (Pro) segue de fora."""
     tipos = {"contratacoes", "contratos", "atas", "executivo", "economia",
-             "fracionamento", "minuta_pca", "precos"}
+             "fracionamento", "minuta_pca", "precos", "cobertura"}
     assert set(relatorios.CATEGORIA_RELATORIO) == tipos
     assert "comparados" not in relatorios.CATEGORIA_RELATORIO
     cores = {cor for _, cor in relatorios.CATEGORIA_RELATORIO.values()}
-    assert len(cores) == 4
+    assert len(cores) == 5
     rotulos = {r for r, _ in relatorios.CATEGORIA_RELATORIO.values()}
-    assert rotulos == {"Cadastral", "Analítico", "Vigilância", "Planejamento"}
+    assert rotulos == {"Cadastral", "Analítico", "Vigilância", "Planejamento",
+                        "Operacional"}

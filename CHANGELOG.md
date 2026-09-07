@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.51.0 — 2026-09-07
+
+**Relatório de cobertura da coleta**
+
+Novo botão em Configurações → Municípios de referência: "Relatório de
+cobertura da coleta" — retrato do PIPELINE de sincronização por
+município (completo, pendente ou sem nenhuma contratação ainda),
+diferente da subaba "Situação do banco" (que mede preço fechado).
+Portado do Pretiarium Free.
+
 ## 1.50.1 — 2026-09-07
 
 **Botão de descartar não tampa mais o processo**

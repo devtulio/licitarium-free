@@ -2433,6 +2433,16 @@ const ORDENS_REFERENCIA = {
   nome: (a, b) => a.nome.localeCompare(b.nome, "pt-BR"),
   itens: (a, b) => (b.itens || 0) - (a.itens || 0),
 };
+// cobertura da coleta por município — mesmo mecanismo do Painel (abre no
+// navegador via gerar_relatorio), sem gráfico nenhum pra desenhar antes
+$("btn-cobertura")?.addEventListener("click", async () => {
+  const btn = $("btn-cobertura");
+  btn.disabled = true;
+  const r = await api.gerar_relatorio("cobertura");
+  btn.disabled = false;
+  if (!r.ok && r.erro) alert(r.erro);
+});
+
 $("ref-ordem")?.addEventListener("change", () => {
   api.set_config("ref_ordem", $("ref-ordem").value);
   carregarMunicipiosReferencia();

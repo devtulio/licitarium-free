@@ -75,6 +75,15 @@ test("Municípios de referência: listar, estimar e adicionar",
     .toBe(true);
 });
 
+test("relatório de cobertura da coleta abre pela ponte",
+  async ({ page }) => {
+  await page.locator("#btn-config").click();
+  await page.locator("#btn-cobertura").click();
+  const chamada = await page.evaluate(() => window.__chamadas
+    .find(c => c.metodo === "gerar_relatorio" && c.tipo === "cobertura"));
+  expect(chamada).toBeTruthy();
+});
+
 test("Municípios de referência: ordenar e persistir a escolha",
   async ({ page }) => {
   await page.evaluate(() => {

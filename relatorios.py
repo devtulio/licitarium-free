@@ -29,7 +29,8 @@ TITULOS = {"contratacoes": "Relação de Contratações",
            "economia": "Economia e Comparativos por Modalidade e Categoria",
            "fracionamento": "Alerta de Fracionamento — Dispensas × Limites",
            "minuta_pca": "Minuta do Plano de Contratações Anual",
-           "precos": "Pesquisa de Preços — Histórico de Contratações"}
+           "precos": "Pesquisa de Preços — Histórico de Contratações",
+           "cobertura": "Cobertura da Coleta — Municípios"}
 
 # Valores do art. 75, I e II, da Lei 14.133/2021 conforme Decreto de
 # atualização — parametrizáveis nas configurações (confira o decreto vigente).
@@ -1635,6 +1636,76 @@ def dados_banco_precos(db):
             "fornecedores_top": fornecedores_top, "unidades": unidades}
 
 
+def dados_cobertura(db):
+    """Saúde da coleta por município — "quais cidades estão 100%, quais têm
+    problema?" Não é o mesmo retrato de `dados_banco_precos` (esse mede
+    quanto já tem PREÇO FECHADO); aqui é sobre o PIPELINE — quantas
+    contratações já vieram e quantas ainda esperam a fase de itens do
+    `motor_pncp`, independente de já ter ou não fornecedor homologado no
+    PNCP. Portado do Pretiarium Free, 2026-09-07.
+
+    completo = toda contratação do município já tem itens em dia;
+    pendente = há contratação com `itens_versao` desatualizado (mesmo
+    critério do `WHERE` em `pncp.sync_itens`); sem_dados = está na lista
+    de referência, mas o PNCP ainda não devolveu nenhuma contratação.
+    """
+    proprio_ibge = db.execute(
+        "SELECT valor FROM config WHERE chave='municipio_ibge'").fetchone()
+    proprio_ibge = proprio_ibge[0] if proprio_ibge else None
+    proprio_nome = db.execute(
+        "SELECT valor FROM config WHERE chave='municipio_nome'").fetchone()
+    proprio_uf = db.execute(
+        "SELECT valor FROM config WHERE chave='municipio_uf'").fetchone()
+
+    nomes = {}
+    if proprio_ibge:
+        nomes[proprio_ibge] = (
+            proprio_nome[0] if proprio_nome else proprio_ibge,
+            proprio_uf[0] if proprio_uf else "")
+    for r in db.execute("SELECT ibge, nome, uf FROM municipios_referencia"):
+        nomes[r[0]] = (r[1], r[2])
+
+    contagens = {r[0]: (r[1], r[2]) for r in db.execute(
+        "SELECT municipio_ibge, COUNT(*),"
+        " SUM(CASE WHEN itens_versao IS NULL"
+        " OR itens_versao <> data_atualizacao THEN 1 ELSE 0 END)"
+        " FROM contratacoes WHERE municipio_ibge IS NOT NULL GROUP BY 1")}
+
+    municipios = []
+    for ibge, (nome, uf) in nomes.items():
+        total, pendentes = contagens.get(ibge, (0, 0))
+        sincronizadas = total - pendentes
+        if total == 0:
+            status = "sem_dados"
+        elif pendentes == 0:
+            status = "completo"
+        else:
+            status = "pendente"
+        municipios.append({
+            "ibge": ibge, "nome": nome, "uf": uf,
+            "propria": ibge == proprio_ibge,
+            "total": total, "pendentes": pendentes,
+            "sincronizadas": sincronizadas,
+            "pct": round(sincronizadas / total * 100, 1) if total else None,
+            "status": status})
+
+    # pendentes primeiro (o que precisa de atenção), ordenado pelo que
+    # falta mais; sem_dados depois; completos por último
+    ordem = {"pendente": 0, "sem_dados": 1, "completo": 2}
+    municipios.sort(key=lambda m: (
+        ordem[m["status"]],
+        -m["pendentes"] if m["status"] == "pendente" else 0,
+        m["nome"]))
+
+    return {
+        "total_municipios": len(municipios),
+        "total_contratacoes": sum(m["total"] for m in municipios),
+        "completos": [m for m in municipios if m["status"] == "completo"],
+        "pendentes": [m for m in municipios if m["status"] == "pendente"],
+        "sem_dados": [m for m in municipios if m["status"] == "sem_dados"],
+    }
+
+
 def concentracao_por_item(db, descricao):
     """Quantos fornecedores sustentam o preço coletado de um item — "esse
     preço reflete o mercado, ou só um fornecedor dominante?" """
@@ -1837,6 +1908,7 @@ CATEGORIA_RELATORIO = {
     "fracionamento": ("Vigilância", "alerta"),
     "minuta_pca": ("Planejamento", "verde"),
     "precos": ("Planejamento", "verde"),
+    "cobertura": ("Operacional", "atencao"),
 }
 
 
@@ -2948,6 +3020,67 @@ def render_detalhe(titulo, subtitulo, meta_html, municipio, uf, brasao=None,
                    brasao=brasao)
 
 
+def render_cobertura(d, municipio, uf, brasao=None, categoria=None,
+                     acervo=None):
+    """Retrato de `dados_cobertura` — pergunta que o card de Configurações
+    não tem espaço pra responder de uma vez: quantos municípios estão
+    100%, quantos têm contratação parada esperando itens, quantos ainda
+    não trouxeram nada. Portado do Pretiarium Free, 2026-09-07."""
+    def cel(v, r):
+        return (f'<div class="card"><div class="n">{_e(v)}</div>'
+                f'<div class="l">{_e(r)}</div></div>')
+
+    def barra(pct):
+        if pct is None:
+            return '<span style="color:var(--suave)">—</span>'
+        cor = "var(--verde)" if pct == 100 else "var(--atencao)"
+        return (f'<div style="display:flex;align-items:center;gap:6px">'
+                f'<div style="flex:1;height:7px;border-radius:3px;'
+                f'background:var(--detalhe);overflow:hidden">'
+                f'<div style="height:100%;width:{pct:g}%;'
+                f'background:{cor}"></div></div>'
+                f'<span style="font-size:10.5px;white-space:nowrap">'
+                f'{pct:g}%</span></div>')
+
+    def tabela(titulo, linhas, com_progresso):
+        if not linhas:
+            return (f'<h2>{_e(titulo)} (0)</h2>'
+                    f'<p class="nota">Nenhum município nesta situação.</p>')
+        extra_cab = ('<th class="num">Sincronizadas</th>'
+                     '<th>Itens sincronizados</th>') if com_progresso else ''
+        linhas_html = "".join(f"""<tr>
+          <td>{_e(m['nome'])}{' <small>(próprio)</small>' if m['propria'] else ''}</td>
+          <td class="ctr">{_e(m['uf'])}</td>
+          <td class="ctr">{_e(m['ibge'])}</td>
+          <td class="num">{m['total']}</td>
+          {f"<td class='num'>{m['sincronizadas']}</td><td>{barra(m['pct'])}</td>"
+            if com_progresso else ""}</tr>""" for m in linhas)
+        return f"""<h2>{_e(titulo)} ({len(linhas)})</h2>
+<table><thead><tr><th>Município</th><th class="ctr">UF</th>
+<th class="ctr">IBGE</th><th class="num">Contratações</th>{extra_cab}
+</tr></thead><tbody>{linhas_html}</tbody></table>"""
+
+    corpo = f"""<div class="cards">
+{cel(d['total_municipios'], 'municípios acompanhados')}
+{cel(d['total_contratacoes'], 'contratações no acervo')}
+{cel(len(d['completos']), 'completos — itens em dia')}
+{cel(len(d['pendentes']), 'pendentes — itens faltando')}
+{cel(len(d['sem_dados']), 'sem nenhuma contratação')}
+</div>
+<div class="caixa-aviso"><b>Completo</b> — toda contratação já cadastrada tem
+os itens e resultados baixados. <b>Pendente</b> — há contratação com itens
+desatualizados, reprocessada na próxima sincronização de itens. <b>Sem
+dados</b> — está na lista de referência, mas o PNCP ainda não devolveu
+nenhuma contratação (pode não ter publicado nada no período, ou aguarda a
+primeira sincronização).</div>
+{tabela("Pendentes — aguardando itens", d['pendentes'], True)}
+{tabela("Sem nenhuma contratação coletada", d['sem_dados'], False)}
+{tabela("Completos — 100% sincronizados", d['completos'], True)}"""
+    return _pagina(TITULOS['cobertura'], corpo, municipio, uf,
+                   "Todo o acervo", paisagem=True, brasao=brasao,
+                   categoria=categoria, acervo=acervo)
+
+
 def gerar(db, tipo, params, municipio, uf, destino):
     """Gera o relatório e retorna {"html": caminho, "csv": caminho|None}."""
     params = params or {}
@@ -3028,6 +3161,12 @@ def gerar(db, tipo, params, municipio, uf, destino):
                                         categoria=categoria, acervo=acervo)
         nome = f"alerta_fracionamento_{ano}"
         linhas_csv = d["dispensas"]
+    elif tipo == "cobertura":
+        d = dados_cobertura(db)
+        conteudo = render_cobertura(d, municipio, uf, brasao=brasao,
+                                    categoria=categoria, acervo=acervo)
+        nome = "cobertura_pncp"
+        linhas_csv = None
     else:
         periodo_txt = ("Vigentes em " + date.today().strftime("%d/%m/%Y")) \
             if vigentes else (f"Exercício {ano}" if ano else "Todo o período")
