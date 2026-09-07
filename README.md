@@ -221,19 +221,6 @@ pyinstaller --clean Licitarium.spec  # gera dist/"Licitarium vX.Y.Z.exe"
 A cada push, o CI roda os testes de Python e de interface no Windows; ao marcar
 uma tag `v*`, compila o executável e o anexa à release.
 
-## Sistemas irmãos
-
-Dois programas de desktop com a mesma arquitetura: Python + pywebview + SQLite,
-num executável só, sem servidor e sem porta de rede aberta. O Licitarium lê dados
-públicos; o Peculium guarda dados pessoais num cofre cifrado.
-
-| Sistema | Cuida de | |
-|---|---|---|
-| **Licitarium** — Repositório do PNCP | espelho local das contratações públicas do município | **(este)** |
-| **Peculium** — Patrimônio Pessoal | carteira de investimentos, custos e imposto | [repositório](https://github.com/devtulio/peculium) |
-
----
-
 ## Painel
 
 A tela inicial resume o exercício em gráficos, em quatro visões — **Execução**

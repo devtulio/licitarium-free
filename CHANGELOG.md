@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.49.2 — 2026-09-07
+
+**Atualização de documentação**
+
+Sem mudança de comportamento. Screenshots do README regeneradas
+(estavam de antes do botão ▾ de Sincronizar e da aba Preços); removida
+a seção "Sistemas irmãos" (Peculium é outro produto, sem relação com
+este repositório).
+
 ## 1.49.1 — 2026-09-07
 
 **Ordenar municípios de referência**
