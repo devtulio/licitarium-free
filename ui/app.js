@@ -1344,6 +1344,7 @@ $("btn-config").addEventListener("click", async () => {
   aplicarLimCompras(parseFloat(e.limite_dispensa_compras) || 0);
   aplicarLimObras(parseFloat(e.limite_dispensa_obras) || 0);
   $("cfg-frac-janela").value = e.frac_janela || "exercicio";
+  $("ref-ordem").value = e.ref_ordem || "tamanho";
   $("cfg-log").innerHTML = log.map(l =>
     `<div class="logline">${esc(l.iniciado_em?.slice(0,16).replace("T"," "))} ·
      ${esc(l.tipo)} · ${l.status === "ok" ? `${l.registros} registros`
@@ -1960,14 +1961,31 @@ function desenharGraficoTipoPainel(el, materialServico) {
 }
 
 // ── municípios de referência — card em Configurações ────────────────────
+// ordenação escolhida pelo usuário: backend já devolve por tamanho desc
+// (padrão); nome/itens reordenados aqui — lista é pequena, não vale ida
+// ao banco por critério (portado do Pretiarium Free, 2026-09-07)
+const ORDENS_REFERENCIA = {
+  tamanho: (a, b) => (b.mb || 0) - (a.mb || 0),
+  nome: (a, b) => a.nome.localeCompare(b.nome, "pt-BR"),
+  itens: (a, b) => (b.itens || 0) - (a.itens || 0),
+};
+$("ref-ordem")?.addEventListener("change", () => {
+  api.set_config("ref_ordem", $("ref-ordem").value);
+  carregarMunicipiosReferencia();
+});
+
 async function carregarMunicipiosReferencia() {
   if (!api.listar_municipios_referencia) return;
   const lista = await api.listar_municipios_referencia();
+  lista.sort(ORDENS_REFERENCIA[$("ref-ordem").value]);
   $("cfg-referencia").innerHTML = lista.length ? lista.map(m =>
     `<div class="orgrow"><span><span class="bolinha-status status-${m.status}"
          title="${{vermelho: "nunca sincronizado", amarelo: "itens pendentes",
                   verde: "completo"}[m.status]}"></span>${esc(m.nome)} — ${esc(m.uf)}
-       <small>${m.itens} preço(s) no banco · ${m.mb} MB</small></span>
+       <small>IBGE ${esc(m.ibge)} · ${m.itens
+         ? `${m.itens.toLocaleString("pt-BR")} ${m.itens === 1 ? "preço" : "preços"} no banco`
+           + ` · ocupa ~${(m.mb || 0).toLocaleString("pt-BR")} MB`
+         : "ainda sem preços — aguardando homologação no PNCP"}</small></span>
      <button class="btn ghost" data-remover-ref="${esc(m.ibge)}">Remover</button>
      </div>`).join("")
     : `<div class="dim">Nenhum município de referência cadastrado.</div>`;

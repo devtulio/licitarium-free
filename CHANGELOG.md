@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.49.1 — 2026-09-07
+
+**Ordenar municípios de referência**
+
+Card de Configurações ganha ordenação (tamanho em disco, nome ou
+preços no banco), lembrada entre aberturas. Lista também mostra o
+código IBGE e, sem preços ainda, avisa "aguardando homologação no
+PNCP" em vez de "0 preços". Portado do Pretiarium Free.
+
 ## 1.49.0 — 2026-09-07
 
 **Situação do banco de preços + sync só por sua conta**

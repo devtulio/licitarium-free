@@ -74,3 +74,35 @@ test("Municípios de referência: listar, estimar e adicionar",
       .some(c => c.metodo === "adicionar_municipio_referencia")))
     .toBe(true);
 });
+
+test("Municípios de referência: ordenar e persistir a escolha",
+  async ({ page }) => {
+  await page.evaluate(() => {
+    window.__municipiosReferencia = [
+      { ibge: "3533908", nome: "Olímpia", uf: "SP", itens: 5, mb: 1,
+        status: "verde" },
+      { ibge: "3548500", nome: "Zebra", uf: "SP", itens: 50, mb: 9,
+        status: "verde" },
+      { ibge: "3550308", nome: "Ábaco", uf: "SP", itens: 0, mb: 0,
+        status: "vermelho" },
+    ];
+  });
+  await page.locator("#btn-config").click();
+  const nomes = () => page.locator("#cfg-referencia .orgrow")
+    .allTextContents();
+  // padrão: tamanho em disco, maior primeiro
+  await expect.poll(nomes).toEqual(
+    expect.arrayContaining([expect.stringContaining("Zebra")]));
+  await expect((await nomes())[0]).toContain("Zebra");
+  await expect(page.locator("#cfg-referencia")).toContainText(
+    "ainda sem preços — aguardando homologação no PNCP");
+  // trocar pra nome (A-Z)
+  await page.locator("#ref-ordem").selectOption("nome");
+  await expect((await nomes())[0]).toContain("Ábaco");
+  const chamada = await page.evaluate(() => window.__chamadas
+    .find(c => c.metodo === "set_config" && c.k === "ref_ordem"));
+  expect(chamada.v).toBe("nome");
+  // trocar pra preços no banco (mais primeiro)
+  await page.locator("#ref-ordem").selectOption("itens");
+  await expect((await nomes())[0]).toContain("Zebra");
+});

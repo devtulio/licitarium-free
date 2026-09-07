@@ -37,6 +37,7 @@ def api(tmp_path, monkeypatch):
     ("maximizar", "0", "maximizar"),
     ("aba", "itens", "aba"),
     ("painel_vista", "economia", "painel_vista"),
+    ("ref_ordem", "nome", "ref_ordem"),
     ("limite_dispensa_compras", "70000", "limite_dispensa_compras"),
     ("limite_dispensa_obras", "140000", "limite_dispensa_obras"),
 ])

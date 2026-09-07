@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.49.0"
+VERSAO = "1.49.1"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -704,6 +704,7 @@ class Api:
                         cfg.get("limite_dispensa_obras",
                                 str(relatorios.LIMITE_PADRAO_OBRAS)),
                     "frac_janela": cfg.get("frac_janela", "exercicio"),
+                    "ref_ordem": cfg.get("ref_ordem", "tamanho"),
                     "last_sync": cfg.get("last_sync_contratacoes"),
                     "sincronizado_em": db.execute(
                         "SELECT MAX(iniciado_em) FROM sync_log"
@@ -757,7 +758,7 @@ class Api:
     CHAVES_CONFIG = ("tema", "largura", "fonte", "densidade", "colunas",
                      "maximizar", "limite_dispensa_compras",
                      "limite_dispensa_obras", "frac_janela", "aba",
-                     "painel_vista")
+                     "painel_vista", "ref_ordem")
 
     def set_config(self, chave, valor):
         if chave not in self.CHAVES_CONFIG or valor is None:
