@@ -296,7 +296,7 @@ async function iniciarApp(e) {
   await carregarFiltros();
   progressoSplash(0.85);
   await prepararPainel(e);
-  const aba = ["painel", "contratacoes", "contratos", "atas", "pca"]
+  const aba = ["painel", "contratacoes", "contratos", "atas", "pca", "precos"]
                .includes(e.aba) ? e.aba : "painel";
   document.querySelector(`nav.abas button[data-tipo="${aba}"]`).click();
   esconderSplash();
@@ -383,6 +383,11 @@ async function carregarFiltros() {
   preencher($("f-situacao"), f.situacoes);
   preencher($("f-orgao"),
             f.orgaos.map(o => ({nome: o.nome ?? o.cnpj, id: o.cnpj})));
+  preencher($("pr-ano"), f.anos);
+  preencher($("pr-orgao"),
+            f.orgaos.map(o => ({nome: o.nome ?? o.cnpj, id: o.cnpj})));
+  preencher($("pr-unidade"), (f.unidades ?? []).map(
+    u => ({nome: `${u.nome} (${u.n})`, id: u.nome})));
 }
 
 function filtrosAtuais() {
@@ -837,11 +842,13 @@ function mudarAba(tipo) {
             x => x.dataset.tipo === tipo);
   estado.tipo = tipo;
   estado.pagina = 1;
-  // Painel não é lista: troca a tela inteira em vez das colunas, e esconde
-  // o rodapé/filtros/KPIs da lista.
+  // Painel e Preços não são a lista genérica: cada um troca a tela inteira
+  // em vez das colunas, e esconde o rodapé/filtros/KPIs da lista.
   const ehPainel = tipo === "painel";
-  const semLista = ehPainel;
+  const ehPrecos = tipo === "precos";
+  const semLista = ehPainel || ehPrecos;
   $("painel").classList.toggle("oculto", !ehPainel);
+  $("tela-precos").classList.toggle("oculto", !ehPrecos);
   for (const id of ["filtros-lista", "lista", "rodape-lista", "kpis-topo"])
     $(id)?.classList.toggle("oculto", semLista);
   // os alertas do topo pertencem às listas: fora delas ficam escondidos
@@ -870,6 +877,7 @@ document.querySelectorAll("nav.abas button").forEach(b =>
   b.addEventListener("click", () => {
     mudarAba(b.dataset.tipo);
     if (estado.tipo === "painel") carregarPainel();
+    else if (estado.tipo === "precos") carregarPrecos();
     else carregarLista();
   }));
 ["f-propostas", "f-vigentes", "f-vence60", "f-parada"].forEach(id =>
@@ -1195,8 +1203,8 @@ async function montarOpcoesRelatorio() {
   const sel = $("rel-ano");
   sel.length = 0;
   const soExercicio = ["executivo", "fracionamento"].includes(tipo);
-  // nenhum relatório vigente pede termo de busca; a caixa fica sempre oculta
-  $("rel-termo-caixa").classList.add("oculto");
+  // só a Pesquisa de Preços pede termo de busca
+  $("rel-termo-caixa").classList.toggle("oculto", tipo !== "precos");
   if (!soExercicio) {
     if (tipo !== "contratacoes")
       sel.add(new Option("Vigentes hoje", "vigentes"));
@@ -1341,6 +1349,7 @@ $("btn-config").addEventListener("click", async () => {
      ${esc(l.tipo)} · ${l.status === "ok" ? `${l.registros} registros`
        : `<span style="color:var(--warn)">erro: ${esc(l.erro)}</span>`}</div>`)
     .join("") || `<div class="dim">Nenhuma sincronização ainda.</div>`;
+  carregarMunicipiosReferencia();
 });
 function mostrarBrasao(dataurl) {
   const preview = $("cfg-brasao-preview");
@@ -1489,8 +1498,283 @@ window.onSyncFim = async st => {
   // o usuário no Painel — que é a aba inicial, ou seja, o caso mais comum
   // logo depois da sincronização de abertura — isso estourava dentro de um
   // handler assíncrono. Sem tela de erro: o Painel só não se atualizava.
-  await (estado.tipo === "painel" ? carregarPainel() : carregarLista());
+  if (estado.tipo === "painel") await carregarPainel();
+  else if (estado.tipo === "precos") await carregarPrecos();
+  else await carregarLista();
 };
+
+// ── pesquisa de preços — aba Preços ─────────────────────────────────────
+// Portado do Pretiarium Free (busca/estatística/seleção/descarte), com o
+// visual simplificado ao padrão de lista do Licitarium: sem boxplot/série
+// temporal, o resumo fica em cartões numéricos com os mesmos dados.
+let precosSelecionados = new Set();
+let ultimoTermoPrecos = "";
+estado.paginaPrecos = 1;
+
+function filtrosPrecosLista() {
+  return { ano: $("pr-ano").value || null,
+           orgao: $("pr-orgao").value || null,
+           unidade: $("pr-unidade").value || null,
+           so_homologados: $("pr-homologados").checked || null,
+           busca: $("pr-busca").value.trim() || null };
+}
+
+async function carregarSelecaoPrecos(termo) {
+  precosSelecionados = termo && api.selecionados
+    ? new Set((await api.selecionados(termo)).map(String))
+    : new Set();
+}
+
+async function carregarPrecos() {
+  const termo = $("pr-busca").value.trim();
+  if (termo !== ultimoTermoPrecos) {
+    ultimoTermoPrecos = termo;
+    await carregarSelecaoPrecos(termo);
+  }
+  const conteudo = $("pr-conteudo").checked;
+  const corrigir = $("pr-ipca").checked;
+  // mesmas classes/larguras que ui/estilo.css já reserva para a aba Preços
+  // (.g-itens / .conteudo / .corrigido): a coluna extra de dinheiro entra
+  // sempre entre o valor pago e o fornecedor.
+  const g = "g-itens" + (conteudo ? " conteudo" : "") + (corrigir ? " corrigido" : "");
+  const cab = `<div class="linha cab ${g}"><span></span><span>Descrição</span>
+    <span>Unid.</span><span>Qtde</span><span>Valor unitário</span>
+    ${corrigir ? "<span>Corrigido (IPCA)</span>" : ""}
+    ${conteudo ? "<span>Por conteúdo</span>" : ""}
+    <span>Fornecedor</span><span>Município</span><span>Processo</span></div>`;
+  const r = await api.listar("itens", filtrosPrecosLista(), estado.paginaPrecos);
+  const linhas = r.itens.map(d => {
+    const id = String(d.id);
+    const unit = d.valor_unitario_homologado != null
+      ? dinheiro(d.valor_unitario_homologado)
+      : `<span class="est">${dinheiro(d.valor_unitario_estimado)} <small>est.</small></span>`;
+    return `<div class="linha ${g}" data-id="${esc(id)}">
+      <span class="sel"><input type="checkbox" data-item="${esc(id)}"
+        ${precosSelecionados.has(id) ? "checked" : ""}
+        aria-label="Usar na pesquisa: ${esc(d.descricao ?? "item")}"></span>
+      <span class="obj">${esc(d.descricao ?? "–")}</span>
+      <span class="dim">${esc(d.unidade ?? "–")}</span>
+      <span class="dim">${d.quantidade_homologada ?? d.quantidade ?? "–"}</span>
+      <span class="num">${unit}</span>
+      ${corrigir ? `<span class="num">${d.corrigido != null
+          ? dinheiro(d.corrigido) : `<span class="dim">–</span>`}</span>` : ""}
+      ${conteudo ? `<span class="num">${d.por_conteudo
+          ? `${dinheiroFino(d.por_conteudo.valor)} <small>/${esc(d.por_conteudo.rotulo)}</small>`
+          : `<span class="dim">–</span>`}</span>` : ""}
+      <span class="dim" title="${esc(d.fornecedor_nome ?? "")}"
+        >${esc(fornecedorCurto(d.fornecedor_nome))}</span>
+      <span class="dim">${esc(d.municipio_nome ?? "–")}</span>
+      <span class="dim">
+        <button class="btn ghost" data-descartar="${esc(id)}"
+          title="Descartar este item da pesquisa">✕</button>
+        ${d.ano ?? ""}/${d.sequencial ?? ""}</span>
+    </div>`;
+  }).join("");
+  $("pr-lista").innerHTML = cab + (linhas || `<div class="vazio"><p>${
+    termo ? "Nenhum item para esta busca." : "Digite algo para pesquisar preços."
+  }</p></div>`);
+  $("pr-lista").querySelectorAll("input[data-item]").forEach(cb =>
+    cb.addEventListener("change", async () => {
+      const id = cb.dataset.item;
+      if (cb.checked) { precosSelecionados.add(id); await api.selecionar_preco(termo, id); }
+      else { precosSelecionados.delete(id); await api.desselecionar_preco(termo, id); }
+      mostrarResumoPrecos();
+    }));
+  $("pr-lista").querySelectorAll("button[data-descartar]").forEach(b =>
+    b.addEventListener("click", () => abrirDescarte(b.dataset.descartar)));
+  const paginas = Math.max(1, Math.ceil(r.total / 50));
+  $("pr-pag-info").textContent = `${estado.paginaPrecos}/${paginas} · ${r.total} registros`;
+  $("pr-pag-ant").disabled = estado.paginaPrecos <= 1;
+  $("pr-pag-prox").disabled = estado.paginaPrecos >= paginas;
+  if (!r.itens.length && termo.length >= 3 && api.sugerir_termo) {
+    const sug = await api.sugerir_termo(termo);
+    $("pr-sugestao").classList.toggle("oculto", !sug);
+    $("pr-sugestao").innerHTML = sug
+      ? `Você quis dizer <button class="btn ghost" id="pr-usar-sugestao"
+          style="padding:0 4px">${esc(sug)}</button>?` : "";
+    $("pr-usar-sugestao")?.addEventListener("click", () => {
+      $("pr-busca").value = sug; estado.paginaPrecos = 1;
+      carregarPrecos(); mostrarResumoPrecos();
+    });
+  } else {
+    $("pr-sugestao").classList.add("oculto");
+  }
+}
+
+async function mostrarResumoPrecos() {
+  const caixa = $("precos-resumo");
+  const termo = $("pr-busca").value.trim();
+  if (termo.length < 3 || !api.estatisticas_preco) {
+    caixa.classList.add("oculto");
+    return;
+  }
+  const ano = $("pr-ano").value ? +$("pr-ano").value : null;
+  const s = await api.estatisticas_preco(termo, ano, null, null,
+    $("pr-conteudo").checked, $("pr-ipca").checked, [...precosSelecionados]);
+  if (!s) { caixa.classList.add("oculto"); return; }
+  if (s.nada_selecionado) {
+    caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
+      <div class="dim" role="status">0 de ${s.total} selecionados</div>
+      <div>Nenhum item selecionado ainda. Marque os que quer comparar na
+        lista abaixo, ou
+        <button class="btn ghost" id="pr-selecionar-todos-resumo"
+          style="margin-left:4px">Selecionar todos</button></div>`;
+    caixa.classList.remove("oculto");
+    $("pr-selecionar-todos-resumo").addEventListener("click", () =>
+      $("pr-selecionar-todos").click());
+    return;
+  }
+  if (!s.n) {
+    caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
+      <div>Nenhum dos itens selecionados tem dado suficiente para o
+        cálculo${s.sem_conversao
+          ? " — nenhum diz quanto vem na embalagem" : ""}.</div>`;
+    caixa.classList.remove("oculto");
+    return;
+  }
+  const val = s.por_conteudo ? dinheiroFino : dinheiro;
+  const cel = (v, r, destaque) =>
+    `<div class="cel${destaque ? " destaque" : ""}">
+       <div class="v">${v}</div><div class="r">${r}</div></div>`;
+  const avisos = [];
+  if (s.amostra_reduzida)
+    avisos.push("Amostra reduzida — poucos preços para uma conclusão robusta.");
+  if (s.fora_da_curva?.length)
+    avisos.push(`${s.fora_da_curva.length} item(ns) fora da curva de preços —
+      considere revisar ou descartar.`);
+  if (s.alertas_concentracao?.length) avisos.push(...s.alertas_concentracao);
+  caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
+    <div class="dim" role="status">${s.n} de ${s.total} selecionados</div>
+    <div class="grade">
+      ${cel(val(s.minimo), "menor")}
+      ${s.q1 != null ? cel(val(s.q1), "1º quartil") : ""}
+      ${cel(val(s.mediana), "mediana", true)}
+      ${s.q3 != null ? cel(val(s.q3), "3º quartil") : ""}
+      ${cel(val(s.maximo), "maior")}
+      ${cel(s.n, "itens")}
+      ${cel(s.fornecedores, "fornecedores")}
+    </div>
+    ${avisos.map(a => `<div class="aviso">${esc(a)}</div>`).join("")}
+    <button class="btn ghost" id="pr-relatorio" style="margin-top:8px">Relatório</button>`;
+  caixa.classList.remove("oculto");
+  $("pr-relatorio").addEventListener("click", async () => {
+    await montarOpcoesRelatorio();
+    $("rel-tipo").value = "precos";
+    await montarOpcoesRelatorio();
+    $("rel-termo").value = termo;
+    $("rel-status").textContent = "";
+    abrirModal("veu-relatorios");
+  });
+}
+
+// razão do descarte, sempre exigida (pedido do usuário) — diferente do
+// Pretiarium, que aceitava descartar sem motivo e cobrava só no relatório
+let descarteAlvo = null;
+async function abrirDescarte(id) {
+  descarteAlvo = id;
+  const motivos = api.motivos_descarte ? await api.motivos_descarte() : [];
+  $("desc-motivo").innerHTML = motivos.map(m =>
+    `<option value="${esc(m.id)}">${esc(m.texto)}</option>`).join("");
+  abrirModal("veu-descarte");
+}
+$("desc-confirmar").addEventListener("click", async () => {
+  if (!descarteAlvo) return;
+  const motivo = $("desc-motivo").value;
+  if (!motivo) return;
+  await api.descartar_preco($("pr-busca").value.trim(), descarteAlvo, motivo);
+  await api.desselecionar_preco($("pr-busca").value.trim(), descarteAlvo);
+  precosSelecionados.delete(descarteAlvo);
+  fecharModal("veu-descarte");
+  descarteAlvo = null;
+  carregarPrecos();
+  mostrarResumoPrecos();
+});
+
+$("pr-selecionar-todos").addEventListener("click", async () => {
+  const termo = $("pr-busca").value.trim();
+  if (!termo || !api.selecionar_todos_precos) return;
+  const ano = $("pr-ano").value ? +$("pr-ano").value : null;
+  await api.selecionar_todos_precos(termo, ano, null);
+  await carregarSelecaoPrecos(termo);
+  carregarPrecos();
+  mostrarResumoPrecos();
+});
+$("pr-csv").addEventListener("click", async () => {
+  const r = await api.exportar_planilha("itens", filtrosPrecosLista());
+  if (r.erro) alert(r.erro);
+});
+["pr-ano", "pr-orgao", "pr-unidade", "pr-homologados"].forEach(id =>
+  $(id).addEventListener("change", () => {
+    estado.paginaPrecos = 1; carregarPrecos(); mostrarResumoPrecos();
+  }));
+["pr-ipca", "pr-conteudo"].forEach(id =>
+  $(id).addEventListener("change", () => { carregarPrecos(); mostrarResumoPrecos(); }));
+let buscaPrecosTimer;
+$("pr-busca").addEventListener("input", () => {
+  clearTimeout(buscaPrecosTimer);
+  buscaPrecosTimer = setTimeout(() => {
+    estado.paginaPrecos = 1; carregarPrecos(); mostrarResumoPrecos();
+  }, 300);
+});
+$("pr-pag-ant").addEventListener("click", () => {
+  estado.paginaPrecos--; carregarPrecos(); });
+$("pr-pag-prox").addEventListener("click", () => {
+  estado.paginaPrecos++; carregarPrecos(); });
+
+// ── municípios de referência — card em Configurações ────────────────────
+async function carregarMunicipiosReferencia() {
+  if (!api.listar_municipios_referencia) return;
+  const lista = await api.listar_municipios_referencia();
+  $("cfg-referencia").innerHTML = lista.length ? lista.map(m =>
+    `<div class="orgrow"><span>${esc(m.nome)} — ${esc(m.uf)}
+       <small>${m.itens} preço(s) no banco · ${m.mb} MB</small></span>
+     <button class="btn ghost" data-remover-ref="${esc(m.ibge)}">Remover</button>
+     </div>`).join("")
+    : `<div class="dim">Nenhum município de referência cadastrado.</div>`;
+  $("cfg-referencia").querySelectorAll("button[data-remover-ref]").forEach(b =>
+    b.addEventListener("click", async () => {
+      if (!confirm("Remover este município de referência? Os preços que "
+        + "ele trouxe para o banco de preços serão apagados."))
+        return;
+      const r = await api.remover_municipio_referencia(b.dataset.removerRef);
+      if (r.ok) carregarMunicipiosReferencia();
+      else if (r.erro) alert(r.erro);
+    }));
+}
+if ($("ref-uf").options.length <= 1)
+  UFS.forEach(uf => $("ref-uf").add(new Option(uf, uf)));
+
+let refEscolha = null;
+$("ref-busca")?.addEventListener("input", async () => {
+  refEscolha = null;
+  const texto = $("ref-busca").value.trim();
+  const caixa = $("ref-sugestoes");
+  if (texto.length < 2 || !api.municipios) { caixa.classList.add("oculto"); return; }
+  const achados = await api.municipios(texto, $("ref-uf").value || null);
+  caixa.innerHTML = achados.map(m =>
+    `<button data-c="${m.c}" data-n="${esc(m.n)}" data-uf="${m.uf}">
+       ${esc(m.n)} — ${m.uf}</button>`).join("")
+    || `<button disabled>nenhum município encontrado</button>`;
+  caixa.classList.remove("oculto");
+  caixa.querySelectorAll("button[data-c]").forEach(b =>
+    b.addEventListener("click", async () => {
+      caixa.classList.add("oculto");
+      const codigo = b.dataset.c, nome = b.dataset.n, uf = b.dataset.uf;
+      $("ref-busca").value = "";
+      if (api.estimar_municipio_referencia) {
+        const est = await api.estimar_municipio_referencia(codigo);
+        if (est.erro) { alert(est.erro); return; }
+        const ok = confirm(`${nome} tem cerca de `
+          + `${(est.contratacoes ?? 0).toLocaleString("pt-BR")} contratações e `
+          + `${(est.itens ?? 0).toLocaleString("pt-BR")} preços a coletar. `
+          + `Adicionar como referência?`);
+        if (!ok) return;
+      }
+      const r = await api.adicionar_municipio_referencia(codigo, nome, uf);
+      if (r.ok) carregarMunicipiosReferencia();
+      else if (r.erro) alert(r.erro);
+    }));
+});
 
 // ── exportação ────────────────────────────────────────────────────────────
 $("btn-csv").addEventListener("click", async () => {

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.47.0 — 2026-09-07
+
+**Nova aba Preços — pesquisa de preços praticados (art. 23, Lei 14.133)**
+
+Reabsorve no Free a pesquisa de preços que só existia no Pretiarium Free
+(decisão do usuário, Fase 2 do trabalho iniciado na 1.46.2). Nova aba
+**Preços**: busca por item com sugestão de correção ortográfica, filtros
+por ano/órgão/unidade, opção de corrigir pelo IPCA e de comparar por
+conteúdo da embalagem. O resumo acima da lista traz mediana, quartis,
+mínimo/máximo e avisos de amostra reduzida ou item fora da curva; marcar
+os itens soma ao cálculo, "Selecionar todos" pega a pesquisa inteira (não
+só a página), e "Descartar" exige motivo — fica registrado, não é
+reversível por engano. Em Configurações, o novo card **Municípios de
+referência** deixa cadastrar municípios vizinhos que alimentam só o banco
+de preços (nunca o acervo ou os relatórios do próprio município), com
+estimativa de volume antes de confirmar. Novo relatório **Pesquisa de
+Preços**, também em HTML timbrado. Com a pesquisa de preços de volta ao
+Free, o Pretiarium Free deixa de ser necessário como produto à parte —
+era, desde o início, um recorte do próprio Licitarium.
+
 ## 1.46.2 — 2026-09-07
 
 **Motor de sync trocado pelo pacote compartilhado `motor_pncp`**

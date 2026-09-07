@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.46.2"
+VERSAO = "1.47.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -599,6 +599,64 @@ def _titulo_impressao_detalhe(db, tipo, d):
     return None
 
 
+def _where_pesquisa_precos(busca, ano=None, origem=None):
+    """Mesmo recorte de `estatisticas_preco` e `classificar_por_unidade`:
+    o que entra na pesquisa de preços para um termo, sem olhar descarte."""
+    where = ["valor_unitario_homologado IS NOT NULL"]
+    args = []
+    termo = _termo_fts(busca)
+    if termo:
+        where.append("rowid IN (SELECT rowid FROM itens_fts"
+                     " WHERE itens_fts MATCH ?)")
+        args.append(termo)
+    else:
+        where.append("descricao LIKE ?")
+        args.append(f"%{(busca or '').strip()}%")
+    if ano:
+        where.append("ano=?")
+        args.append(ano)
+    if origem == "proprio":
+        where.append("referencia=0")
+    return where, args
+
+
+def _selecionar_ids(db, termo, ids):
+    """Marca cada id — e desfaz um descarte anterior dele, se houver.
+
+    Compartilhado pelos filtros que selecionam por critério (unidade,
+    fornecedor, faixa de valor, texto): todos acumulam na seleção em vez
+    de substituir (pedido do usuário, 2026-08-08 — escolher "Maço" e
+    depois "Unidade" tem de deixar as duas dentro, não trocar uma pela
+    outra).
+    """
+    agora = datetime.now().isoformat()
+    for item_id in ids:
+        db.execute(
+            "INSERT INTO precos_selecionados (termo, item_id, criado_em)"
+            " VALUES (?,?,?) ON CONFLICT(termo, item_id) DO NOTHING",
+            (termo, str(item_id), agora))
+        db.execute("DELETE FROM precos_descartes"
+                   " WHERE termo=? AND item_id=?", (termo, str(item_id)))
+
+
+def _status_municipio_referencia(db, ibge):
+    """Semáforo de um município de referência: "vermelho" nunca
+    sincronizou (sem `last_sync_ref_<ibge>`), "amarelo" sincronizou mas tem
+    contratação com item ainda pendente (mesmo critério de
+    `pncp.sync_itens`: `itens_versao` nulo ou desatualizado), "verde"
+    completo. Portado do Pretiarium Free — mesma regra em Configurações e
+    no modal de escopo do Sincronizar."""
+    if not pncp._config(db, f"last_sync_ref_{ibge}"):
+        return "vermelho"
+    pendentes = db.execute(
+        """SELECT COUNT(*) FROM contratacoes
+           WHERE municipio_ibge=? AND orgao_cnpj IS NOT NULL
+             AND sequencial IS NOT NULL
+             AND (itens_versao IS NULL OR itens_versao <> data_atualizacao)""",
+        (ibge,)).fetchone()[0]
+    return "amarelo" if pendentes else "verde"
+
+
 class Api:
     """Métodos chamados do JS via window.pywebview.api.*"""
 
@@ -722,6 +780,86 @@ class Api:
                    if texto in m["n"].lower() and (not uf or m["uf"] == uf)]
         return achados[:12]
 
+
+    # ── municípios de referência (só banco de preços) ────────────────────
+    # Portado do Pretiarium Free: alimentam só o banco de preços
+    # (referencia=1 em contratacoes/itens) — nunca entram nos relatórios
+    # oficiais, que filtram WHERE referencia=0 em toda consulta do acervo
+    # próprio.
+
+    def listar_municipios_referencia(self):
+        db = abrir_db()
+        try:
+            linhas = db.execute(
+                """SELECT m.ibge, m.nome, m.uf,
+                          (SELECT COUNT(*) FROM itens i
+                           WHERE i.municipio_ibge = m.ibge
+                             AND i.valor_unitario_homologado IS NOT NULL) itens,
+                          (SELECT COALESCE(SUM(LENGTH(i.raw)),0) FROM itens i
+                           WHERE i.municipio_ibge = m.ibge)
+                          + (SELECT COALESCE(SUM(LENGTH(c.raw)),0)
+                             FROM contratacoes c
+                             WHERE c.municipio_ibge = m.ibge) bytes_raw
+                   FROM municipios_referencia m
+                   ORDER BY bytes_raw DESC, m.nome""").fetchall()
+            return [{"ibge": r["ibge"], "nome": r["nome"], "uf": r["uf"],
+                     "itens": r["itens"],
+                     "mb": round(r["bytes_raw"] * pncp.FATOR_DISCO / 1e6, 1),
+                     "status": _status_municipio_referencia(db, r["ibge"])}
+                    for r in linhas]
+        finally:
+            db.close()
+
+    def estimar_municipio_referencia(self, codigo):
+        """Peso da coleta antes de o usuário mandar baixar — mesma
+        estimativa usada para o município próprio (pncp.estimar_volume)."""
+        try:
+            return pncp.estimar_volume(str(codigo))
+        except pncp.PncpErro as e:
+            return {"erro": str(e)}
+
+    def adicionar_municipio_referencia(self, codigo, nome, uf):
+        """Entra na lista; os preços chegam na próxima sincronização."""
+        codigo = str(codigo)
+        db = abrir_db()
+        try:
+            if codigo == (pncp._config(db, "municipio_ibge") or ""):
+                return {"ok": False,
+                        "erro": "este já é o município do acervo"}
+            db.execute(
+                "INSERT OR IGNORE INTO municipios_referencia"
+                " (ibge, nome, uf, adicionado_em) VALUES (?,?,?,?)",
+                (codigo, nome, uf, datetime.now().isoformat()))
+            db.commit()
+            return {"ok": True}
+        finally:
+            db.close()
+
+    def remover_municipio_referencia(self, codigo):
+        """Sai da lista e leva junto os registros que trouxe.
+
+        Só apaga o que tem `referencia=1`: se o mesmo processo existisse no
+        acervo próprio, ele não pode ser tocado.
+        """
+        if not self._sync_ativo.acquire(blocking=False):
+            return {"ok": False, "erro": MSG_SYNC_ATIVO}
+        try:
+            codigo = str(codigo)
+            db = abrir_db()
+            try:
+                for tabela in ("itens", "contratacoes"):
+                    db.execute(f"DELETE FROM {tabela}"
+                               " WHERE referencia=1 AND municipio_ibge=?",
+                               (codigo,))
+                db.execute("DELETE FROM municipios_referencia WHERE ibge=?",
+                           (codigo,))
+                pncp._config(db, f"last_sync_ref_{codigo}", "")
+                db.commit()
+                return {"ok": True}
+            finally:
+                db.close()
+        finally:
+            self._sync_ativo.release()
 
     def configurar_municipio(self, codigo, nome, uf):
         db = abrir_db()
@@ -965,6 +1103,14 @@ class Api:
                 d = dict(r)
                 d.pop("raw", None)  # listagem não precisa do JSON completo
                 itens.append(d)
+            # aba Preços: a linha guarda só o código IBGE — resolve o nome
+            # aqui (mesmo dicionário de ORDENAVEIS["itens"]["municipio"]),
+            # para a tela mostrar "Olímpia" em vez do código
+            if tipo == "itens" and itens:
+                nomes = self._nomes_de_municipio(db)
+                for d in itens:
+                    d["municipio_nome"] = nomes.get(d.get("municipio_ibge")) \
+                        or "–"
             return {"itens": itens, "total": total}
         finally:
             db.close()
@@ -1097,6 +1243,443 @@ class Api:
         finally:
             db.close()
 
+    # ── pesquisa de preços — Painel ─────────────────────────────────────
+    # Portado do Pretiarium Free.
+
+    def painel_precos(self):
+        """Tamanho e composição do banco de preços — aba Painel."""
+        db = abrir_db()
+        try:
+            return relatorios.dados_banco_precos(db)
+        finally:
+            db.close()
+
+    def concentracao_fornecedores(self, descricao):
+        """Quantos fornecedores sustentam o preço de um item — aba Painel."""
+        db = abrir_db()
+        try:
+            return relatorios.concentracao_por_item(db, descricao)
+        finally:
+            db.close()
+
+    def sugerir_termo(self, busca):
+        """"Você quis dizer...?" quando a busca de preços não acha nada.
+
+        Corretor de digitação por PALAVRA (RapidFuzz, distância de edição)
+        contra o vocabulário de descrições já no banco — não é o motor de
+        casamento nacional. Só sugere quando muda alguma palavra.
+        """
+        palavras = re.findall(r"[A-Za-zÀ-ÿ]{3,}", busca or "")
+        if not palavras:
+            return None
+        db = abrir_db()
+        try:
+            vocabulario = set()
+            for (desc,) in db.execute("SELECT DISTINCT descricao FROM itens"):
+                vocabulario.update(re.findall(r"[A-Za-zÀ-ÿ]{3,}", desc or ""))
+        finally:
+            db.close()
+        if not vocabulario:
+            return None
+        from rapidfuzz import fuzz, process
+        corrigidas, mudou = [], False
+        for p in palavras:
+            if p.upper() in vocabulario:
+                corrigidas.append(p.upper())
+                continue
+            melhor = process.extractOne(p.upper(), vocabulario,
+                                        scorer=fuzz.ratio)
+            if melhor and melhor[1] >= 80:
+                corrigidas.append(melhor[0])
+                mudou = True
+            else:
+                corrigidas.append(p.upper())
+        return " ".join(corrigidas) if mudou else None
+
+    @staticmethod
+    def _nomes_de_municipio(db):
+        nomes = {r["ibge"]: r["nome"] for r in db.execute(
+            "SELECT ibge, nome FROM municipios_referencia")}
+        proprio = pncp._config(db, "municipio_ibge")
+        if proprio:
+            nomes[proprio] = pncp._config(db, "municipio_nome") or proprio
+        return nomes
+
+    # ── descartes e seleção da pesquisa de preços ───────────────────────
+    # Pedido do usuário (2026-08-08): a busca abre com tudo desmarcado —
+    # marcar é ato positivo, sem justificativa (o motivo só existe pra
+    # precos_descartes: item que chegou a ser selecionado e foi tirado).
+
+    def descartes(self, busca):
+        """O que já foi desconsiderado nesta pesquisa, com o motivo."""
+        termo = relatorios.chave_termo(busca)
+        if not termo:
+            return []
+        db = abrir_db()
+        try:
+            return [dict(r) for r in db.execute(
+                "SELECT d.item_id, d.motivo, i.descricao, i.unidade,"
+                "       i.valor_unitario_homologado valor"
+                "  FROM precos_descartes d"
+                "  LEFT JOIN itens i ON i.id = d.item_id"
+                " WHERE d.termo=? ORDER BY d.criado_em", (termo,))]
+        finally:
+            db.close()
+
+    def descartar_preco(self, busca, item_id, motivo=None):
+        """Tira o item da pesquisa; o motivo pode vir depois."""
+        termo = relatorios.chave_termo(busca)
+        if not termo or not item_id:
+            return {"ok": False}
+        db = abrir_db()
+        try:
+            db.execute(
+                "INSERT INTO precos_descartes (termo, item_id, motivo,"
+                " criado_em) VALUES (?,?,?,?)"
+                " ON CONFLICT(termo, item_id) DO UPDATE SET motivo=excluded.motivo",
+                (termo, str(item_id), motivo or None,
+                 datetime.now().isoformat()))
+            db.commit()
+            return {"ok": True}
+        finally:
+            db.close()
+
+    def classificar_por_unidade(self, busca, unidade, ano=None, origem=None):
+        """Seleciona os itens da unidade escolhida — soma à seleção atual.
+
+        Roda sobre o mesmo recorte (termo/ano/origem) de
+        `estatisticas_preco` — não só a página visível.
+        """
+        termo = relatorios.chave_termo(busca)
+        if not termo or not unidade:
+            return {"ok": False}
+        where, args = _where_pesquisa_precos(busca, ano, origem)
+        db = abrir_db()
+        try:
+            linhas = db.execute(
+                "SELECT id, unidade_canonica(unidade) FROM itens WHERE "
+                + " AND ".join(where), args).fetchall()
+            ids = [item_id for item_id, uc in linhas if uc == unidade]
+            _selecionar_ids(db, termo, ids)
+            db.commit()
+            return {"ok": True, "n": len(ids)}
+        finally:
+            db.close()
+
+    def fornecedores_pesquisa_precos(self, busca, ano=None, origem=None):
+        """Fornecedores que aparecem nesta busca, do mais frequente pro mais
+        raro — para o filtro por fornecedor saber o que oferecer."""
+        termo = relatorios.chave_termo(busca)
+        if not termo:
+            return []
+        where, args = _where_pesquisa_precos(busca, ano, origem)
+        db = abrir_db()
+        try:
+            linhas = db.execute(
+                "SELECT fornecedor_ni, fornecedor_nome, COUNT(*) n"
+                " FROM itens WHERE " + " AND ".join(where)
+                + " AND fornecedor_ni IS NOT NULL"
+                " GROUP BY fornecedor_ni ORDER BY 3 DESC, 2", args).fetchall()
+            return [{"ni": r[0], "nome": r[1], "n": r[2]} for r in linhas]
+        finally:
+            db.close()
+
+    def selecionar_por_fornecedor(self, busca, fornecedor_ni, ano=None,
+                                  origem=None):
+        """Seleciona os itens de um fornecedor — soma à seleção atual."""
+        termo = relatorios.chave_termo(busca)
+        if not termo or not fornecedor_ni:
+            return {"ok": False}
+        where, args = _where_pesquisa_precos(busca, ano, origem)
+        where.append("fornecedor_ni=?")
+        args.append(fornecedor_ni)
+        db = abrir_db()
+        try:
+            ids = [r[0] for r in db.execute(
+                "SELECT id FROM itens WHERE " + " AND ".join(where),
+                args).fetchall()]
+            _selecionar_ids(db, termo, ids)
+            db.commit()
+            return {"ok": True, "n": len(ids)}
+        finally:
+            db.close()
+
+    def selecionar_por_faixa(self, busca, minimo=None, maximo=None,
+                             ano=None, origem=None):
+        """Seleciona os itens com preço unitário homologado na faixa —
+        soma à seleção atual. Corte manual, complementar ao de Tukey."""
+        termo = relatorios.chave_termo(busca)
+        if not termo or (minimo is None and maximo is None):
+            return {"ok": False}
+        where, args = _where_pesquisa_precos(busca, ano, origem)
+        if minimo is not None:
+            where.append("valor_unitario_homologado>=?")
+            args.append(minimo)
+        if maximo is not None:
+            where.append("valor_unitario_homologado<=?")
+            args.append(maximo)
+        db = abrir_db()
+        try:
+            ids = [r[0] for r in db.execute(
+                "SELECT id FROM itens WHERE " + " AND ".join(where),
+                args).fetchall()]
+            _selecionar_ids(db, termo, ids)
+            db.commit()
+            return {"ok": True, "n": len(ids)}
+        finally:
+            db.close()
+
+    def selecionar_por_texto(self, busca, contendo, ano=None, origem=None):
+        """Seleciona os itens cuja descrição contém o texto — soma à
+        seleção atual."""
+        termo = relatorios.chave_termo(busca)
+        contendo = (contendo or "").strip()
+        if not termo or not contendo:
+            return {"ok": False}
+        where, args = _where_pesquisa_precos(busca, ano, origem)
+        where.append("descricao LIKE ?")
+        args.append(f"%{contendo}%")
+        db = abrir_db()
+        try:
+            ids = [r[0] for r in db.execute(
+                "SELECT id FROM itens WHERE " + " AND ".join(where),
+                args).fetchall()]
+            _selecionar_ids(db, termo, ids)
+            db.commit()
+            return {"ok": True, "n": len(ids)}
+        finally:
+            db.close()
+
+    def selecionados(self, busca):
+        """Ids já selecionados nesta pesquisa — para a tela restaurar as
+        caixas marcadas ao reabrir a mesma busca."""
+        termo = relatorios.chave_termo(busca)
+        if not termo:
+            return []
+        db = abrir_db()
+        try:
+            return [r[0] for r in db.execute(
+                "SELECT item_id FROM precos_selecionados WHERE termo=?",
+                (termo,))]
+        finally:
+            db.close()
+
+    def selecionar_preco(self, busca, item_id):
+        """Marca um item — e desfaz um descarte anterior dele, se houver."""
+        termo = relatorios.chave_termo(busca)
+        if not termo or not item_id:
+            return {"ok": False}
+        db = abrir_db()
+        try:
+            db.execute(
+                "INSERT INTO precos_selecionados (termo, item_id, criado_em)"
+                " VALUES (?,?,?) ON CONFLICT(termo, item_id) DO NOTHING",
+                (termo, str(item_id), datetime.now().isoformat()))
+            db.execute("DELETE FROM precos_descartes"
+                       " WHERE termo=? AND item_id=?", (termo, str(item_id)))
+            db.commit()
+            return {"ok": True}
+        finally:
+            db.close()
+
+    def desselecionar_preco(self, busca, item_id=None):
+        """Tira um item da seleção — ou todos, se não vier item."""
+        termo = relatorios.chave_termo(busca)
+        if not termo:
+            return {"ok": False}
+        db = abrir_db()
+        try:
+            if item_id:
+                db.execute("DELETE FROM precos_selecionados"
+                           " WHERE termo=? AND item_id=?",
+                           (termo, str(item_id)))
+            else:
+                db.execute("DELETE FROM precos_selecionados WHERE termo=?",
+                           (termo,))
+            db.commit()
+            return {"ok": True}
+        finally:
+            db.close()
+
+    def selecionar_todos_precos(self, busca, ano=None, origem=None):
+        """Marca tudo que a busca traz — sobre o recorte inteiro
+        (termo/ano/origem), não só a página visível."""
+        termo = relatorios.chave_termo(busca)
+        if not termo:
+            return {"ok": False}
+        where, args = _where_pesquisa_precos(busca, ano, origem)
+        db = abrir_db()
+        try:
+            ids = [r[0] for r in db.execute(
+                "SELECT id FROM itens WHERE " + " AND ".join(where),
+                args).fetchall()]
+            db.execute("DELETE FROM precos_descartes WHERE termo=?",
+                       (termo,))
+            _selecionar_ids(db, termo, ids)
+            db.commit()
+            return {"ok": True, "n": len(ids)}
+        finally:
+            db.close()
+
+    def motivos_descarte(self):
+        """Lista para a tela montar o seletor, na ordem em que aparece."""
+        return [{"id": k, "texto": v} for k, v in relatorios.MOTIVOS_DESCARTE.items()]
+
+    def estatisticas_preco(self, busca, ano=None, origem=None,
+                           excluidos=None, por_conteudo=False,
+                           corrigir=False, incluidos=None):
+        """Resumo do valor unitário homologado para um termo — a resposta de
+        'quanto pagamos por isso?' que instrui a pesquisa de preços.
+        """
+        if not (busca or "").strip():
+            return None
+        where0, args0 = _where_pesquisa_precos(busca, ano, origem)
+        db0 = abrir_db()
+        try:
+            total = db0.execute(
+                "SELECT COUNT(*) FROM itens WHERE " + " AND ".join(where0),
+                args0).fetchone()[0]
+        finally:
+            db0.close()
+        if incluidos is not None and not incluidos:
+            return {"n": 0, "nada_selecionado": True, "total": total}
+        where, args = _where_pesquisa_precos(busca, ano, origem)
+        for grupo in relatorios._blocos(excluidos):
+            where.append("id NOT IN (%s)" % ",".join("?" * len(grupo)))
+            args += grupo
+        if incluidos:
+            grupos_inc = relatorios._blocos(incluidos)
+            where.append("(" + " OR ".join(
+                "id IN (%s)" % ",".join("?" * len(g)) for g in grupos_inc)
+                + ")")
+            for g in grupos_inc:
+                args += g
+        db = abrir_db()
+        try:
+            linhas = db.execute(
+                "SELECT id, valor_unitario_homologado, descricao, unidade,"
+                " COALESCE(data_resultado, (SELECT data_publicacao"
+                "   FROM contratacoes c"
+                "  WHERE c.numero_controle = itens.contratacao_controle)) data,"
+                " municipio_ibge, fornecedor_ni, contratacao_controle"
+                " FROM itens WHERE "
+                + " AND ".join(where) + " ORDER BY 2", args).fetchall()
+            if not linhas:
+                return None
+            datas_por_id = {r[0]: r[4] for r in linhas}
+            ipca = None
+            if corrigir:
+                ipca = relatorios.fatores_ipca(db)
+                corrigidas = []
+                for r in linhas:
+                    valor = relatorios.corrigir(r[1], r[4], ipca)
+                    if valor is not None:
+                        corrigidas.append((r[0], valor, r[2], r[3], r[4], *r[5:]))
+                corrigidas.sort(key=lambda x: x[1])
+                sem_indice = len(linhas) - len(corrigidas)
+                linhas = corrigidas
+                if not linhas:
+                    return {"n": 0, "corrigido": True, "total": total,
+                            "sem_indice": sem_indice,
+                            "ipca_ate": ipca["ate"]}
+            base = None
+            if por_conteudo:
+                convertidos = []
+                for r in linhas:
+                    p = relatorios.preco_por_conteudo(r[1], r[2], r[3])
+                    if p:
+                        convertidos.append((r[0], p["valor"], r[2], p["base"],
+                                            relatorios.base_implicita(r[3]),
+                                            *r[5:]))
+                if not convertidos:
+                    return {"n": 0, "por_conteudo": True, "total": total,
+                            "sem_conversao": len(linhas)}
+                base = relatorios.escolher_base(
+                    [(b, i) for _, _, _, b, i, *_ in convertidos])
+                sem_conversao = len(linhas) - len(
+                    [c for c in convertidos if c[3] == base])
+                linhas = sorted(
+                    ((id_, v, desc, *extra)
+                     for id_, v, desc, b, _, *extra in convertidos if b == base),
+                    key=lambda x: x[1])
+                if not linhas:
+                    return {"n": 0, "por_conteudo": True, "total": total,
+                            "sem_conversao": sem_conversao}
+            resumo = relatorios.resumo_estatistico([r[1] for r in linhas])
+            if corrigir:
+                resumo.update(corrigido=True, ipca_ate=ipca["ate"],
+                              ipca_ate_extenso=relatorios.mes_por_extenso(
+                                  ipca["ate"]),
+                              sem_indice=sem_indice)
+                relatorios.marcar_amostra_reduzida(resumo, sem_indice)
+            if por_conteudo:
+                resumo.update(por_conteudo=True, base=base,
+                              rotulo_base=relatorios.BASES[base][0],
+                              sem_conversao=sem_conversao)
+            resumo["fora_da_curva"] = [
+                r[0] for r in linhas if relatorios.e_extremo(r[1], resumo)]
+            resumo["sensibilidade"] = relatorios.sensibilidade_sem_extremo(
+                [r[1] for r in linhas], resumo)
+            resumo["alertas_concentracao"] = relatorios.alertas_concentracao(
+                [r[-2] for r in linhas], [r[-1] for r in linhas])
+            resumo["itens"] = [
+                {"id": r[0], "descricao": r[2], "fornecedor": r[-2],
+                 "valor": r[1], "data": datas_por_id.get(r[0])}
+                for r in linhas]
+            ids = [r[0] for r in linhas]
+            fornecedores, proprios = 0, 0
+            for grupo in relatorios._blocos(ids):
+                marcas = ",".join("?" * len(grupo))
+                fornecedores += db.execute(
+                    f"SELECT COUNT(DISTINCT fornecedor_ni) FROM itens"
+                    f" WHERE id IN ({marcas})", grupo).fetchone()[0]
+                proprios += db.execute(
+                    f"SELECT COUNT(*) FROM itens WHERE referencia=0"
+                    f" AND id IN ({marcas})", grupo).fetchone()[0]
+            resumo.update(fornecedores=fornecedores, proprios=proprios,
+                          referencia=resumo["n"] - proprios, total=total)
+            por_ibge = {}
+            for r in linhas:
+                por_ibge.setdefault(r[-3], []).append(r[1])
+            if len(por_ibge) > 1:
+                nomes_mun = self._nomes_de_municipio(db)
+                proprio_ibge = pncp._config(db, "municipio_ibge")
+                resumo["por_municipio"] = sorted((
+                    {"municipio": nomes_mun.get(ibge, ibge or "–"),
+                     "referencia": ibge != proprio_ibge,
+                     "n": len(vals),
+                     "mediana": relatorios.resumo_estatistico(vals)["mediana"]}
+                    for ibge, vals in por_ibge.items()),
+                    key=lambda m: m["mediana"])
+            return resumo
+        finally:
+            db.close()
+
+    def dados_grafico_precos(self, termo, ano=None, orgao=None,
+                             excluidos=None, por_conteudo=False,
+                             corrigir_ipca=False):
+        """Resumo + item a item para a tela pré-desenhar o gráfico do
+        relatório de preços antes de mandar imprimir.
+        """
+        db = abrir_db()
+        try:
+            d = relatorios.dados_precos(
+                db, termo, ano, orgao, excluidos, por_conteudo,
+                corrigir_ipca, exigir_selecao=True)
+        except ValueError as e:
+            return {"ok": False, "erro": str(e)}
+        finally:
+            db.close()
+        conteudo = d["resumo"].get("por_conteudo")
+        d["resumo"]["itens"] = [{
+            "descricao": l["descricao"], "fornecedor": l.get("fornecedor_nome"),
+            "valor": l["por_conteudo"]["valor"] if conteudo
+                    else (l.get("corrigido") if d["resumo"].get("corrigido")
+                          else l["valor_unitario_homologado"]),
+            "data": l.get("data_resultado"),
+        } for l in d["linhas"]]
+        return {"ok": True, "resumo": d["resumo"]}
+
     # ── link oficial ────────────────────────────────────────────────────
 
     def abrir_pncp(self, tipo, numero_controle):
@@ -1133,19 +1716,27 @@ class Api:
 
     # ── sincronização ───────────────────────────────────────────────────
 
-    def sincronizar(self, forcado=True):
+    def sincronizar(self, forcado=True, escopo="tudo", ibge_escolhido=None):
         """Dispara a coleta. `forcado=False` é a da abertura do programa.
 
         A da abertura respeita um intervalo mínimo: abrir cinco vezes numa
         hora disparava cinco coletas completas, e o PNCP não muda em dez
         minutos. O botão Sincronizar continua valendo sempre.
+
+        `escopo`/`ibge_escolhido` repassam pra `pncp.sincronizar_tudo` —
+        ver `pncp.ESCOPOS_SYNC`. Validado aqui (não só lá) porque um
+        `escopo` inválido vindo da UI não pode aparecer como "erro
+        genérico" pro usuário sem dizer o motivo.
         """
+        if escopo not in pncp.ESCOPOS_SYNC:
+            return {"ok": False, "erro": f"escopo inválido: {escopo!r}"}
         if not self._sync_ativo.acquire(blocking=False):
             return False  # já rodando
         # limpa um pedido de parada que tenha sobrado da coleta anterior,
         # senão a próxima nasceria cancelada
         self._sync_parar.clear()
-        threading.Thread(target=self._rodar_sync, args=(bool(forcado),),
+        threading.Thread(target=self._rodar_sync,
+                         args=(bool(forcado), escopo, ibge_escolhido),
                          daemon=True).start()
         return True
 
@@ -1162,7 +1753,7 @@ class Api:
         self._avisar_ui()
         return {"ok": True, "rodando": True}
 
-    def _rodar_sync(self, forcado=True):
+    def _rodar_sync(self, forcado=True, escopo="tudo", ibge_escolhido=None):
         try:
             self._status.update(rodando=True, msg="Conectando ao PNCP…",
                                 resumo=None, erro=None, cancelado=False)
@@ -1172,8 +1763,9 @@ class Api:
                 ibge = pncp._config(db, "municipio_ibge")
                 if not ibge:
                     return
-                resumo = pncp.sincronizar_tudo(db, ibge, self._progresso,
-                                               forcado=forcado)
+                resumo = pncp.sincronizar_tudo(
+                    db, ibge, self._progresso, forcado=forcado,
+                    escopo=escopo, ibge_escolhido=ibge_escolhido)
                 self._status.update(resumo=resumo)
             finally:
                 db.close()

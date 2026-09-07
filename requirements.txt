@@ -12,3 +12,7 @@ openpyxl>=3.1,<4
 # duplicado em cada sistema. Tag pinada, não `main` — mesma prática do
 # teto do pywebview acima.
 motor_pncp @ git+https://github.com/devtulio/motor-pncp.git@v0.4.1
+# corretor de digitação da busca de preços (Api.sugerir_termo) — distância
+# de edição contra o vocabulário já coletado, mesma dependência do
+# Pretiarium Free
+rapidfuzz>=3.0,<4

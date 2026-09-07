@@ -868,14 +868,13 @@ def test_moeda_nao_numerica_nao_derruba_o_relatorio():
 
 
 
-def test_categoria_relatorio_cobre_os_sete_tipos_em_quatro_cores():
+def test_categoria_relatorio_cobre_os_oito_tipos_em_quatro_cores():
     """Selo de procedência: cada tipo de relatório tem categoria e cor
-    (Cadastral/Analítico/Vigilância/Planejamento). A parte de preços saiu do
-    Free (virou produto à parte)."""
+    (Cadastral/Analítico/Vigilância/Planejamento). A pesquisa de preços
+    voltou ao Free (2026-09-07) — só "comparados" (Pro) segue de fora."""
     tipos = {"contratacoes", "contratos", "atas", "executivo", "economia",
-             "fracionamento", "minuta_pca"}
+             "fracionamento", "minuta_pca", "precos"}
     assert set(relatorios.CATEGORIA_RELATORIO) == tipos
-    assert "precos" not in relatorios.CATEGORIA_RELATORIO
     assert "comparados" not in relatorios.CATEGORIA_RELATORIO
     cores = {cor for _, cor in relatorios.CATEGORIA_RELATORIO.values()}
     assert len(cores) == 4

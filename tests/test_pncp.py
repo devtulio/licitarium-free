@@ -588,10 +588,36 @@ def test_sincronizar_tudo_continua_apos_falha(db):
     assert erros >= 1
 
 
-def test_sincronizar_tudo_ignora_municipios_referencia(db):
-    """O Free (fase 1 do reencaixe com motor_pncp) ainda não sincroniza
-    municípios de referência — linhas sobreviventes de `municipios_referencia`
-    (tabela dormente) não podem gerar chamada nenhuma por outro município."""
+def test_sincronizar_tudo_escopo_tudo_sincroniza_referencia(db):
+    """Fase 2 do reencaixe (município de referência): `escopo="tudo"`
+    (o default) sincroniza tanto o próprio município quanto os de
+    referência cadastrados, gravando referencia=1 nos últimos."""
+    db.execute("INSERT INTO municipios_referencia (ibge, nome, uf) "
+               "VALUES ('3552205', 'Olímpia', 'SP')")
+    db.commit()
+    ibges_vistos = []
+
+    def fake_contratacoes(ibge, inicio, fim):
+        ibges_vistos.append(ibge)
+        return iter([Contratacao(contratacao(f"PNCP-{ibge}"))])
+    motor = FakeMotor(contratacoes=fake_contratacoes)
+
+    pncp.sincronizar_tudo(db, "3534203", motor=motor)
+    assert ibges_vistos == ["3534203", "3552205"]
+    assert pncp._config(db, "last_sync_ref_3552205") is not None
+    linha = db.execute(
+        "SELECT referencia FROM contratacoes WHERE numero_controle=?",
+        ("PNCP-3552205",)).fetchone()
+    assert linha["referencia"] == 1
+    linha_propria = db.execute(
+        "SELECT referencia FROM contratacoes WHERE numero_controle=?",
+        ("PNCP-3534203",)).fetchone()
+    assert linha_propria["referencia"] == 0
+
+
+def test_sincronizar_tudo_escopo_proprio_pula_referencia(db):
+    """`escopo="proprio"` sincroniza só o próprio município — sem chamar
+    contratações para municípios de referência cadastrados."""
     db.execute("INSERT INTO municipios_referencia (ibge, nome, uf) "
                "VALUES ('3552205', 'Olímpia', 'SP')")
     db.commit()
@@ -602,9 +628,14 @@ def test_sincronizar_tudo_ignora_municipios_referencia(db):
         return iter(())
     motor = FakeMotor(contratacoes=fake_contratacoes)
 
-    pncp.sincronizar_tudo(db, "3534203", motor=motor)
+    pncp.sincronizar_tudo(db, "3534203", motor=motor, escopo="proprio")
     assert ibges_vistos == ["3534203"]
     assert pncp._config(db, "last_sync_ref_3552205") is None
+
+
+def test_sincronizar_tudo_escopo_invalido_levanta(db):
+    with pytest.raises(ValueError):
+        pncp.sincronizar_tudo(db, "3534203", motor=vazio(), escopo="chute")
 
 
 def test_sync_incremental_com_sobreposicao(db):

@@ -138,7 +138,7 @@ def sync_ipca(db, inicio=None, motor=None):
 
 # ── upserts (raw sempre guardado; INSERT OR REPLACE é idempotente) ──────────
 
-def _upsert_contratacao(db, item, ibge=None):
+def _upsert_contratacao(db, item, ibge=None, referencia=0):
     numero = item.get("numeroControlePNCP")
     if not numero:
         return False
@@ -151,14 +151,15 @@ def _upsert_contratacao(db, item, ibge=None):
             valor_estimado, valor_homologado, data_encerramento_proposta,
             data_publicacao, data_atualizacao,
             referencia, municipio_ibge, raw, sync_em)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?)""",
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (numero, item.get("anoCompra"), item.get("sequencialCompra"),
          orgao.get("cnpj"), orgao.get("razaoSocial"), unidade.get("nomeUnidade"),
          item.get("modalidadeId"), item.get("modalidadeNome"),
          item.get("situacaoCompraNome"), item.get("objetoCompra"),
          _num(item.get("valorTotalEstimado")), _num(item.get("valorTotalHomologado")),
          item.get("dataEncerramentoProposta"),
-         item.get("dataPublicacaoPncp"), item.get("dataAtualizacao"), ibge,
+         item.get("dataPublicacaoPncp"), item.get("dataAtualizacao"),
+         referencia, ibge,
          json.dumps(item, ensure_ascii=False), datetime.now().isoformat()))
     return True
 
@@ -214,18 +215,20 @@ def _upsert_ata(db, item):
 
 # ── fases de sincronização ──────────────────────────────────────────────────
 
-def sync_contratacoes(db, codigo_ibge, inicio, fim, motor=None):
+def sync_contratacoes(db, codigo_ibge, inicio, fim, motor=None, referencia=0):
     """Fase 1: contratações do município, por modalidade e janela de datas.
 
     `Motor.contratacoes` já cuida do loop de 13 modalidades, do
     paralelismo adaptativo e do disjuntor — aqui só sobra ler o gerador e
-    gravar.
+    gravar. `referencia=1` grava como município de referência (só preço,
+    nunca entra nos relatórios oficiais — todos filtram `WHERE referencia=0`).
     """
     motor = motor or Motor(user_agent=USER_AGENT)
     total = 0
     try:
         for contratacao in motor.contratacoes(codigo_ibge, inicio, fim):
-            total += _upsert_contratacao(db, contratacao.raw, codigo_ibge)
+            total += _upsert_contratacao(db, contratacao.raw, codigo_ibge,
+                                         referencia)
     finally:
         # o que já veio fica gravado mesmo se PncpErro/SyncCancelado escapar
         # do gerador no meio — upsert é idempotente, a próxima passada
@@ -411,7 +414,7 @@ def _upsert_item(db, contratacao, item, resultado):
     return 1
 
 
-def sync_itens(db, progresso=None, limite=None, motor=None):
+def sync_itens(db, progresso=None, limite=None, motor=None, municipios_ibge=None):
     """Fase 3: itens e resultados das contratações — o banco de preços.
 
     Custa uma requisição por contratação mais uma por item *alterado* que
@@ -421,15 +424,25 @@ def sync_itens(db, progresso=None, limite=None, motor=None):
     `Motor.itens_e_resultados` cuida do paralelismo dos resultados e do
     disjuntor (uma contratação quebrada não trava as demais); aqui só
     sobra decidir o que já temos gravado e persistir o que vem novo.
+
+    `municipios_ibge` (iterável de códigos, ou None pra sem filtro) recorta
+    a fila pro escopo escolhido em `sincronizar_tudo` — sem isso, "só meu
+    município" ainda varreria itens pendentes de todo mundo.
     """
     motor = motor or Motor(user_agent=USER_AGENT, progresso=progresso)
+    where = ["orgao_cnpj IS NOT NULL", "sequencial IS NOT NULL",
+            "(itens_versao IS NULL OR itens_versao <> data_atualizacao)"]
+    args = []
+    if municipios_ibge:
+        alvos = list(municipios_ibge)
+        where.append(f"municipio_ibge IN ({','.join('?' * len(alvos))})")
+        args.extend(alvos)
     pendentes = [dict(r) for r in db.execute(
-        """SELECT numero_controle, orgao_cnpj, ano, sequencial,
+        f"""SELECT numero_controle, orgao_cnpj, ano, sequencial,
                   data_atualizacao, referencia, municipio_ibge
            FROM contratacoes
-           WHERE orgao_cnpj IS NOT NULL AND sequencial IS NOT NULL
-             AND (itens_versao IS NULL OR itens_versao <> data_atualizacao)
-           ORDER BY data_publicacao DESC""")]
+           WHERE {' AND '.join(where)}
+           ORDER BY data_publicacao DESC""", args)]
     if limite:
         pendentes = pendentes[:limite]
 
@@ -522,7 +535,11 @@ def _log(db, tipo, inicio, fim, registros, status, erro=None):
 INTERVALO_MINIMO = 600      # segundos
 
 
-def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True, motor=None):
+ESCOPOS_SYNC = ("tudo", "proprio", "pendentes", "municipio")
+
+
+def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True,
+                     escopo="tudo", ibge_escolhido=None, motor=None):
     """Sync completo incremental. Falha em um tipo não bloqueia os demais.
 
     `motor`, se passado, substitui o `Motor` real — só existe pra teste
@@ -531,6 +548,18 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True, motor=None):
     Com `forcado=False` (a sincronização automática da abertura), desiste
     se a última execução foi há menos de `INTERVALO_MINIMO`.
 
+    `escopo` restringe o que roda (portado do Pretiarium Free, pedido do
+    usuário depois de ver a fila de itens crescer de uma vez com muitos
+    municípios de referência): "tudo" é o comportamento de sempre;
+    "proprio" pula a fase 1 dos municípios de referência (só o seu, mais
+    barato); "pendentes" só visita referência que nunca sincronizou nem
+    uma vez (`last_sync_ref_<ibge>` ausente); "municipio" restringe a um
+    único ibge (`ibge_escolhido`), seja o seu ou um de referência. Em
+    todos os casos a fase de itens (a mais cara) segue o mesmo recorte.
+    Municípios de referência só passam pela fase 1 (contratações) e pela
+    fase 3 (itens/preços) — contratos, atas e PCA são gestão do próprio
+    acervo e não têm uso pra pesquisa de preço de vizinho.
+
     Uma única instância de `Motor` cobre a coleta inteira (ipca + todas as
     contratações + contratos/atas/pca + itens): o estado adaptativo
     (bloqueios/sucessos recentes) é por instância, então a fase de itens
@@ -538,6 +567,8 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True, motor=None):
 
     Retorna resumo {tipo: registros | None se falhou}.
     """
+    if escopo not in ESCOPOS_SYNC:
+        raise ValueError(f"escopo inválido: {escopo!r}")
     if not forcado:
         ultima = _config(db, "ultimo_sync_em")
         if ultima:
@@ -571,49 +602,90 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True, motor=None):
         _log(db, "ipca", hoje, hoje, 0, "erro", str(e))
         resumo["ipca"] = None
 
-    # fase 1 — contratações por município
-    inicio = janela_de("contratacoes")
+    # escopo decide quem roda na fase 1 e, adiante, quem entra no recorte
+    # da fase 3 — "municipio" pode escolher o próprio (aí não há
+    # referência nenhuma) ou um de referência (aí o próprio nem roda,
+    # pedido explícito de "só essa cidade")
+    ibge_proprio_no_escopo = escopo != "municipio" or ibge_escolhido == codigo_ibge
+    alvos_itens = set()
+
+    # fase 1 — contratações do município próprio
+    if ibge_proprio_no_escopo:
+        inicio = janela_de("contratacoes")
+        try:
+            n = sync_contratacoes(db, codigo_ibge, inicio, hoje, motor=motor)
+            _config(db, "last_sync_contratacoes", hoje.isoformat())
+            _log(db, "contratacoes", inicio, hoje, n, "ok")
+            resumo["contratacoes"] = n
+        except PncpErro as e:
+            _log(db, "contratacoes", inicio, hoje, 0, "erro", str(e))
+            resumo["contratacoes"] = None
+        descobrir_orgaos(db)
+        alvos_itens.add(codigo_ibge)
+
+        # fase 2 — contratos, atas e PCA por CNPJ de órgão ativo (só do
+        # acervo próprio — descobrir_orgaos já filtra WHERE referencia=0;
+        # municípios de referência não têm uso pra isso, só preço)
+        orgaos = [r[0] for r in db.execute(
+            "SELECT cnpj FROM orgaos WHERE ativo=1").fetchall()]
+        for tipo, func in (("contratos", sync_contratos), ("atas", sync_atas),
+                           ("pca", sync_pca)):
+            total, falhou, inicios = 0, False, []
+            for cnpj in orgaos:
+                # janela POR CNPJ: uma chave só por tipo fazia um órgão birrento
+                # travar a data de corte de todos os outros para sempre — cada
+                # sync recomeçava a janela inteira de todo mundo até aquele CNPJ
+                # se resolver sozinho (achado 2026-08-24)
+                chave = f"{tipo}_{cnpj}"
+                inicio = janela_de(chave)
+                inicios.append(inicio)
+                try:
+                    total += func(db, cnpj, inicio, hoje, motor=motor)
+                    _config(db, f"last_sync_{chave}", hoje.isoformat())
+                except PncpErro as e:
+                    falhou = True
+                    _log(db, tipo, inicio, hoje, total, "erro", f"{cnpj}: {e}")
+            if not falhou:
+                _log(db, tipo, min(inicios) if inicios else hoje, hoje, total, "ok")
+                resumo[tipo] = total
+            else:
+                resumo[tipo] = None
+
+    # municípios de referência: só a fase 1, e sem a fase 2 — contratos e
+    # atas alheios não têm uso aqui. Os itens deles saem na fase 3, junto
+    # com os nossos, numa passada só.
+    referencia = [dict(r) for r in db.execute(
+        "SELECT ibge, nome FROM municipios_referencia ORDER BY nome")]
+    if escopo == "proprio":
+        referencia = []
+    elif escopo == "pendentes":
+        referencia = [m for m in referencia
+                     if not _config(db, f"last_sync_ref_{m['ibge']}")]
+    elif escopo == "municipio":
+        referencia = [m for m in referencia if m["ibge"] == ibge_escolhido]
+    for m in referencia:
+        chave = f"last_sync_ref_{m['ibge']}"
+        inicio = janela_de(f"ref_{m['ibge']}")
+        try:
+            if progresso:
+                progresso(f"Preços de referência — {m['nome']}…")
+            n = sync_contratacoes(db, m["ibge"], inicio, hoje, motor=motor,
+                                  referencia=1)
+            _config(db, chave, hoje.isoformat())
+            _log(db, f"referencia:{m['nome']}", inicio, hoje, n, "ok")
+        except PncpErro as e:
+            # um município de referência fora do ar não pode derrubar o sync
+            _log(db, f"referencia:{m['nome']}", inicio, hoje, 0, "erro", str(e))
+        alvos_itens.add(m["ibge"])
+
+    # fase 3 — itens das contratações (banco de preços); é a mais custosa,
+    # então vem no fim: se falhar, o resto do acervo já está gravado.
+    # `escopo="tudo"` não filtra (None): restringir aos alvos aqui daria
+    # o mesmo resultado, mas manter None documenta que é o caso sem
+    # recorte, e evita um IN(...) com muitos parâmetros à toa.
     try:
-        n = sync_contratacoes(db, codigo_ibge, inicio, hoje, motor=motor)
-        _config(db, "last_sync_contratacoes", hoje.isoformat())
-        _log(db, "contratacoes", inicio, hoje, n, "ok")
-        resumo["contratacoes"] = n
-    except PncpErro as e:
-        _log(db, "contratacoes", inicio, hoje, 0, "erro", str(e))
-        resumo["contratacoes"] = None
-
-    descobrir_orgaos(db)
-
-    # fase 2 — contratos, atas e PCA por CNPJ de órgão ativo
-    orgaos = [r[0] for r in db.execute(
-        "SELECT cnpj FROM orgaos WHERE ativo=1").fetchall()]
-    for tipo, func in (("contratos", sync_contratos), ("atas", sync_atas),
-                       ("pca", sync_pca)):
-        total, falhou, inicios = 0, False, []
-        for cnpj in orgaos:
-            # janela POR CNPJ: uma chave só por tipo fazia um órgão birrento
-            # travar a data de corte de todos os outros para sempre — cada
-            # sync recomeçava a janela inteira de todo mundo até aquele CNPJ
-            # se resolver sozinho (achado 2026-08-24)
-            chave = f"{tipo}_{cnpj}"
-            inicio = janela_de(chave)
-            inicios.append(inicio)
-            try:
-                total += func(db, cnpj, inicio, hoje, motor=motor)
-                _config(db, f"last_sync_{chave}", hoje.isoformat())
-            except PncpErro as e:
-                falhou = True
-                _log(db, tipo, inicio, hoje, total, "erro", f"{cnpj}: {e}")
-        if not falhou:
-            _log(db, tipo, min(inicios) if inicios else hoje, hoje, total, "ok")
-            resumo[tipo] = total
-        else:
-            resumo[tipo] = None
-
-    # fase 3 — itens das contratações; é a mais custosa,
-    # então vem no fim: se falhar, o resto do acervo já está gravado
-    try:
-        n = sync_itens(db, motor=motor)
+        n = sync_itens(db, motor=motor,
+                       municipios_ibge=None if escopo == "tudo" else alvos_itens)
         _config(db, "last_sync_itens", hoje.isoformat())
         _log(db, "itens", hoje, hoje, n, "ok")
         resumo["itens"] = n

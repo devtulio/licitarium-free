@@ -40,7 +40,7 @@ guarda): o lugar que guarda as licitações. **SVB · HASTA · PVBLICA.**
 
 ### Acervo
 
-Quatro abas, todas com busca, filtros (ano, modalidade, situação, órgão),
+Cinco abas, todas com busca, filtros (ano, modalidade, situação, órgão),
 ordenação por clique, colunas ajustáveis com o mouse e exportação em planilha (.xlsx):
 
 | Aba | Conteúdo |
@@ -49,6 +49,7 @@ ordenação por clique, colunas ajustáveis com o mouse e exportação em planil
 | **Contratos** | Contratos firmados, com fornecedor, valor global e vigência, com selo de situação (vigente / vence em 60 dias / encerrado) |
 | **Atas** | Atas de registro de preços, com objeto e vigência, com o mesmo selo de situação |
 | **PCA** | Itens do Plano de Contratações Anual de cada órgão |
+| **Preços** | Pesquisa de preços praticados (art. 23, Lei 14.133): busca por item, resumo estatístico (mediana, quartis, alerta de outlier), seleção e descarte com motivo, e municípios de referência para dar base de comparação |
 
 Clicar em qualquer linha abre o detalhe completo, incluindo o **registro
 integral em JSON** exatamente como consta no PNCP, e um link direto para a
@@ -88,7 +89,7 @@ do PNCP não trazem código de catálogo, então a conferência humana é necess
 
 ### Relatórios
 
-Sete relatórios em HTML timbrado (prontos para imprimir em PDF) e, quando faz
+Oito relatórios em HTML timbrado (prontos para imprimir em PDF) e, quando faz
 sentido, também em planilha (.xlsx):
 
 | Relatório | Uso |
@@ -99,6 +100,7 @@ sentido, também em planilha (.xlsx):
 | Resumo Executivo Anual | Visão consolidada do exercício |
 | Alerta de Fracionamento | Autocontrole: agrupa dispensas por similaridade de objeto e acompanha os limites do art. 75, com janela por exercício ou período móvel |
 | Minuta do PCA | Plano sugerido, para revisão |
+| Pesquisa de Preços | Levantamento de preços homologados por termo, com estatística, dispersão e comparativo por município — subsídio ao art. 23 |
 
 Os relatórios seguem o tema escolhido na tela, mas a **impressão sai sempre
 clara**, para não gastar tinta nem prejudicar a leitura em papel.

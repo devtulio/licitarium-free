@@ -417,13 +417,52 @@ function scriptPonte(temaBanco = "portal") {
         }
         return { ok: true };
       },
-      exportar_planilha: async () => ({ ok: false, erro: null }),
+      exportar_planilha: async (tipo, filtros) => {
+        window.__chamadas.push({ metodo: "exportar_planilha", tipo, filtros });
+        return window.__respostaExportarPlanilha
+          ?? { ok: true, arquivo: "C:/tmp/" + tipo + ".xlsx", linhas: 3 };
+      },
       abrir_pncp: async () => true,
       imprimir_detalhe: async (tipo, nc, titulo, subtitulo, meta_html,
                                raw_html) => {
         window.__chamadas.push({ metodo: "imprimir_detalhe", tipo, nc,
           titulo, subtitulo, meta_html, raw_html });
         return { ok: true, arquivo: "detalhe.html" };
+      },
+      sugerir_termo: async busca => {
+        window.__chamadas.push({ metodo: "sugerir_termo", busca });
+        if (window.__semSugestao) return null;
+        return /papeel/i.test(busca || "") ? "PAPEL" : null;
+      },
+      motivos_descarte: async () => [
+        { id: "servico", texto: "É serviço, não produto" },
+        { id: "diferente", texto: "Item diferente do pesquisado" },
+        { id: "erro", texto: "Preço com erro evidente de digitação" },
+        { id: "outro", texto: "Outro motivo" },
+      ],
+      painel_precos: async () => ({ itens: (DADOS.itens || []).length }),
+      listar_municipios_referencia: async () => {
+        window.__chamadas.push({ metodo: "listar_municipios_referencia" });
+        return window.__municipiosReferencia ?? [
+          { ibge: "3533908", nome: "Olímpia", uf: "SP", itens: 340, mb: 4.2,
+            status: "ok" },
+        ];
+      },
+      estimar_municipio_referencia: async codigo => {
+        window.__chamadas.push({ metodo: "estimar_municipio_referencia",
+                                 codigo });
+        return window.__respostaEstimarRef
+          ?? { contratacoes: 210, itens: 1800, mb: 6.4, minutos: 3 };
+      },
+      adicionar_municipio_referencia: async (codigo, nome, uf) => {
+        window.__chamadas.push({ metodo: "adicionar_municipio_referencia",
+                                 codigo, nome, uf });
+        return window.__respostaAdicionarRef ?? { ok: true };
+      },
+      remover_municipio_referencia: async codigo => {
+        window.__chamadas.push({ metodo: "remover_municipio_referencia",
+                                 codigo });
+        return { ok: true };
       },
     }};
   `;

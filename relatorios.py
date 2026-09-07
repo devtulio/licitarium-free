@@ -28,7 +28,8 @@ TITULOS = {"contratacoes": "Relação de Contratações",
            "executivo": "Resumo Executivo de Contratações",
            "economia": "Economia e Comparativos por Modalidade e Categoria",
            "fracionamento": "Alerta de Fracionamento — Dispensas × Limites",
-           "minuta_pca": "Minuta do Plano de Contratações Anual"}
+           "minuta_pca": "Minuta do Plano de Contratações Anual",
+           "precos": "Pesquisa de Preços — Histórico de Contratações"}
 
 # Valores do art. 75, I e II, da Lei 14.133/2021 conforme Decreto de
 # atualização — parametrizáveis nas configurações (confira o decreto vigente).
@@ -301,6 +302,112 @@ def _svg(largura, altura, dentro):
     return (f'<svg viewBox="0 0 {largura} {altura}" width="100%"'
             f' height="{altura}" role="img"'
             f' preserveAspectRatio="xMidYMid meet">{dentro}</svg>')
+
+
+# ── gráficos do relatório de preços — portados do Pretiarium Free ──────────
+
+def _grafico_dispersao(r, fmt, larg=800):
+    """Caixa (Tukey) do preço unitário: mín/Q1/mediana/Q3/máx num olhar só,
+    com a média marcada à parte — a distância entre as duas é o que a
+    prosa ao lado já explica em texto, o gráfico só torna visível sem
+    obrigar a ler seis números. Exige q1/q3 (resumo_estatistico só calcula
+    com n >= MINIMO_PARA_DISPERSAO)."""
+    if r.get("q1") is None:
+        return ""
+    minimo, maximo = r["minimo"], r["maximo"]
+    if maximo == minimo:
+        return ""
+    margem = 70
+    largura_util = larg - 2 * margem
+
+    def x(v):
+        return margem + (v - minimo) / (maximo - minimo) * largura_util
+
+    y_caixa, alt_caixa = 22, 28
+    meio = y_caixa + alt_caixa / 2
+    fora_inf = minimo < r["limite_inf"]
+    fora_sup = maximo > r["limite_sup"]
+    cor_min = "var(--erro)" if fora_inf else "var(--suave)"
+    cor_max = "var(--erro)" if fora_sup else "var(--suave)"
+    g = (f'<line x1="{x(minimo):.1f}" y1="{meio}" x2="{x(maximo):.1f}"'
+         f' y2="{meio}" stroke="var(--borda)"/>'
+         f'<line x1="{x(minimo):.1f}" y1="{y_caixa}" x2="{x(minimo):.1f}"'
+         f' y2="{y_caixa + alt_caixa}" stroke="{cor_min}" stroke-width="2"/>'
+         f'<line x1="{x(maximo):.1f}" y1="{y_caixa}" x2="{x(maximo):.1f}"'
+         f' y2="{y_caixa + alt_caixa}" stroke="{cor_max}" stroke-width="2"/>'
+         f'<rect x="{x(r["q1"]):.1f}" y="{y_caixa}"'
+         f' width="{max(2, x(r["q3"]) - x(r["q1"])):.1f}" height="{alt_caixa}"'
+         f' fill="var(--s1)" opacity=".22" stroke="var(--s1)"/>'
+         f'<line x1="{x(r["mediana"]):.1f}" y1="{y_caixa}"'
+         f' x2="{x(r["mediana"]):.1f}" y2="{y_caixa + alt_caixa}"'
+         f' stroke="var(--s1)" stroke-width="2.5"/>'
+         f'<circle cx="{x(r["media"]):.1f}" cy="{meio:.1f}" r="4.5"'
+         f' fill="var(--s2)"/>')
+    pontos = [(minimo, "menor", cor_min), (r["q1"], "Q1", "var(--suave)"),
+              (r["mediana"], "mediana", "var(--s1)"),
+              (r["media"], "média", "var(--s2)"),
+              (r["q3"], "Q3", "var(--suave)"),
+              (maximo, "maior", cor_max)]
+    # duas fileiras, atribuídas por varredura da esquerda pra direita: cada
+    # rótulo entra na primeira fileira onde não esbarra no anterior
+    px_por_caractere, margem_rotulo = 6.4, 4
+    borda_direita = [float("-inf"), float("-inf")]
+    fileira = {}
+    for i in sorted(range(len(pontos)), key=lambda i: x(pontos[i][0])):
+        v, nome, _ = pontos[i]
+        largura_rotulo = max(len(nome), len(fmt(v))) * px_por_caractere
+        cx = x(v)
+        f = 0 if cx - largura_rotulo / 2 > borda_direita[0] + margem_rotulo else 1
+        fileira[i] = f
+        borda_direita[f] = cx + largura_rotulo / 2
+    passo_fileira = 28
+    duas_fileiras = any(fileira.values())
+    for i, (v, nome, cor) in enumerate(pontos):
+        deslc = fileira[i] * passo_fileira
+        g += (f'<text class="rot" x="{x(v):.1f}"'
+              f' y="{y_caixa + alt_caixa + 16 + deslc}"'
+              f' text-anchor="middle" fill="{cor}">{nome}</text>'
+              f'<text class="val" x="{x(v):.1f}"'
+              f' y="{y_caixa + alt_caixa + 30 + deslc}"'
+              f' text-anchor="middle" fill="{cor}">{fmt(v)}</text>')
+    legenda = ('<div class="leg"><span><i style="background:var(--s1)">'
+              '</i>faixa entre Q1 e Q3</span>'
+              '<span><i style="background:var(--s2)"></i>média</span>')
+    if fora_inf or fora_sup:
+        legenda += ('<span><i style="background:var(--erro)"></i>'
+                    'fora da faixa esperada (Tukey)</span>')
+    legenda += "</div>"
+    altura = y_caixa + alt_caixa + 40 + (passo_fileira if duas_fileiras else 0)
+    return _svg(larg, altura, g) + legenda
+
+
+def _grafico_municipio(por_municipio, fmt, larg=800):
+    """Barra horizontal com a mediana de cada município, do mais barato pro
+    mais caro — fallback à mão de `desenharGraficoMunicipio` (ui/app.js),
+    pro caso de `grafico_html` não vir da tela (relatorios.py direto,
+    testes, CLI). `por_municipio` já chega ordenado (dados_precos)."""
+    if not por_municipio:
+        return ""
+    maior = max(m["mediana"] for m in por_municipio)
+    if maior <= 0:
+        return ""
+    margem_esq, margem_dir = 150, 70
+    largura_util = larg - margem_esq - margem_dir
+    passo, alt_barra = 32, 18
+    g = []
+    for i, m in enumerate(por_municipio):
+        y = i * passo
+        w = max(2, m["mediana"] / maior * largura_util)
+        rotulo = m["municipio"] + (" (ref.)" if m["referencia"] else "")
+        g.append(
+            f'<text class="rot" x="{margem_esq - 8}" y="{y + alt_barra * 0.75:.1f}"'
+            f' text-anchor="end" fill="var(--suave)">{html.escape(rotulo)}</text>'
+            f'<rect x="{margem_esq}" y="{y}" width="{w:.1f}" height="{alt_barra}"'
+            f' fill="var(--s1)"/>'
+            f'<text class="val" x="{margem_esq + w + 6:.1f}"'
+            f' y="{y + alt_barra * 0.75:.1f}" fill="var(--suave)">{fmt(m["mediana"])}</text>')
+    altura = len(por_municipio) * passo
+    return _svg(larg, altura, "".join(g))
 
 
 def _grafico_meses(meses, cor, larg=900):
@@ -1106,6 +1213,32 @@ def _blocos(ids, tamanho=400):
     return [ids[i:i + tamanho] for i in range(0, len(ids), tamanho)]
 
 
+# ── pesquisa de preços — plumbing trivial (portado do Pretiarium Free) ──────
+# A análise estatística pesada (Tukey, FTS5+RapidFuzz, correção por
+# embalagem, "parece serviço", correção IPCA) NÃO foi portada nesta tarefa —
+# fica pra próxima, que porta relatorios.py inteiro. Estes dois nomes são só
+# identificação de pesquisa e rótulo de descarte; sem eles nem o básico
+# (marcar/descartar item) funcionaria.
+
+# Motivos padronizados de descarte de um preço da pesquisa (IN SEGES
+# 65/2021 exige motivar a desconsideração) — o usuário também pode digitar
+# um motivo livre, que passa direto sem bater aqui.
+MOTIVOS_DESCARTE = {
+    "servico": "Descrição indica prestação de serviço, não fornecimento de produto",
+    "nao_comparavel": "Item não comparável ao objeto pesquisado",
+    "embalagem": "Embalagem ou unidade de medida diferente",
+    "inexequivel": "Preço manifestamente inexequível",
+    "excessivo": "Preço excessivamente elevado",
+    "antigo": "Contratação antiga demais para servir de parâmetro",
+    "lote": "Valor de lote lançado como item único",
+}
+
+
+def chave_termo(busca):
+    """Identifica a pesquisa. "Papel  A4 " e "papel a4" são a mesma."""
+    return " ".join((busca or "").lower().split())
+
+
 def mes_por_extenso(competencia_):
     """"2026-06" vira "jun/2026", que é como o documento fala.
 
@@ -1126,6 +1259,549 @@ def mes_por_extenso(competencia_):
     if not 1 <= mes <= 12:
         return None
     return f"{MESES_NOME[mes - 1]}/{ano}"
+
+
+# ── correção monetária (IPCA) — pesquisa de preços ──────────────────────────
+# O Montar PCA já tem correção de IPCA própria em `pca_builder` (mesma fonte:
+# tabela `ipca`, série 433 do BCB). `fatores_ipca` é idêntica nos dois — a
+# tabela de fatores por competência não muda com o consumidor — então é só
+# reaproveitada daqui, sem duplicar. `corrigir` DIVERGE de propósito:
+# `pca_builder.corrigir_ipca` devolve o valor ORIGINAL quando não dá para
+# corrigir (o PCA não pode simplesmente sumir com um item da minuta); a
+# pesquisa de preços precisa do oposto — excluir da amostra o preço que não
+# tem como corrigir, senão ele entra misturado, sem correção, junto dos que
+# têm. `corrigir` é um adaptador fino: chama `corrigir_ipca` e descarta o
+# resultado quando ele não corrigiu de fato.
+fatores_ipca = pca_builder.fatores_ipca
+
+
+def corrigir(valor, data, ipca):
+    """Traz o valor a preço do último mês disponível do índice.
+
+    Devolve `None` quando não há como corrigir — sem data, sem série, ou
+    preço posterior ao último índice — para a série EXCLUIR o item em vez
+    de misturar preço corrigido com preço cru.
+    """
+    valor_corrigido, corrigiu = pca_builder.corrigir_ipca(valor, data, ipca)
+    return valor_corrigido if corrigiu else None
+
+
+# Abaixo disso, quartil não descreve distribuição nenhuma: com quatro
+# preços, Q1 e Q3 são praticamente o menor e o maior, e "fora da curva"
+# viraria opinião. A pesquisa de preços continua válida — só não ganha a
+# análise de dispersão.
+MINIMO_PARA_DISPERSAO = 5
+
+
+def _quantil(ordenados, p):
+    """Quantil por interpolação linear (o método de `numpy.percentile`)."""
+    if not ordenados:
+        return None
+    pos = (len(ordenados) - 1) * p
+    baixo = int(pos)
+    alto = min(baixo + 1, len(ordenados) - 1)
+    return (ordenados[baixo]
+            + (ordenados[alto] - ordenados[baixo]) * (pos - baixo))
+
+
+def resumo_estatistico(valores):
+    """Descreve a série de preços: centro, dispersão e o que destoa.
+
+    Média e mediana andam juntas de propósito — a distância entre as duas é
+    o que denuncia a série puxada por um extremo. Desvio padrão
+    **populacional** (divide por n, não por n-1): descreve a cesta
+    efetivamente coletada, não estima o mercado inteiro.
+
+    Dois diagnósticos de extremo, que se complementam:
+    - **Tukey** (1,5 vez a amplitude interquartil) — só a partir de
+      `MINIMO_PARA_DISPERSAO` preços, robusto a assimetria.
+    - **Escore Z modificado sobre o MAD** — já funciona com 3-4 preços,
+      faixa em que Tukey ainda não se aplica.
+
+    Nada é removido aqui: a função só aponta, o descarte é sempre ato do
+    operador, registrado em `precos_descartes` com motivo.
+    """
+    v = []
+    for x in valores or ():
+        try:
+            v.append(float(x))
+        except (TypeError, ValueError):
+            continue
+    if not v:
+        return None
+    v.sort()
+    n = len(v)
+    media = sum(v) / n
+    mediana = _quantil(v, 0.5)
+    r = {"n": n, "minimo": v[0], "maximo": v[-1], "media": media,
+         "mediana": mediana, "amplitude": v[-1] - v[0]}
+    if n >= 2:
+        variancia = sum((x - media) ** 2 for x in v) / n
+        r["desvio"] = variancia ** 0.5
+        r["cv"] = r["desvio"] / media if media else None
+        mad = _quantil(sorted(abs(x - mediana) for x in v), 0.5)
+        r["mad"] = mad
+        if mad > 0:
+            raio = (3.5 / 0.6745) * mad
+            r["limite_inf_robusto"] = mediana - raio
+            r["limite_sup_robusto"] = mediana + raio
+    if n >= MINIMO_PARA_DISPERSAO:
+        q1, q3 = _quantil(v, 0.25), _quantil(v, 0.75)
+        iqr = q3 - q1
+        r.update(q1=q1, q3=q3, iqr=iqr,
+                 limite_inf=q1 - 1.5 * iqr, limite_sup=q3 + 1.5 * iqr)
+    return r
+
+
+def e_extremo(valor, resumo):
+    """Verdadeiro se `valor` está fora das cercas de Tukey OU do escore Z
+    modificado — só SINALIZA, nunca descarta sozinho (descarte é ato humano
+    em `precos_descartes`, com motivo)."""
+    if resumo.get("limite_sup") is not None and (
+            valor < resumo["limite_inf"] or valor > resumo["limite_sup"]):
+        return True
+    if resumo.get("limite_sup_robusto") is not None and (
+            valor < resumo["limite_inf_robusto"]
+            or valor > resumo["limite_sup_robusto"]):
+        return True
+    return False
+
+
+def sensibilidade_sem_extremo(valores, resumo):
+    """Recalcula a estatística sem o preço mais distante da mediana entre
+    os apontados como extremos — não decide, só mostra o efeito de tirar
+    o pior caso. `None` quando nada está apontado."""
+    fora = [v for v in valores if e_extremo(v, resumo)]
+    if not fora:
+        return None
+    pior = max(fora, key=lambda v: abs(v - resumo["mediana"]))
+    resto = list(valores)
+    resto.remove(pior)
+    novo = resumo_estatistico(resto)
+    if not novo:
+        return None
+    return {"removido": pior,
+            "media_antes": resumo["media"], "media_depois": novo["media"],
+            "mediana_antes": resumo["mediana"],
+            "mediana_depois": novo["mediana"]}
+
+
+def alertas_concentracao(fornecedores, contratacoes=None):
+    """Preços da mesma contratação ou do mesmo fornecedor não são
+    evidências independentes — cópias do mesmo processo de compra inflam
+    `n` sem acrescentar informação nova."""
+    alertas = []
+    for valores, rotulo in ((fornecedores, "fornecedor"),
+                            (contratacoes or [], "processo")):
+        contagem = Counter(v for v in valores if v)
+        repetidos = [k for k, n in contagem.items() if n > 1]
+        if repetidos:
+            plural = "es" if rotulo == "fornecedor" else "s"
+            alertas.append(
+                f"{len(repetidos)} {rotulo}{'' if len(repetidos) == 1 else plural}"
+                f" com mais de um preço na amostra")
+    return alertas
+
+
+# ── quanto vem dentro da embalagem ──────────────────────────────────────────
+# Preço de embalagem não se compara: uma caixa de papel A4 com 5.000 folhas
+# e um pacote de 100 folhas não estão no mesmo preço por folha. O conteúdo
+# está escrito no texto ("CAIXA C/5000 FLS", "Embalagem 1,00 KG") e dá para
+# ler e converter — com cuidado para não confundir gramatura/dimensão com
+# conteúdo (portado do Pretiarium Free, medido contra o acervo real).
+BASES = {
+    "un": ("unidade", 1.0),
+    "kg": ("quilo", 1.0),
+    "l": ("litro", 1.0),
+    "m": ("metro", 1.0),
+}
+
+_MEDIDAS = {
+    "MG": ("kg", 1e-6), "G": ("kg", 1e-3), "GR": ("kg", 1e-3),
+    "GRAMA": ("kg", 1e-3), "GRAMAS": ("kg", 1e-3),
+    "KG": ("kg", 1.0), "QUILO": ("kg", 1.0), "QUILOS": ("kg", 1.0),
+    "KILO": ("kg", 1.0), "QUILOGRAMA": ("kg", 1.0),
+    "ML": ("l", 1e-3), "MILILITRO": ("l", 1e-3), "MILILITROS": ("l", 1e-3),
+    "CL": ("l", 1e-2), "L": ("l", 1.0), "LT": ("l", 1.0),
+    "LITRO": ("l", 1.0), "LITROS": ("l", 1.0),
+    "MM": ("m", 1e-3), "CM": ("m", 1e-2), "M": ("m", 1.0),
+    "MT": ("m", 1.0), "METRO": ("m", 1.0), "METROS": ("m", 1.0),
+}
+_CONTAGEM = {"FL", "FLS", "FOLHA", "FOLHAS", "UN", "UND", "UNID", "UNIDADE",
+             "UNIDADES", "PC", "PCS", "PECA", "PECAS", "CP", "COMP",
+             "COMPRIMIDO", "COMPRIMIDOS", "CAPSULA", "CAPSULAS", "CAPS",
+             "ENVELOPE", "ENVELOPES", "SACHE", "SACHES", "AMPOLA", "AMPOLAS"}
+
+# Unidade de compra que já é a própria base — o preço unitário já está nela,
+# então o conteúdo é 1 e não há o que dividir.
+BASE_PURA = {u: base for u, (base, fator) in _MEDIDAS.items() if fator == 1.0}
+BASE_PURA.update({u: "un" for u in _CONTAGEM})
+
+_NUM = r"(\d{1,3}(?:\.\d{3})+|\d+(?:[.,]\d+)?)"
+_NA_UNIDADE = re.compile(rf"{_NUM}\s*([A-Z]+)")
+_NA_DESCRICAO = re.compile(
+    rf"(?:C\s*/\s*|COM\s+|CONTENDO\s+|CAIXA\s+COM\s+|PACOTE\s+COM\s+|"
+    rf"FARDO\s+COM\s+|EMBALAGEM\s+COM\s+){_NUM}\s*([A-Z]+)")
+# CX e FD ficam de fora de propósito: são embalagens coletivas, e o preço é
+# da caixa inteira, não da medida escrita ("FERMENTO BIOLÓGICO 10G" em caixa
+# a R$ 216 não é R$ 21.600/kg).
+EMBALAGEM_INDIVIDUAL = {"PCT", "PACOTE", "BALDE", "GL", "GALAO", "SC", "SACO",
+                        "POTE", "LATA", "FR", "FRASCO", "TB", "TUBO",
+                        "BISNAGA", "SACHE"}
+_SOLTA = re.compile(rf"{_NUM}\s*([A-Z]+)")
+
+_GRAMATURA = re.compile(rf"{_NUM}\s*(?:G|GR)\s*/\s*M", re.I)
+_DIMENSAO = re.compile(rf"{_NUM}\s*(MM|CM|M)\s*(?:X|POR)\s*{_NUM}", re.I)
+
+
+def _sem_acento(texto):
+    return (unicodedata.normalize("NFD", texto or "")
+            .encode("ascii", "ignore").decode().upper())
+
+
+def _numero(bruto):
+    """"1.000" é mil; "1,00" e "1.00" são um. O PNCP escreve dos dois jeitos."""
+    limpo = bruto.replace(".", "") if re.fullmatch(r"\d{1,3}(\.\d{3})+", bruto) \
+        else bruto.replace(",", ".")
+    try:
+        return float(limpo)
+    except ValueError:
+        return None
+
+
+def conteudo(descricao, unidade):
+    """Quanto a embalagem contém, na unidade-base da família.
+
+    Devolve `(quantidade, base)` ou `None` quando o texto não diz de forma
+    inequívoca.
+    """
+    u = _sem_acento(unidade).strip()
+    lido = _ler_conteudo(u, _NA_UNIDADE)
+    if lido:
+        return lido
+    if u in BASE_PURA:
+        return 1.0, BASE_PURA[u]
+    d = _sem_acento(descricao)
+    return (_ler_conteudo(d, _NA_DESCRICAO)
+            or (_ler_conteudo(d, _SOLTA) if u in EMBALAGEM_INDIVIDUAL
+                else None))
+
+
+def _ler_conteudo(texto, padrao):
+    if not texto:
+        return None
+    texto = _GRAMATURA.sub(" ", _DIMENSAO.sub(" ", texto))
+    for bruto, palavra in padrao.findall(texto):
+        quant = _numero(bruto)
+        if not quant or quant <= 0:
+            continue
+        if palavra in _CONTAGEM:
+            return quant, "un"
+        medida = _MEDIDAS.get(palavra)
+        if medida:
+            base, fator = medida
+            return quant * fator, base
+    return None
+
+
+def base_implicita(unidade):
+    """O conteúdo veio da unidade já ser a base, não de uma declaração —
+    não deve escolher a unidade-base da série (ver `escolher_base`)."""
+    return _sem_acento(unidade).strip() in BASE_PURA
+
+
+def escolher_base(bases):
+    """A unidade-base da série, decidida só por quem declarou conteúdo.
+
+    `bases` é a lista de (base, implicita). Quando ninguém declarou nada, o
+    voto implícito vale.
+    """
+    declarados = Counter(b for b, implicita in bases if not implicita)
+    contagem = declarados or Counter(b for b, _ in bases)
+    return max(contagem, key=lambda b: (contagem[b], b)) if contagem else None
+
+
+def preco_por_conteudo(valor, descricao, unidade):
+    """Preço na unidade-base: R$/folha, R$/kg, R$/litro, R$/metro."""
+    try:
+        valor = float(valor)
+    except (TypeError, ValueError):
+        return None
+    lido = conteudo(descricao, unidade)
+    if not lido:
+        return None
+    quant, base = lido
+    return {"valor": valor / quant, "base": base,
+            "conteudo": quant, "rotulo": BASES[base][0]}
+
+
+# Verbos/termos que costumam indicar prestação de SERVIÇO, não fornecimento
+# de produto. Sinaliza, nunca descarta sozinho — a decisão continua do
+# operador, aqui só reduz o trabalho de achar (portado do Pretiarium Free).
+PADRAO_SERVICO = re.compile(
+    r"\b(LOCA[ÇC][ÃA]O|CONFEC[ÇC][ÃA]O|MANUTEN[ÇC][ÃA]O|"
+    r"CONTRATA[ÇC][ÃA]O\s+DE\s+EMPRESA|PRESTA[ÇC][ÃA]O|TREINAMENTO|"
+    r"CAPACITA[ÇC][ÃA]O|MANIPULA[ÇC][ÃA]O|ARMAZENAMENTO|IMPRESS[ÃA]O|"
+    r"GERENCIAMENTO|GEST[ÃA]O|SERVI[ÇC]OS?|"
+    r"OBJETO\s+DO\s+PRESENTE\s+PROCEDIMENTO)\b", re.IGNORECASE)
+
+
+def parece_servico(descricao, material_servico=None):
+    """`True` quando o item soa como prestação de serviço, não fornecimento
+    de produto — sinal para a curadoria olhar com atenção, nunca descarte
+    automático."""
+    if material_servico and "serviço" in material_servico.casefold():
+        return True
+    return bool(descricao and PADRAO_SERVICO.search(descricao))
+
+
+LIMIAR_AMOSTRA_REDUZIDA = 0.10
+
+
+def marcar_amostra_reduzida(resumo, sem_indice):
+    """Anota no resumo se a correção IPCA tirou parte relevante da série."""
+    total = (resumo.get("n") or 0) + (sem_indice or 0)
+    resumo["amostra_reduzida"] = bool(
+        total and sem_indice / total >= LIMIAR_AMOSTRA_REDUZIDA)
+    return resumo
+
+
+def dados_banco_precos(db):
+    """Tamanho e composição do banco de preços — aba Painel da pesquisa de
+    preços (não é o Painel de execução/vigência de contratação)."""
+    total = db.execute("SELECT COUNT(*) FROM itens").fetchone()[0]
+    homologados = db.execute(
+        "SELECT COUNT(*) FROM itens"
+        " WHERE valor_unitario_homologado IS NOT NULL").fetchone()[0]
+    fornecedores = db.execute(
+        "SELECT COUNT(DISTINCT fornecedor_ni) FROM itens"
+        " WHERE fornecedor_ni IS NOT NULL").fetchone()[0]
+    por_ano = [{"ano": r[0], "n": r[1]} for r in db.execute(
+        "SELECT ano, COUNT(*) FROM itens"
+        " WHERE ano IS NOT NULL GROUP BY ano ORDER BY ano")]
+    proprio_ibge = pncp._config(db, "municipio_ibge")
+    proprio_nome = pncp._config(db, "municipio_nome")
+    proprio_uf = pncp._config(db, "municipio_uf")
+    contagem_por_ibge = {r[0]: r[1] for r in db.execute(
+        "SELECT municipio_ibge, COUNT(*) FROM itens"
+        " WHERE municipio_ibge IS NOT NULL GROUP BY 1")}
+    homologado_por_ibge = {r[0]: r[1] for r in db.execute(
+        "SELECT municipio_ibge, COUNT(*) FROM itens"
+        " WHERE municipio_ibge IS NOT NULL"
+        " AND valor_unitario_homologado IS NOT NULL GROUP BY 1")}
+    municipios = []
+    if proprio_ibge:
+        n = contagem_por_ibge.get(proprio_ibge, 0)
+        h = homologado_por_ibge.get(proprio_ibge, 0)
+        municipios.append({
+            "nome": proprio_nome or proprio_ibge, "uf": proprio_uf or "",
+            "referencia": False, "itens": n,
+            "pct_homologado": round(h / n * 100) if n else 0})
+    for r in db.execute("SELECT ibge, nome, uf FROM municipios_referencia"):
+        n = contagem_por_ibge.get(r[0], 0)
+        h = homologado_por_ibge.get(r[0], 0)
+        municipios.append({"nome": r[1], "uf": r[2], "referencia": True,
+                           "itens": n,
+                           "pct_homologado": round(h / n * 100) if n else 0})
+    municipios.sort(key=lambda m: -m["itens"])
+    top_itens = [{"descricao": r[0], "n": r[1]} for r in db.execute(
+        "SELECT descricao, COUNT(*) n FROM itens"
+        " GROUP BY descricao ORDER BY n DESC LIMIT 10")]
+    material_servico = [{"tipo": r[0] or "Não informado", "n": r[1]}
+                        for r in db.execute(
+        "SELECT material_servico, COUNT(*) n FROM itens"
+        " GROUP BY 1 ORDER BY 2 DESC")]
+    fornecedores_top = [{"fornecedor": r[0], "n": r[1]} for r in db.execute(
+        "SELECT fornecedor_nome, COUNT(*) n FROM itens"
+        " WHERE fornecedor_nome IS NOT NULL"
+        " GROUP BY fornecedor_nome ORDER BY n DESC LIMIT 10")]
+    # unidade_canonica é função registrada por licitarium.abrir_db() — não
+    # dá para importar licitarium no topo (ciclo: licitarium importa
+    # relatorios), então a agregação por unidade é feita aqui em Python.
+    from licitarium import _unidade_canonica
+    agrupado_unidade = Counter()
+    for texto, n in db.execute(
+            "SELECT unidade, COUNT(*) FROM itens"
+            " WHERE unidade IS NOT NULL GROUP BY 1"):
+        agrupado_unidade[_unidade_canonica(texto)] += n
+    unidades = [{"unidade": k, "n": v} for k, v in
+               sorted(agrupado_unidade.items(), key=lambda kv: -kv[1])[:8]]
+    return {"total": total, "homologados": homologados,
+            "pct_homologado": round(homologados / total * 100)
+                if total else 0,
+            "fornecedores": fornecedores, "por_ano": por_ano,
+            "municipios": municipios, "top_itens": top_itens,
+            "material_servico": material_servico,
+            "fornecedores_top": fornecedores_top, "unidades": unidades}
+
+
+def concentracao_por_item(db, descricao):
+    """Quantos fornecedores sustentam o preço coletado de um item — "esse
+    preço reflete o mercado, ou só um fornecedor dominante?" """
+    linhas = [{"fornecedor": r[0], "n": r[1]} for r in db.execute(
+        "SELECT fornecedor_nome, COUNT(*) n FROM itens"
+        " WHERE descricao=? AND valor_unitario_homologado IS NOT NULL"
+        " AND fornecedor_nome IS NOT NULL"
+        " GROUP BY fornecedor_nome ORDER BY n DESC", (descricao,))]
+    total = sum(l["n"] for l in linhas)
+    acumulado = 0
+    corte = None
+    for i, l in enumerate(linhas):
+        acumulado += l["n"]
+        l["pct"] = round(l["n"] / total * 100, 1) if total else 0
+        l["acumulado_pct"] = round(acumulado / total * 100, 1) if total else 0
+        if corte is None and l["acumulado_pct"] >= 80:
+            corte = i
+    return {"descricao": descricao, "total": total,
+            "fornecedores": linhas, "corte": corte}
+
+
+def rotulo_motivo(motivo):
+    """Texto que vai ao documento: rótulo padrão ou o que o usuário
+    escreveu."""
+    if not motivo:
+        return None
+    return MOTIVOS_DESCARTE.get(motivo, motivo)
+
+
+def dados_precos(db, termo, ano=None, orgao=None, excluidos=None,
+                 por_conteudo=False, corrigir_ipca=False,
+                 exigir_selecao=False):
+    """Histórico de preços unitários homologados para um termo de busca —
+    monta o relatório impresso da pesquisa de preços.
+
+    Os itens desconsiderados saem do cálculo mas não do documento: eles
+    reaparecem numa seção própria, com a razão de cada um (art. 23/IN SEGES
+    65/2021 não admitem desprezar preço coletado sem dizer por quê).
+
+    `exigir_selecao=True` (quem gera o documento) recusa gerar relatório
+    sobre a busca inteira quando a tela não tem nada marcado ainda.
+    """
+    where = ["valor_unitario_homologado IS NOT NULL"]
+    args = []
+    palavras = re.findall(r"[0-9A-Za-zÀ-ÿ]+", termo or "")
+    if palavras:
+        where.append("rowid IN (SELECT rowid FROM itens_fts"
+                     " WHERE itens_fts MATCH ?)")
+        args.append(" AND ".join(f'"{p}"*' for p in palavras))
+    else:
+        where.append("descricao LIKE ?")
+        args.append(f"%{(termo or '').strip()}%")
+    if ano:
+        where.append("ano=?")
+        args.append(int(ano))
+    if orgao:
+        where.append("orgao_cnpj=?")
+        args.append(orgao)
+    motivos = {r[0]: r[1] for r in db.execute(
+        "SELECT item_id, motivo FROM precos_descartes WHERE termo=?",
+        (chave_termo(termo),))}
+    for extra in (excluidos or []):
+        motivos.setdefault(str(extra), None)
+    for grupo in _blocos(list(motivos)):
+        where.append("id NOT IN (%s)" % ",".join("?" * len(grupo)))
+        args += grupo
+    selecionados = [r[0] for r in db.execute(
+        "SELECT item_id FROM precos_selecionados WHERE termo=?",
+        (chave_termo(termo),))]
+    if selecionados:
+        grupos_sel = _blocos(selecionados)
+        where.append("(" + " OR ".join(
+            "id IN (%s)" % ",".join("?" * len(g)) for g in grupos_sel) + ")")
+        for g in grupos_sel:
+            args += g
+    sql_where = " WHERE " + " AND ".join(where)
+    linhas = [dict(r) for r in db.execute(
+        f"""SELECT descricao, unidade, quantidade_homologada,
+                   valor_unitario_homologado, valor_total_homologado,
+                   fornecedor_nome, fornecedor_ni, data_resultado,
+                   sequencial, ano, contratacao_controle, orgao_cnpj,
+                   referencia, municipio_ibge, id
+            FROM itens{sql_where}
+            ORDER BY valor_unitario_homologado""", args)]
+    if exigir_selecao and not selecionados and linhas:
+        raise ValueError(
+            "selecione na aba Preços os itens que entram na pesquisa antes "
+            "de gerar o documento")
+    nomes = {r[0]: r[1] for r in
+             db.execute("SELECT ibge, nome FROM municipios_referencia")}
+    proprio = pncp._config(db, "municipio_ibge")
+    nome_proprio = pncp._config(db, "municipio_nome")
+    if proprio:
+        nomes[proprio] = nome_proprio or proprio
+    for l in linhas:
+        l["municipio_nome"] = nomes.get(l["municipio_ibge"]) or "–"
+    ipca = fatores_ipca(db) if corrigir_ipca else None
+    if ipca:
+        publicacao = {r[0]: r[1] for r in db.execute(
+            "SELECT numero_controle, data_publicacao FROM contratacoes")}
+        for l in linhas:
+            l["corrigido"] = corrigir(
+                l["valor_unitario_homologado"],
+                l["data_resultado"] or publicacao.get(
+                    l["contratacao_controle"]), ipca)
+        sem_indice = sum(1 for l in linhas if l["corrigido"] is None)
+        linhas = [l for l in linhas if l["corrigido"] is not None]
+    for l in linhas:
+        l["por_conteudo"] = preco_por_conteudo(
+            l["corrigido"] if ipca else l["valor_unitario_homologado"],
+            l["descricao"], l["unidade"])
+    base = None
+    if por_conteudo:
+        base = escolher_base([(l["por_conteudo"]["base"],
+                               base_implicita(l["unidade"]))
+                              for l in linhas if l["por_conteudo"]])
+        comparaveis = [l for l in linhas
+                       if l["por_conteudo"] and l["por_conteudo"]["base"] == base]
+        fora_da_comparacao = len(linhas) - len(comparaveis)
+        linhas = sorted(comparaveis, key=lambda l: l["por_conteudo"]["valor"])
+        valores = [l["por_conteudo"]["valor"] for l in linhas]
+    else:
+        valores = [l["corrigido"] if ipca else l["valor_unitario_homologado"]
+                   for l in linhas]
+        fora_da_comparacao = 0
+    resumo = resumo_estatistico(valores)
+    if resumo:
+        resumo["fornecedores"] = len({l["fornecedor_ni"] for l in linhas})
+        if por_conteudo and base:
+            resumo.update(por_conteudo=True, base=base,
+                          rotulo_base=BASES[base][0],
+                          sem_conversao=fora_da_comparacao)
+        if ipca:
+            resumo.update(corrigido=True, ipca_ate=ipca["ate"],
+                          ipca_ate_extenso=mes_por_extenso(ipca["ate"]),
+                          sem_indice=sem_indice)
+            marcar_amostra_reduzida(resumo, sem_indice)
+        for l, v in zip(linhas, valores):
+            l["fora_da_curva"] = e_extremo(v, resumo)
+        resumo["alertas_concentracao"] = alertas_concentracao(
+            [l["fornecedor_ni"] for l in linhas],
+            [l["contratacao_controle"] for l in linhas])
+        resumo["sensibilidade"] = sensibilidade_sem_extremo(valores, resumo)
+        por_nome = {}
+        for l, v in zip(linhas, valores):
+            por_nome.setdefault(l["municipio_nome"], []).append((v, l["referencia"]))
+        if len(por_nome) > 1:
+            resumo["por_municipio"] = sorted((
+                {"municipio": nome, "referencia": bool(pares[0][1]),
+                 "n": len(pares),
+                 "mediana": resumo_estatistico([v for v, _ in pares])["mediana"]}
+                for nome, pares in por_nome.items()),
+                key=lambda m: m["mediana"])
+    desconsiderados = []
+    for grupo in _blocos(list(motivos)):
+        desconsiderados += [dict(r) for r in db.execute(
+            "SELECT id, descricao, unidade, quantidade_homologada,"
+            " valor_unitario_homologado, fornecedor_nome, numero_item, ano,"
+            " orgao_cnpj FROM itens WHERE id IN (%s)"
+            % ",".join("?" * len(grupo)), grupo)]
+    for l in desconsiderados:
+        l["motivo"] = rotulo_motivo(motivos.get(l["id"]))
+    desconsiderados.sort(key=lambda l: l["valor_unitario_homologado"] or 0)
+    return {"termo": (termo or "").strip(), "linhas": linhas, "resumo": resumo,
+            "desconsiderados": desconsiderados, "ano": ano,
+            "por_conteudo": bool(por_conteudo and base),
+            "corrigido": bool(ipca)}
 
 
 # ── render ──────────────────────────────────────────────────────────────────
@@ -1160,6 +1836,7 @@ CATEGORIA_RELATORIO = {
     "economia": ("Analítico", "azul"),
     "fracionamento": ("Vigilância", "alerta"),
     "minuta_pca": ("Planejamento", "verde"),
+    "precos": ("Planejamento", "verde"),
 }
 
 
@@ -1549,6 +2226,64 @@ pela <b>{est}</b> dos valores homologados.</div>
                    acervo=acervo)
 
 
+def _LEITURA_CV(cv):
+    """Mesma leitura da tela — o documento não pode discordar dela."""
+    if cv < 0.15:
+        return "preços homogêneos"
+    if cv < 0.25:
+        return "variação moderada"
+    if cv < 0.50:
+        return "amostra dispersa; a mediana representa melhor o conjunto"
+    return "amostra muito dispersa; confira a comparabilidade dos itens"
+
+
+def _secao_metodologia(r, coluna_corrigido, coluna_conteudo):
+    """Memória de cálculo do relatório — o que a IN SEGES/ME 65/2021 exige
+    documentar (metodologia, fontes, critério de exclusão) já sai no papel,
+    não só na cabeça de quem gerou. Só entram os itens que se aplicaram a
+    ESTA pesquisa (com IPCA desligado, por exemplo, não cita IPCA)."""
+    tem_tukey = r.get("limite_sup") is not None
+    itens = [
+        '<li><b>Fonte:</b> Portal Nacional de Contratações Públicas (PNCP), '
+        'art. 23 da Lei 14.133/2021 e IN SEGES/ME 65/2021 — só entram preços '
+        'com <b>resultado homologado</b>, não estimativa de edital.</li>',
+        '<li><b>Mediana e média</b> aparecem juntas de propósito: a '
+        'distância entre as duas denuncia série puxada por um extremo. '
+        'Acima de 25% de coeficiente de variação, a mediana representa '
+        'melhor o conjunto que a média.</li>',
+    ]
+    if tem_tukey:
+        itens.append(
+            '<li><b>Critério de Tukey:</b> preço fora de 1,5 vez a '
+            'amplitude interquartil (Q3−Q1) é apontado como destoante — '
+            'nunca removido sozinho, quem decide desprezar um preço '
+            'coletado é quem assina a pesquisa.</li>')
+    else:
+        itens.append(
+            '<li><b>Escore Z modificado</b> (sobre o desvio absoluto '
+            'mediano): com menos de 5 preços o critério de Tukey não se '
+            'aplica — a faixa central seria quase o menor e o maior valor '
+            '—, e esse escore ainda aponta o que destoa.</li>')
+    if coluna_corrigido:
+        itens.append(
+            f'<li><b>Correção monetária (IPCA):</b> valores trazidos a '
+            f'preços de {r["ipca_ate_extenso"]} pela série 433 do Banco '
+            f'Central, a partir da data do resultado de cada '
+            f'contratação.</li>')
+    if coluna_conteudo:
+        itens.append(
+            f'<li><b>Comparação por conteúdo:</b> preços convertidos para '
+            f'R$/{r["rotulo_base"]}, a partir do que a embalagem declara '
+            f'conter — evita comparar a caixa de 5.000 folhas com o pacote '
+            f'de 100 como se fossem o mesmo preço.</li>')
+    if r.get("por_municipio"):
+        itens.append(
+            '<li><b>Comparativo por município:</b> mediana calculada '
+            'separadamente para cada município (o seu e os de referência, '
+            'art. 23, §1º, I), não sobre a série inteira misturada.</li>')
+    return f'<h2>Metodologia</h2><ul class="metodologia">{"".join(itens)}</ul>'
+
+
 def _desconsiderados_html(d):
     """Seção dos preços que ficaram de fora, com a razão de cada um.
 
@@ -1595,6 +2330,143 @@ def _processo(l):
 
 
 
+
+
+def render_precos(d, municipio, uf, brasao=None, grafico_html=None,
+                  grafico_municipio_html=None, categoria=None, acervo=None):
+    """Relatório da pesquisa de preços — portado do Pretiarium Free."""
+    r = d["resumo"]
+    periodo = f"Exercício {d['ano']}" if d.get("ano") else "Todo o acervo"
+    if not r:
+        corpo = (f'<div class="caixa-aviso">Nenhum item homologado encontrado '
+                 f'para <b>{_e(d["termo"])}</b> no acervo local.</div>')
+        return _pagina(f"{TITULOS['precos']} — {_e(d['termo'])}", corpo,
+                       municipio, uf, periodo, paisagem=True,
+                       brasao=brasao, categoria=categoria, acervo=acervo)
+    # no modo por conteúdo tudo é R$ por unidade-base, e o rótulo diz qual
+    val = moeda_fina if d.get("por_conteudo") else moeda
+    # "mediana por unidade" no modo por conteúdo; fora dele, os de sempre
+    base = f" por {r['rotulo_base']}" if d.get("por_conteudo") else ""
+    unit = base or " unitário"
+    cards = f"""<div class="cards">
+<div class="card"><div class="n">{val(r['minimo'])}</div><div class="l">menor{unit}</div></div>
+<div class="card"><div class="n">{val(r['mediana'])}</div><div class="l">mediana{base}</div></div>
+<div class="card"><div class="n">{val(r['media'])}</div><div class="l">média{base}</div></div>
+<div class="card"><div class="n">{val(r['maximo'])}</div><div class="l">maior{unit}</div></div>
+<div class="card"><div class="n">{r['n']}</div><div class="l">itens</div></div>
+<div class="card"><div class="n">{r['fornecedores']}</div><div class="l">fornecedores</div></div>
+</div>"""
+    # dispersão no documento: quem confere a pesquisa precisa saber se a
+    # média descreve o conjunto ou se foi puxada por um extremo. Checa "cv",
+    # não "desvio": com média exatamente zero, desvio existe mas cv fica
+    # None (divisão por média zero) — o parágrafo é sobre coeficiente de
+    # variação, então sem cv não há o que mostrar.
+    if r.get("cv") is not None:
+        faixa = (f"Metade dos preços está entre <b>{moeda(r['q1'])}</b> e "
+                 f"<b>{moeda(r['q3'])}</b>. " if r.get("q1") is not None else "")
+        n_fora = sum(1 for l in d["linhas"] if l.get("fora_da_curva"))
+        aviso_fora = (
+            f' <b>{n_fora} {"preço destoa" if n_fora == 1 else "preços destoam"}'
+            f' do conjunto</b> (em vermelho na tabela) pelo critério de'
+            f' Tukey e/ou pelo escore Z modificado sobre o desvio absoluto'
+            f' mediano — confira a aderência antes de usar como referência.'
+            if n_fora else "")
+        cards += (
+            f'<p class="disp">{faixa}Desvio padrão <b>{moeda(r["desvio"])}</b>'
+            f' · coeficiente de variação <b>{r["cv"] * 100:.0f}%</b>'
+            f' ({_LEITURA_CV(r["cv"])}).{aviso_fora}</p>')
+        if r.get("alertas_concentracao"):
+            cards += (f'<p class="disp"><b>Concentração:</b> '
+                       f'{"; ".join(r["alertas_concentracao"])} — preços da '
+                       f'mesma fonte não são evidências independentes.</p>')
+        s = r.get("sensibilidade")
+        if s:
+            cards += (
+                f'<p class="disp"><b>Sensibilidade:</b> sem o preço mais'
+                f' destoante ({val(s["removido"])}), a mediana passaria de'
+                f' {val(s["mediana_antes"])} para {val(s["mediana_depois"])}'
+                f' e a média de {val(s["media_antes"])} para'
+                f' {val(s["media_depois"])}. Não decide sozinho: mostra o'
+                f' efeito de tirar o pior caso.</p>')
+        # `grafico_html` vem do ECharts que a tela já desenhou (mesmo motor
+        # do Painel) — se a chamada não passou por lá (relatorios.py direto,
+        # testes, CLI), cai no SVG à mão como sempre.
+        grafico = grafico_html or _grafico_dispersao(r, val)
+        if grafico:
+            cards += f'<div class="card">{grafico}</div>'
+        grafico_muni = grafico_municipio_html or _grafico_municipio(
+            r.get("por_municipio"), val)
+        if grafico_muni:
+            cards += (f'<div class="bloco-municipio">'
+                       f'<p class="disp"><b>Por município:</b> mediana de'
+                       f' cada um, do mais barato para o mais caro.</p>'
+                       f'<div class="card">{grafico_muni}</div></div>')
+    coluna_conteudo = d.get("por_conteudo")
+    coluna_corrigido = d.get("corrigido")
+    tem_fora_da_curva = any(l.get("fora_da_curva") for l in d["linhas"])
+    linhas = "".join(f"""<tr{
+      ' class="fora"' if l.get("fora_da_curva") else ""}>
+      <td class="obj">{_e(l['descricao'])}</td>
+      <td class="unid">{_e(l['unidade'])}</td>
+      <td class="num">{quantidade(l['quantidade_homologada'])}</td>
+      <td class="num">{moeda(l['valor_unitario_homologado'])}{
+        ' *' if l.get("fora_da_curva") else ''}</td>{
+        f'<td class="num">{moeda(l["corrigido"])}</td>'
+        if coluna_corrigido else ''}{
+        f'<td class="num">{moeda_fina(l["por_conteudo"]["valor"])}</td>'
+        if coluna_conteudo else ''}
+      <td class="num">{moeda(l['valor_total_homologado'])}</td>
+      <td class="forn">{_e(l['fornecedor_nome'])}</td>
+      <td class="muni">{_e(l['municipio_nome'])}</td>
+      <td class="ctr proc">{_processo(l)}</td>
+      <td class="num">{data_br(l['data_resultado'])}</td></tr>"""
+      for l in d["linhas"])
+    corpo = f"""<div class="caixa-aviso">Levantamento de <b>preços efetivamente
+homologados</b> pelo município, extraído do PNCP — subsídio à pesquisa de
+preços do art. 23 da Lei 14.133/2021 (que admite contratações similares de
+outros entes como parâmetro). Confira a aderência de especificação, unidade e
+quantidade de cada item antes de usar como referência.
+Termo pesquisado: <b>{_e(d['termo'])}</b>.
+O número do processo leva à página oficial no PNCP, para conferência.{
+  f'<br><b>Correção monetária:</b> os valores foram trazidos a preços de '
+  f'{r["ipca_ate_extenso"]} pelo <b>IPCA</b> (série 433 do Banco Central), a '
+  f'partir da data do resultado de cada contratação. ' + (
+  f'{r["sem_indice"]} preço(s) coletado(s) não pôde(puderam) ser corrigido(s), '
+  'por ser(em) posterior(es) ao último índice publicado ou não ter(em) data '
+  'utilizável, e ficou(ficaram) fora deste levantamento.'
+  if r.get("sem_indice") else '') + (
+  f'<br><b>Atenção:</b> os {r["sem_indice"]} preços excluídos são '
+  f'{100 * r["sem_indice"] / (r["sem_indice"] + r["n"]):.0f}% dos coletados. '
+  'A série apurada tem composição diferente da original, e a diferença para '
+  'os valores nominais não decorre apenas da correção monetária.'
+  if r.get("amostra_reduzida") else '')
+  if coluna_corrigido else ''}{
+  f'<br><b>Comparação por conteúdo:</b> os valores em destaque são por '
+  f'{r["rotulo_base"]}, calculados a partir do que cada embalagem declara '
+  f'conter. ' + (f'{r["sem_conversao"]} item(ns) coletado(s) não '
+  'entrou nesta comparação por não declarar o conteúdo ou estar em outra '
+  'unidade de medida.' if r.get("sem_conversao") else '')
+  if coluna_conteudo else ''}</div>
+{cards}
+<h2>Itens homologados, do menor para o maior preço unitário</h2>
+<table><thead><tr><th>Descrição</th><th class="unid">Unid.</th>
+<th class="num">Qtde</th><th class="num">Unitário</th>{
+  '<th class="num">Corrigido</th>' if coluna_corrigido else ''}{
+  f'<th class="num">Por {r["rotulo_base"]}</th>' if coluna_conteudo else ''}
+<th class="num">Total</th><th class="forn">Fornecedor</th>
+<th class="muni">Município</th>
+<th class="ctr">Processo</th><th class="num">Resultado</th></tr></thead>
+<tbody>{linhas}</tbody></table>{
+  '<p class="nota">* preço fora da faixa esperada (critério de Tukey ou '
+  'escore Z modificado) — vale conferir se o item é mesmo comparável antes '
+  'de usá-lo na média.</p>' if tem_fora_da_curva else ''
+}{_desconsiderados_html(d)}{
+  _secao_metodologia(r, coluna_corrigido, coluna_conteudo) if r else ''
+}"""
+    titulo = f"{TITULOS['precos']} — {d['termo']} — {municipio}"
+    return _pagina(titulo, corpo, municipio, uf, periodo, paisagem=True,
+                   estilo_extra=CSS_PAINEL, brasao=brasao,
+                   categoria=categoria, acervo=acervo)
 
 
 def render_executivo(d, municipio, uf, brasao=None, graficos=None,
@@ -2131,6 +3003,23 @@ def gerar(db, tipo, params, municipio, uf, destino):
                                          "quantidade", "valor_unitario",
                                          "margem", "valor_total")}
                       for i in itens]
+    elif tipo == "precos":
+        termo = (params.get("termo") or "").strip()
+        if not termo:
+            raise ValueError("informe o que pesquisar")
+        d = dados_precos(db, termo, ano, orgao,
+                         params.get("excluidos"),
+                         params.get("por_conteudo"),
+                         params.get("corrigir_ipca"),
+                         exigir_selecao=True)
+        conteudo = render_precos(d, municipio, uf, brasao=brasao,
+                                 grafico_html=params.get("grafico_html"),
+                                 grafico_municipio_html=params.get(
+                                     "grafico_municipio_html"),
+                                 categoria=categoria, acervo=acervo)
+        limpo = re.sub(r"[^\w-]+", "_", termo.lower())[:40]
+        nome = f"pesquisa_precos_{limpo}"
+        linhas_csv = d["linhas"]
     elif tipo == "fracionamento":
         if not ano:
             ano = date.today().year
