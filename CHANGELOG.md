@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.52.1 — 2026-09-07
+
+**Motor de sync atualizado (motor_pncp v0.4.2 → v0.4.4)**
+
+Sem mudança de comportamento — a diferença é só reescrita de
+comentários internos (proveniência do código pro repo público).
+Diff conferido linha a linha antes de repinar.
+
 ## 1.52.0 — 2026-09-07
 
 **Redesenho da seleção na pesquisa de preços**
