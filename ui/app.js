@@ -1575,13 +1575,119 @@ window.onSyncFim = async st => {
 let precosSelecionados = new Set();
 let ultimoTermoPrecos = "";
 estado.paginaPrecos = 1;
+// ordenação própria da lista de preços — estado separado do `estado.ord`
+// da lista genérica pra trocar de aba sem perder o critério de cada uma
+let precosOrd = null, precosDir = "desc";
 
 function filtrosPrecosLista() {
   return { ano: $("pr-ano").value || null,
            orgao: $("pr-orgao").value || null,
            unidade: $("pr-unidade").value || null,
            so_homologados: $("pr-homologados").checked || null,
-           busca: $("pr-busca").value.trim() || null };
+           busca: $("pr-busca").value.trim() || null,
+           ord: precosOrd, dir: precosDir };
+}
+
+// [rótulo, chave de ordenação na whitelist do backend — null = não ordenável]
+// número de colunas varia com IPCA/conteúdo — mesmo motivo de
+// `colunasDe("itens")` do Pretiarium: a coluna nova entra sempre logo
+// depois do valor unitário, nunca no fim
+function colunasPrecos(corrigir, conteudo) {
+  const cols = [["", null], ["Descrição", "descricao"], ["Unid.", "unidade"],
+                ["Qtde", "quantidade"], ["Valor unitário", "unitario"]];
+  let i = 5;
+  if (corrigir) cols.splice(i++, 0, ["Corrigido (IPCA)", null]);
+  if (conteudo) cols.splice(i, 0, ["Por conteúdo", null]);
+  cols.push(["Fornecedor", "fornecedor"], ["Município", "municipio"],
+            ["Processo", "origem"]);
+  return cols;
+}
+
+// ── largura das colunas de Preços: arrastar ajusta, duplo clique dá
+// autofit — mesmo mecanismo de ligarAlcas()/aplicarLarguras() da lista
+// genérica, mas escopado a #pr-lista (que também tem a classe .lista,
+// então reusar os seletores globais pegaria as duas listas de uma vez)
+const COL_FLEX_PRECOS = 1;   // coluna "Descrição" absorve a sobra
+
+function larguraAtualPxPrecos() {
+  const cab = document.querySelector("#pr-lista .cab");
+  if (!cab) return [];
+  return getComputedStyle(cab).gridTemplateColumns.split(" ").map(parseFloat);
+}
+
+function aplicarLargurasPrecos(n) {
+  const lista = $("pr-lista");
+  const chave = `itens:${n}`;
+  const mapa = larguras[chave];
+  if (!mapa) { lista.style.removeProperty("--cols"); return; }
+  for (let i = 0; i < n; i++)
+    if (i !== COL_FLEX_PRECOS && !(mapa[i] > 0)) {
+      delete larguras[chave];
+      lista.style.removeProperty("--cols");
+      return;
+    }
+  const cols = [];
+  for (let i = 0; i < n; i++)
+    cols.push(i === COL_FLEX_PRECOS ? "minmax(0,1fr)" : `${Math.round(mapa[i])}px`);
+  lista.style.setProperty("--cols", cols.join(" "));
+}
+
+function guardarLargurasPrecos(n, px) {
+  const chave = `itens:${n}`;
+  larguras[chave] = {};
+  px.forEach((v, i) => { if (i !== COL_FLEX_PRECOS) larguras[chave][i] = v; });
+}
+
+function autofitPrecos(n, i) {
+  const celulas = [...document.querySelectorAll("#pr-lista .linha:not(.cab)")]
+    .map(l => l.children[i]).filter(Boolean);
+  const desejada = Math.max(...celulas.map(c => c.scrollWidth),
+                            LARGURA_MIN) + 26;
+  const px = larguraAtualPxPrecos();
+  const outras = px.reduce(
+    (s, v, j) => (j === i || j === COL_FLEX_PRECOS) ? s : s + v, 0);
+  const teto = px.reduce((s, v) => s + v, 0) - outras - FLEX_MIN;
+  px[i] = Math.max(LARGURA_MIN, Math.min(desejada, teto));
+  guardarLargurasPrecos(n, px);
+  aplicarLargurasPrecos(n);
+  api.set_config("colunas", JSON.stringify(larguras));
+}
+
+function ligarAlcasPrecos(n) {
+  document.querySelectorAll("#pr-lista .cab > span").forEach((cel, i) => {
+    if (i === COL_FLEX_PRECOS || i === n - 1) return;   // última não
+    const alca = document.createElement("span");
+    alca.className = "alca";
+    alca.title = "Arraste para ajustar · duplo clique para caber no conteúdo";
+    alca.addEventListener("mousedown", e => {
+      e.preventDefault(); e.stopPropagation();
+      const x0 = e.clientX, px = larguraAtualPxPrecos(), inicial = px[i];
+      document.body.classList.add("redimensionando");
+      const outras = px.reduce(
+        (s, v, j) => (j === i || j === COL_FLEX_PRECOS) ? s : s + v, 0);
+      const teto = px.reduce((s, v) => s + v, 0) - outras - FLEX_MIN;
+      const mover = ev => {
+        px[i] = Math.max(LARGURA_MIN,
+                         Math.min(inicial + (ev.clientX - x0), teto));
+        guardarLargurasPrecos(n, px);
+        aplicarLargurasPrecos(n);
+      };
+      const soltar = () => {
+        document.removeEventListener("mousemove", mover);
+        document.removeEventListener("mouseup", soltar);
+        document.body.classList.remove("redimensionando");
+        api.set_config("colunas", JSON.stringify(larguras));
+      };
+      document.addEventListener("mousemove", mover);
+      document.addEventListener("mouseup", soltar);
+    });
+    alca.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    alca.addEventListener("dblclick", e => {
+      e.preventDefault(); e.stopPropagation();
+      autofitPrecos(n, i);
+    });
+    cel.appendChild(alca);
+  });
 }
 
 async function carregarSelecaoPrecos(termo) {
@@ -1602,11 +1708,14 @@ async function carregarPrecos() {
   // (.g-itens / .conteudo / .corrigido): a coluna extra de dinheiro entra
   // sempre entre o valor pago e o fornecedor.
   const g = "g-itens" + (conteudo ? " conteudo" : "") + (corrigir ? " corrigido" : "");
-  const cab = `<div class="linha cab ${g}"><span></span><span>Descrição</span>
-    <span>Unid.</span><span>Qtde</span><span>Valor unitário</span>
-    ${corrigir ? "<span>Corrigido (IPCA)</span>" : ""}
-    ${conteudo ? "<span>Por conteúdo</span>" : ""}
-    <span>Fornecedor</span><span>Município</span><span>Processo</span></div>`;
+  const cols = colunasPrecos(corrigir, conteudo);
+  const cab = `<div class="linha cab ${g}">` + cols.map(([rotulo, chave]) => {
+    const ativa = chave && precosOrd === chave;
+    const seta = ativa ? `<span class="seta">${precosDir === "asc" ? "▲" : "▼"}</span>` : "";
+    const sort = chave ? ` data-ord="${chave}" role="button" tabindex="0"
+      aria-sort="${ativa ? (precosDir === "asc" ? "ascending" : "descending") : "none"}"` : "";
+    return `<span${sort}>${esc(rotulo)} ${seta}</span>`;
+  }).join("") + `</div>`;
   const r = await api.listar("itens", filtrosPrecosLista(), estado.paginaPrecos);
   const linhas = r.itens.map(d => {
     const id = String(d.id);
@@ -1647,6 +1756,21 @@ async function carregarPrecos() {
     }));
   $("pr-lista").querySelectorAll("button[data-descartar]").forEach(b =>
     b.addEventListener("click", () => abrirDescarte(b.dataset.descartar)));
+  $("pr-lista").querySelectorAll(".cab span[data-ord]").forEach(s => {
+    const ordenar = () => {
+      const chave = s.dataset.ord;
+      if (precosOrd === chave) precosDir = precosDir === "asc" ? "desc" : "asc";
+      else { precosOrd = chave; precosDir = "asc"; }
+      estado.paginaPrecos = 1;
+      carregarPrecos();
+    };
+    s.addEventListener("click", ordenar);
+    s.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ordenar(); }
+    });
+  });
+  aplicarLargurasPrecos(cols.length);
+  ligarAlcasPrecos(cols.length);
   const paginas = Math.max(1, Math.ceil(r.total / 50));
   $("pr-pag-info").textContent = `${estado.paginaPrecos}/${paginas} · ${r.total} registros`;
   $("pr-pag-ant").disabled = estado.paginaPrecos <= 1;
@@ -1666,6 +1790,314 @@ async function carregarPrecos() {
   }
 }
 
+// ── avisos textuais do resumo (portados do Pretiarium Free, 2026-09-07)
+function leituraCv(cv) {
+  if (cv < 0.15) return "preços homogêneos";
+  if (cv < 0.25) return "variação moderada";
+  if (cv < 0.50) return "amostra dispersa — prefira a mediana";
+  return "amostra muito dispersa — confira se os itens são comparáveis";
+}
+
+function correcaoHtml(s) {
+  if (!s.corrigido) return "";
+  const fora = s.sem_indice
+    ? ` ${s.sem_indice} ${s.sem_indice === 1 ? "item ficou" : "itens ficaram"}
+        de fora, por não ter data de resultado ou ser posterior ao índice.`
+    : "";
+  const aviso = s.amostra_reduzida
+    ? `<div class="disp alerta"><b>Atenção:</b> a correção deixou de fora
+        ${s.sem_indice} dos ${s.sem_indice + s.n} preços — os mais recentes,
+        ainda sem índice publicado. A série ficou com outra composição, então
+        a diferença para os valores originais <b>não é só correção
+        monetária</b>.</div>`
+    : "";
+  return `<div class="disp">Valores corrigidos pelo <b>IPCA</b> até
+    <b>${esc(s.ipca_ate_extenso ?? "–")}</b>, a partir da data do resultado de
+    cada contratação.${fora}</div>${aviso}`;
+}
+
+function semConversaoHtml(s) {
+  if (!s.por_conteudo || !s.sem_conversao) return "";
+  const n = s.sem_conversao;
+  return `<div class="disp"><b>${n} ${n === 1 ? "item ficou" : "itens ficaram"}
+    de fora desta comparação</b> — ${n === 1 ? "a embalagem dele não diz" :
+    "as embalagens não dizem"} quanto vem dentro, ou ${
+    n === 1 ? "está" : "estão"} em outra unidade de medida. O resumo acima é
+    só do que dá para comparar por ${esc(s.rotulo_base)}.</div>`;
+}
+
+function dispersaoHtml(s) {
+  if (s.desvio == null) return "";
+  const val = s.por_conteudo ? dinheiroFino : dinheiro;
+  const quartis = s.q1 != null
+    ? `Metade dos preços entre <b>${val(s.q1)}</b> e
+       <b>${val(s.q3)}</b>. `
+    : "";
+  const pct = (s.cv * 100).toLocaleString("pt-BR",
+    {maximumFractionDigits: 0});
+  const concentracao = (s.alertas_concentracao ?? []).length
+    ? `<div class="disp"><b>Concentração:</b>
+        ${esc(s.alertas_concentracao.join("; "))} — preços da mesma fonte
+        não são evidências independentes.</div>`
+    : "";
+  const sens = s.sensibilidade;
+  const sensibilidade = sens
+    ? `<div class="disp"><b>Sensibilidade:</b> sem o preço mais destoante
+        (${val(sens.removido)}), a mediana passaria de
+        ${val(sens.mediana_antes)} para ${val(sens.mediana_depois)} e a
+        média de ${val(sens.media_antes)} para ${val(sens.media_depois)}.
+        Não decide sozinho: mostra o efeito de tirar o pior caso.</div>`
+    : "";
+  return `<div class="disp">${quartis}Desvio padrão
+    <b>${val(s.desvio)}</b> · coeficiente de variação <b>${pct}%</b>
+    <span class="dim">(${leituraCv(s.cv)})</span>${
+      s.q1 == null
+        ? ` <span class="dim">— com ${s.n} ${s.n === 1 ? "preço" : "preços"}
+            não dá para medir quartis</span>`
+        : ""}</div>${concentracao}${sensibilidade}`;
+}
+
+// Aponta, não remove: descartar preço de uma pesquisa é decisão de quem
+// assina, e o art. 23 exige justificativa para desprezar valor coletado.
+function foraDaCurvaHtml(s) {
+  const n = (s.fora_da_curva ?? []).length;
+  if (!n) return "";
+  const val = s.por_conteudo ? dinheiroFino : dinheiro;
+  const temTukey = s.limite_sup != null;
+  const inf = temTukey ? s.limite_inf : s.limite_inf_robusto;
+  const sup = temTukey ? s.limite_sup : s.limite_sup_robusto;
+  const criterio = temTukey ? "critério de Tukey"
+    : "escore Z modificado sobre o desvio absoluto mediano";
+  const faixa = inf != null
+    ? ` (fora de ${val(Math.max(0, inf))} a ${val(sup)}, pelo ${criterio})`
+    : "";
+  return `<div class="fora">
+    <span>${n === 1 ? "1 preço destoa" : `${n} preços destoam`} do
+      conjunto${faixa}. Confira se são
+      itens comparáveis antes de usar.</span>
+    <button class="btn ghost" id="pr-descartar-fora">
+      Descartar ${n === 1 ? "o item" : "os itens"}</button></div>`;
+}
+
+// Preço ao longo do tempo: o boxplot mostra a distribuição agregada, mas
+// não diz SE o preço está subindo ou caindo — só entra com pelo menos duas
+// datas distintas na amostra (uma data só não é série, é ponto).
+function serieTemporalHtml(s) {
+  const datas = new Set((s.itens ?? []).map(i => i.data).filter(Boolean));
+  if (datas.size < 2) return "";
+  return `<div class="disp"><b>Ao longo do tempo:</b> preço de cada item
+    pela data do resultado.</div>
+    <div id="precos-serie" style="height:220px"></div>`;
+}
+
+// Comparativo "onde está mais barato": mediana por município, mais barato
+// pro fluxo com poucos municípios no banco do que um mapa exigiria.
+function porMunicipioHtml(s) {
+  if (!s.por_municipio?.length) return "";
+  return `<div class="disp"><b>Por município:</b> mediana de cada um,
+    do mais barato para o mais caro.</div>
+    <div id="precos-municipio" style="height:${
+      40 + s.por_municipio.length * 34}px"></div>`;
+}
+
+// ── gráficos (ECharts) — portados do Pretiarium Free, 2026-09-07 ─────────
+function _jitterPorValor(n, passo = 15) {
+  const niveis = [0];
+  for (let i = 1; i < n; i++) {
+    const grupo = Math.ceil(i / 2);
+    niveis.push((i % 2 === 1 ? -1 : 1) * grupo * passo);
+  }
+  return niveis;
+}
+
+// Box-plot de Tukey + escore Z modificado (MAD). Com `s.itens` (preço por
+// item): modo "anotada" — ponto por item, jitter em zigue-zague por ORDEM
+// DE VALOR (não de cadastro — dois preços vizinhos nunca caem na mesma
+// altura, senão o rótulo gruda).
+function desenharBoxplotPreco(el, s) {
+  if (!window.echarts || s.q1 == null) {
+    el.innerHTML = "";
+    el.classList.add("oculto");
+    return;
+  }
+  el.classList.remove("oculto");
+  const s1 = _corTemaEchart("--s1", "#2a78d6"), s2 = _corTemaEchart("--s2", "#eb6834"),
+    erro = _corTemaEchart("--erro", "#a6231b"), warn = _corTemaEchart("--warn", "#7a5c0e"),
+    muted = _corTemaEchart("--muted", "#5b6066"), border = _corTemaEchart("--border", "#d3d6da"),
+    texto = _corTemaEchart("--text", "#1b1b1b");
+  const val = s.por_conteudo ? dinheiroFino : dinheiro;
+  const fmt = v => val(v);
+  const itens = s.itens || [];
+  const markLines = [];
+  if (s.limite_sup != null)
+    markLines.push({ xAxis: s.limite_sup, lineStyle: { color: s1, type: "dashed", width: 1.4 },
+      label: { formatter: "Tukey", color: s1, fontSize: 10, position: "insideEndTop" } });
+  if (s.limite_sup_robusto != null)
+    markLines.push({ xAxis: s.limite_sup_robusto, lineStyle: { color: warn, type: "dotted", width: 1.4 },
+      label: { formatter: "MAD", color: warn, fontSize: 10, position: "insideEndBottom" } });
+
+  const boxplotTooltip = d =>
+    `mín <b>${fmt(d[1])}</b><br/>Q1 <b>${fmt(d[2])}</b><br/>` +
+    `mediana <b>${fmt(d[3])}</b><br/>Q3 <b>${fmt(d[4])}</b><br/>máx <b>${fmt(d[5])}</b>`;
+
+  const series = [
+    { type: "boxplot", data: [[s.minimo, s.q1, s.mediana, s.q3, s.maximo]],
+      itemStyle: { color: `${s1}2e`, borderColor: s1, borderWidth: 1.6 },
+      boxWidth: ["24%", "24%"], markLine: { symbol: "none", animation: false, data: markLines } },
+    { type: "scatter", data: [{ value: [s.media, 0] }], symbol: "diamond",
+      symbolSize: 11, itemStyle: { color: s2 }, z: 6 }
+  ];
+
+  el.style.height = itens.length ? "240px" : "150px";
+
+  if (itens.length) {
+    const ordenados = [...itens].sort((a, b) => a.valor - b.valor);
+    const niveis = _jitterPorValor(ordenados.length);
+    series.push({ type: "scatter", z: 5, symbolSize: 9,
+      data: ordenados.map((it, i) => {
+        const j = niveis[i];
+        const extrema = it.valor > s.limite_sup
+          || (s.limite_sup_robusto != null && it.valor > s.limite_sup_robusto);
+        return { value: [it.valor, 0], item: it, symbolOffset: [0, j],
+          label: { show: true, formatter: fmt(it.valor).replace(/^R\$\s*/, ""),
+            fontSize: 10, position: j <= 0 ? "top" : "bottom",
+            color: extrema ? erro : texto },
+          itemStyle: { color: extrema ? erro : muted,
+            borderColor: extrema ? erro : texto, borderWidth: 1 } };
+      }) });
+  }
+
+  if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
+  const chart = echarts.init(el, null, { renderer: "svg" });
+  el.__echart = chart;
+  chart.setOption({
+    animation: false,
+    grid: { left: 8, right: 16, top: 22, bottom: 22 },
+    xAxis: { type: "value", min: 0, axisLine: { lineStyle: { color: border } },
+      axisLabel: { color: muted, fontSize: 11 }, splitLine: { lineStyle: { color: border, opacity: .4 } } },
+    yAxis: { type: "category", data: [""], axisLine: { show: false }, axisTick: { show: false } },
+    tooltip: { trigger: "item", backgroundColor: "#17181a", borderWidth: 0,
+      textStyle: { color: "#fff", fontSize: 12 },
+      formatter: p => {
+        if (p.seriesType === "boxplot") return boxplotTooltip(p.data);
+        if (!p.data.item) return `média <b>${fmt(s.media)}</b>`;
+        const it = p.data.item;
+        const extrema = it.valor > s.limite_sup
+          || (s.limite_sup_robusto != null && it.valor > s.limite_sup_robusto);
+        return `<b>${esc(it.descricao)}</b><br/>${esc(it.fornecedor || "")}<br/>${fmt(it.valor)}` +
+          (extrema ? '<br/><span style="color:#f08a80">fora da faixa esperada</span>' : "");
+      } },
+    series
+  });
+}
+
+function desenharGraficoSerie(el, s) {
+  if (!window.echarts || !el) return;
+  const itens = (s.itens ?? []).filter(i => i.data)
+    .sort((a, b) => a.data.localeCompare(b.data));
+  if (itens.length < 2) return;
+  const val = s.por_conteudo ? dinheiroFino : dinheiro;
+  const s1 = _corTemaEchart("--s1", "#2a78d6");
+  const erro = _corTemaEchart("--erro", "#a6231b");
+  const muted = _corTemaEchart("--muted", "#5b6066");
+  const foraDaCurva = new Set((s.fora_da_curva ?? []).map(String));
+  if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
+  const chart = echarts.init(el, null, { renderer: "svg" });
+  el.__echart = chart;
+  chart.setOption({
+    animation: false,
+    grid: { left: 60, right: 20, top: 16, bottom: 40 },
+    xAxis: { type: "category", data: itens.map(i => dataBr(i.data)),
+      axisLabel: { color: muted, fontSize: 10, rotate: itens.length > 8 ? 40 : 0 },
+      axisLine: { lineStyle: { color: muted } } },
+    yAxis: { type: "value", axisLabel: { color: muted, fontSize: 10,
+        formatter: v => val(v) },
+      splitLine: { lineStyle: { color: muted, opacity: .2 } } },
+    tooltip: { formatter: p => `${p.name}<br/>${esc(itens[p.dataIndex].descricao)}
+      <br/><b>${val(p.value)}</b>` },
+    series: [{ type: "line", data: itens.map(i => i.valor), symbolSize: 8,
+      lineStyle: { color: s1, width: 1.5 },
+      itemStyle: { color: (p) => foraDaCurva.has(String(itens[p.dataIndex].id))
+        ? erro : s1 } }],
+  });
+}
+
+function desenharGraficoMunicipio(el, s) {
+  if (!window.echarts || !el || !s.por_municipio?.length) return;
+  const val = s.por_conteudo ? dinheiroFino : dinheiro;
+  const s1 = _corTemaEchart("--s1", "#2a78d6");
+  const muted = _corTemaEchart("--muted", "#5b6066");
+  el.style.height = `${40 + s.por_municipio.length * 34}px`;
+  if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
+  const chart = echarts.init(el, null, { renderer: "svg" });
+  el.__echart = chart;
+  const dados = [...s.por_municipio].reverse();  // mais barato embaixo pra cima
+  chart.setOption({
+    animation: false,
+    grid: { left: 130, right: 60, top: 8, bottom: 8 },
+    xAxis: { type: "value", show: false },
+    yAxis: { type: "category", data: dados.map(m =>
+        `${m.municipio}${m.referencia ? " (ref.)" : ""}`),
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { color: muted, fontSize: 11 } },
+    tooltip: { formatter: p =>
+      `${p.name}<br/>mediana ${val(p.value)} · ${dados[p.dataIndex].n}
+       ${dados[p.dataIndex].n === 1 ? "preço" : "preços"}` },
+    series: [{ type: "bar", data: dados.map(m => m.mediana),
+      barMaxWidth: 20, itemStyle: { color: s1, borderRadius: [0, 3, 3, 0] },
+      label: { show: true, position: "right", color: muted, fontSize: 11,
+        formatter: p => val(p.value) }}],
+  });
+}
+
+// ── seleção em lote: por fornecedor, faixa de valor ou texto na descrição
+// (somam à seleção atual, nunca substituem — mesma regra da unidade)
+async function toolbarSelecaoPrecos(termo, ano, origemVal) {
+  const fornecedores = api.fornecedores_pesquisa_precos
+    ? await api.fornecedores_pesquisa_precos(termo, ano, origemVal) : [];
+  const opcoesForn = fornecedores.map(f =>
+    `<option value="${esc(f.ni)}">${esc(f.nome ?? f.ni)} (${f.n})</option>`
+  ).join("");
+  return `<div class="filtros" style="margin-top:10px">
+    <select id="pr-sel-fornecedor" aria-label="Selecionar por fornecedor">
+      <option value="">Selecionar por fornecedor…</option>${opcoesForn}
+    </select>
+    <input type="number" id="pr-sel-valor-min" placeholder="De R$" step="0.01"
+      aria-label="Selecionar valor mínimo" style="width:100px">
+    <input type="number" id="pr-sel-valor-max" placeholder="Até R$" step="0.01"
+      aria-label="Selecionar valor máximo" style="width:100px">
+    <button class="btn ghost" id="pr-btn-selecionar-faixa">Selecionar faixa</button>
+    <input type="text" id="pr-sel-texto" placeholder="Texto na descrição…"
+      aria-label="Selecionar por texto na descrição" style="flex:1; min-width:170px">
+    <button class="btn ghost" id="pr-btn-selecionar-texto">Selecionar</button>
+  </div>`;
+}
+
+function ligarToolbarSelecaoPrecos(termo, ano, origemVal) {
+  $("pr-sel-fornecedor").addEventListener("change", async e => {
+    const ni = e.target.value;
+    if (!ni || !api.selecionar_por_fornecedor) return;
+    await api.selecionar_por_fornecedor(termo, ni, ano, origemVal);
+    await carregarSelecaoPrecos(termo);
+    carregarPrecos(); mostrarResumoPrecos();
+  });
+  $("pr-btn-selecionar-faixa").addEventListener("click", async () => {
+    const minimo = $("pr-sel-valor-min").value ? +$("pr-sel-valor-min").value : null;
+    const maximo = $("pr-sel-valor-max").value ? +$("pr-sel-valor-max").value : null;
+    if ((minimo == null && maximo == null) || !api.selecionar_por_faixa) return;
+    await api.selecionar_por_faixa(termo, minimo, maximo, ano, origemVal);
+    await carregarSelecaoPrecos(termo);
+    carregarPrecos(); mostrarResumoPrecos();
+  });
+  $("pr-btn-selecionar-texto").addEventListener("click", async () => {
+    const texto = $("pr-sel-texto").value.trim();
+    if (!texto || !api.selecionar_por_texto) return;
+    await api.selecionar_por_texto(termo, texto, ano, origemVal);
+    await carregarSelecaoPrecos(termo);
+    carregarPrecos(); mostrarResumoPrecos();
+  });
+}
+
 async function mostrarResumoPrecos() {
   const caixa = $("precos-resumo");
   const termo = $("pr-busca").value.trim();
@@ -1674,7 +2106,11 @@ async function mostrarResumoPrecos() {
     return;
   }
   const ano = $("pr-ano").value ? +$("pr-ano").value : null;
-  const s = await api.estatisticas_preco(termo, ano, null, null,
+  // Licitarium não tem filtro "só meu município" na aba Preços (o
+  // Pretiarium tinha) — a seleção em lote por fornecedor/faixa/texto
+  // sempre olha a pesquisa inteira, próprio + referência
+  const origemVal = null;
+  const s = await api.estatisticas_preco(termo, ano, origemVal, null,
     $("pr-conteudo").checked, $("pr-ipca").checked, [...precosSelecionados]);
   if (!s) { caixa.classList.add("oculto"); return; }
   if (s.nada_selecionado) {
@@ -1683,10 +2119,12 @@ async function mostrarResumoPrecos() {
       <div>Nenhum item selecionado ainda. Marque os que quer comparar na
         lista abaixo, ou
         <button class="btn ghost" id="pr-selecionar-todos-resumo"
-          style="margin-left:4px">Selecionar todos</button></div>`;
+          style="margin-left:4px">Selecionar todos</button></div>
+      ${await toolbarSelecaoPrecos(termo, ano, origemVal)}`;
     caixa.classList.remove("oculto");
     $("pr-selecionar-todos-resumo").addEventListener("click", () =>
       $("pr-selecionar-todos").click());
+    ligarToolbarSelecaoPrecos(termo, ano, origemVal);
     return;
   }
   if (!s.n) {
@@ -1701,13 +2139,6 @@ async function mostrarResumoPrecos() {
   const cel = (v, r, destaque) =>
     `<div class="cel${destaque ? " destaque" : ""}">
        <div class="v">${v}</div><div class="r">${r}</div></div>`;
-  const avisos = [];
-  if (s.amostra_reduzida)
-    avisos.push("Amostra reduzida — poucos preços para uma conclusão robusta.");
-  if (s.fora_da_curva?.length)
-    avisos.push(`${s.fora_da_curva.length} item(ns) fora da curva de preços —
-      considere revisar ou descartar.`);
-  if (s.alertas_concentracao?.length) avisos.push(...s.alertas_concentracao);
   caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
     <div class="dim" role="status">${s.n} de ${s.total} selecionados</div>
     <div class="grade">
@@ -1718,10 +2149,19 @@ async function mostrarResumoPrecos() {
       ${cel(val(s.maximo), "maior")}
       ${cel(s.n, "itens")}
       ${cel(s.fornecedores, "fornecedores")}
+      <button class="btn ghost" id="pr-relatorio" style="align-self:center">Relatório</button>
     </div>
-    ${avisos.map(a => `<div class="aviso">${esc(a)}</div>`).join("")}
-    <button class="btn ghost" id="pr-relatorio" style="margin-top:8px">Relatório</button>`;
+    ${correcaoHtml(s)}${semConversaoHtml(s)}
+    <div id="precos-boxplot" class="oculto" style="height:150px"></div>
+    ${dispersaoHtml(s)}${foraDaCurvaHtml(s)}
+    ${serieTemporalHtml(s)}
+    ${porMunicipioHtml(s)}
+    ${await toolbarSelecaoPrecos(termo, ano, origemVal)}`;
   caixa.classList.remove("oculto");
+  desenharBoxplotPreco($("precos-boxplot"), s);
+  desenharGraficoSerie($("precos-serie"), s);
+  if (s.por_municipio?.length)
+    desenharGraficoMunicipio($("precos-municipio"), s);
   $("pr-relatorio").addEventListener("click", async () => {
     await montarOpcoesRelatorio();
     $("rel-tipo").value = "precos";
@@ -1730,10 +2170,15 @@ async function mostrarResumoPrecos() {
     $("rel-status").textContent = "";
     abrirModal("veu-relatorios");
   });
+  $("pr-descartar-fora")?.addEventListener("click", () =>
+    abrirDescarte((s.fora_da_curva ?? []).map(String)));
+  ligarToolbarSelecaoPrecos(termo, ano, origemVal);
 }
 
 // razão do descarte, sempre exigida (pedido do usuário) — diferente do
-// Pretiarium, que aceitava descartar sem motivo e cobrava só no relatório
+// Pretiarium, que aceitava descartar sem motivo e cobrava só no relatório.
+// Aceita um id só (linha da lista) ou uma lista (descarte em lote dos
+// itens fora da curva) — um motivo só vale pra todos do lote.
 let descarteAlvo = null;
 async function abrirDescarte(id) {
   descarteAlvo = id;
@@ -1746,9 +2191,12 @@ $("desc-confirmar").addEventListener("click", async () => {
   if (!descarteAlvo) return;
   const motivo = $("desc-motivo").value;
   if (!motivo) return;
-  await api.descartar_preco($("pr-busca").value.trim(), descarteAlvo, motivo);
-  await api.desselecionar_preco($("pr-busca").value.trim(), descarteAlvo);
-  precosSelecionados.delete(descarteAlvo);
+  const termo = $("pr-busca").value.trim();
+  for (const id of Array.isArray(descarteAlvo) ? descarteAlvo : [descarteAlvo]) {
+    await api.descartar_preco(termo, id, motivo);
+    await api.desselecionar_preco(termo, id);
+    precosSelecionados.delete(id);
+  }
   fecharModal("veu-descarte");
   descarteAlvo = null;
   carregarPrecos();
@@ -1768,10 +2216,26 @@ $("pr-csv").addEventListener("click", async () => {
   const r = await api.exportar_planilha("itens", filtrosPrecosLista());
   if (r.erro) alert(r.erro);
 });
-["pr-ano", "pr-orgao", "pr-unidade", "pr-homologados"].forEach(id =>
+["pr-ano", "pr-orgao", "pr-homologados"].forEach(id =>
   $(id).addEventListener("change", () => {
     estado.paginaPrecos = 1; carregarPrecos(); mostrarResumoPrecos();
   }));
+// escolher uma unidade já filtra a lista, mas sozinho não classificava a
+// pesquisa — buscar "alface" mistura maço, quilo e unidade, e comparar por
+// uma só exigia marcar item por item na mão. Agora a escolha já seleciona
+// os da unidade também (soma à seleção atual, não substitui).
+$("pr-unidade").addEventListener("change", async () => {
+  estado.paginaPrecos = 1;
+  const unidade = $("pr-unidade").value;
+  const termo = $("pr-busca").value.trim();
+  if (unidade && termo && api.classificar_por_unidade) {
+    await api.classificar_por_unidade(termo, unidade,
+      $("pr-ano").value ? +$("pr-ano").value : null, null);
+    await carregarSelecaoPrecos(termo);
+  }
+  carregarPrecos();
+  mostrarResumoPrecos();
+});
 ["pr-ipca", "pr-conteudo"].forEach(id =>
   $(id).addEventListener("change", () => { carregarPrecos(); mostrarResumoPrecos(); }));
 let buscaPrecosTimer;

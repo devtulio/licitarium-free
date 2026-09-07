@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.50.0 — 2026-09-07
+
+**Pesquisa de preços: gráficos, ordenação e seleção em lote**
+
+A tela de Preços estava rodando uma versão simplificada do que o motor
+já suportava desde a 1.47.0. Restaurado o que faltava, portado do
+Pretiarium Free:
+
+- **Gráficos** no resumo: boxplot de Tukey/MAD com cada item marcado,
+  preço ao longo do tempo, e comparativo de mediana por município ("onde
+  está mais barato").
+- **Botão "Descartar os itens fora da curva"** — descarta em lote, com
+  motivo (continua exigido, diferente do Pretiarium).
+- **Seleção em lote** por fornecedor, faixa de valor ou texto na
+  descrição, além da já existente por unidade.
+- **Ordenar colunas** da lista de preços por clique, e **arrastar para
+  redimensionar** — mesmo mecanismo das outras listas do sistema.
+- Avisos mais completos sobre correção monetária, comparação por
+  conteúdo, dispersão e sensibilidade ao item mais destoante.
+
 ## 1.49.3 — 2026-09-07
 
 **Sincronizado ≠ tem preço pronto**
