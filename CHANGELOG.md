@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.51.1 — 2026-09-07
+
+**Motor de sync atualizado (motor_pncp v0.4.1 → v0.4.2)**
+
+Sem mudança de tela. Corrige paginação (prefere `paginasRestantes` do
+envelope do PNCP, nunca trunca quando o campo falta), HTTP 422 ganha
+2 tentativas, e novo `sonda()` (health-check rápido). Testado contra
+o portal real antes de liberar.
+
 ## 1.51.0 — 2026-09-07
 
 **Relatório de cobertura da coleta**
