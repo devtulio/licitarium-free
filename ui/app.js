@@ -1489,9 +1489,10 @@ $("btn-sync-opcoes")?.addEventListener("click", async () => {
   // abrir as opções de sync no meio de uma coleta não recebe evento de
   // progresso retroativo: sem esta leitura, o botão de parar nasceria
   // desabilitado justo quando ele é necessário
-  const sync = await api.status_sync?.() ?? {rodando: false};
+  const [sync, d] = await Promise.all([
+    api.status_sync?.() ?? Promise.resolve({rodando: false}),
+    api.opcoes_sync()]);
   estadoDoParar(!!sync.rodando);
-  const d = await api.opcoes_sync();
   const pendentes = d.referencia.filter(m => m.nunca_sincronizado);
   $("opcoes-sync-lista").innerHTML = `
     <label class="opcao-sync">

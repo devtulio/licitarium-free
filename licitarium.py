@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.12"
+VERSAO = "1.52.13"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -361,15 +361,28 @@ def fechar_limpo():
     """
     try:
         db = sqlite3.connect(ARQUIVO_DB)
+        db.execute("PRAGMA busy_timeout=10000")
         try:
+            # limita quanto PRAGMA optimize amostra por índice — sem isso,
+            # ANALYZE sem teto fica lento num banco de 170 mil+ itens
+            # (recomendação da doc do SQLite pra PRAGMA optimize em app
+            # de vida longa)
+            db.execute("PRAGMA analysis_limit=400")
             # atualiza a estatística do query planner (sqlite_stat1) uma vez
             # por sessão — sem isso um índice pode existir e nunca ser usado,
             # porque o planner decide por estatística, não só por existência
             db.execute("PRAGMA optimize")
             # devolve página livre ao SO aos poucos (auto_vacuum=INCREMENTAL,
             # ligado por _migrar_auto_vacuum) — sem argumento, libera tudo
-            # que já estiver marcado como livre, sem VACUUM completo
-            db.execute("PRAGMA incremental_vacuum")
+            # que já estiver marcado como livre, sem VACUUM completo.
+            # Não crítico: se travar por concorrência, não pode impedir o
+            # wal_checkpoint logo abaixo (achado de code review — os dois
+            # estavam no mesmo try, e um lock aqui pulava o checkpoint,
+            # que é o motivo desta função existir).
+            try:
+                db.execute("PRAGMA incremental_vacuum")
+            except sqlite3.OperationalError as e:
+                registrar_falha("incremental_vacuum falhou ao fechar", e)
             db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         finally:
             db.close()
@@ -2530,6 +2543,14 @@ def _migrar_auto_vacuum(db):
         return   # sem cópia de segurança, não arrisca reescrever o arquivo
     db.execute("PRAGMA auto_vacuum=INCREMENTAL")
     db.execute("VACUUM")
+    # migração deu certo: a cópia de segurança já cumpriu o papel. Sem
+    # apagar, o ganho de espaço da migração inteira (o motivo dela
+    # existir) ficava anulado por uma cópia do banco antigo do mesmo
+    # tamanho, esquecida no disco pra sempre (achado de code review).
+    try:
+        copia.unlink()
+    except OSError as e:
+        registrar_falha("não consegui apagar a cópia pré-VACUUM", e)
 
 
 def main():

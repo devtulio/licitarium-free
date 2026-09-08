@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.52.13 — 2026-09-08
+
+**Achados de code review na rodada v1.52.8-12**
+
+- `fechar_limpo()`: `PRAGMA incremental_vacuum` e `PRAGMA
+  wal_checkpoint(TRUNCATE)` estavam no mesmo bloco — sob concorrência,
+  um lock no primeiro pulava o segundo, deixando `-wal` órfão (exatamente
+  o que a função existe pra evitar). `incremental_vacuum` isolado num
+  try próprio, não crítico.
+- Cópia de segurança pré-`VACUUM` (v1.52.9) nunca era apagada: uma
+  migração bem-sucedida ficava com um arquivo do tamanho do banco
+  antigo esquecido no disco pra sempre, anulando o ganho de espaço.
+  Apagada após `VACUUM` terminar sem erro.
+- `PRAGMA optimize` (v1.52.8) sem `analysis_limit` — sampling sem teto
+  num banco de 170 mil+ itens. Limitado a 400.
+- Modal "O que sincronizar" (v1.52.12) abria com 2 chamadas de ponte em
+  série; virou `Promise.all`.
+
 ## 1.52.12 — 2026-09-08
 
 **"Parar sincronização" movido pra dentro das opções de sync**
