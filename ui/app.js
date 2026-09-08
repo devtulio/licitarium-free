@@ -1585,6 +1585,8 @@ function filtrosPrecosLista() {
            unidade: $("pr-unidade").value || null,
            so_homologados: $("pr-homologados").checked || null,
            busca: $("pr-busca").value.trim() || null,
+           corrigir: $("pr-ipca").checked || null,
+           conteudo: $("pr-conteudo").checked || null,
            ord: precosOrd, dir: precosDir };
 }
 
@@ -1696,12 +1698,36 @@ async function carregarSelecaoPrecos(termo) {
     : new Set();
 }
 
-async function carregarPrecos() {
-  const termo = $("pr-busca").value.trim();
+// carregarPrecos() e mostrarResumoPrecos() rodam em paralelo (nenhuma
+// espera a outra) sempre que o termo muda — achado do teste manual
+// 2026-09-07: com uma flag simples (`termo !== ultimoTermoPrecos`), a
+// PRIMEIRA a rodar já vira a flag antes do primeiro `await`, e a
+// SEGUNDA lê a flag já trocada e pula o carregamento — segue com
+// `precosSelecionados` ainda vazio/do termo anterior. Guardar a
+// promise em si (não só o termo) faz a segunda esperar a mesma carga
+// da primeira, em vez de pular.
+let promessaSelecaoPrecos = null;
+function garantirSelecaoPrecos(termo) {
   if (termo !== ultimoTermoPrecos) {
     ultimoTermoPrecos = termo;
-    await carregarSelecaoPrecos(termo);
+    promessaSelecaoPrecos = carregarSelecaoPrecos(termo);
   }
+  return promessaSelecaoPrecos;
+}
+
+// usado nos pontos que precisam recarregar a lista E o resumo por um
+// termo/filtro novo: espera carregarPrecos() (que espera
+// garantirSelecaoPrecos()) terminar antes de montar o resumo, senão o
+// resumo lê a seleção do termo anterior — achado do teste manual
+// 2026-09-07 ("0 de N selecionados" com item de fato selecionado).
+async function recarregarPrecos() {
+  await carregarPrecos();
+  mostrarResumoPrecos();
+}
+
+async function carregarPrecos() {
+  const termo = $("pr-busca").value.trim();
+  await garantirSelecaoPrecos(termo);
   const conteudo = $("pr-conteudo").checked;
   const corrigir = $("pr-ipca").checked;
   // mesmas classes/larguras que ui/estilo.css já reserva para a aba Preços
@@ -1759,16 +1785,22 @@ async function carregarPrecos() {
       const id = cb.dataset.item;
       if (cb.checked) { precosSelecionados.add(id); await api.selecionar_preco(termo, id); }
       else { precosSelecionados.delete(id); await api.desselecionar_preco(termo, id); }
+      atualizarCabecalhoSelecao();
       mostrarResumoPrecos();
     }));
   $("pr-lista").querySelectorAll("button[data-descartar]").forEach(b =>
     b.addEventListener("click", () => abrirDescarte(b.dataset.descartar)));
+  const idsPaginaAtual = r.itens.map(d => String(d.id));
+  function atualizarCabecalhoSelecao() {
+    const cab = $("pr-selecionar-cabecalho");
+    if (!cab) return;
+    const marcados = idsPaginaAtual.filter(id => precosSelecionados.has(id)).length;
+    cab.checked = idsPaginaAtual.length > 0 && marcados === idsPaginaAtual.length;
+    cab.indeterminate = marcados > 0 && marcados < idsPaginaAtual.length;
+  }
+  atualizarCabecalhoSelecao();
   const cabCheck = $("pr-selecionar-cabecalho");
   if (cabCheck) {
-    const idsPagina = r.itens.map(d => String(d.id));
-    const marcados = idsPagina.filter(id => precosSelecionados.has(id)).length;
-    cabCheck.checked = idsPagina.length > 0 && marcados === idsPagina.length;
-    cabCheck.indeterminate = marcados > 0 && marcados < idsPagina.length;
     cabCheck.addEventListener("change", async () => {
       const ano = $("pr-ano").value ? +$("pr-ano").value : null;
       const orgao = $("pr-orgao").value || null;
@@ -1809,7 +1841,7 @@ async function carregarPrecos() {
           style="padding:0 4px">${esc(sug)}</button>?` : "";
     $("pr-usar-sugestao")?.addEventListener("click", () => {
       $("pr-busca").value = sug; estado.paginaPrecos = 1;
-      carregarPrecos(); mostrarResumoPrecos();
+      recarregarPrecos();
     });
   } else {
     $("pr-sugestao").classList.add("oculto");
@@ -2105,7 +2137,7 @@ function ligarToolbarSelecaoPrecos(termo, ano, origemVal) {
     if (!ni || !api.selecionar_por_fornecedor) return;
     await api.selecionar_por_fornecedor(termo, ni, ano, origemVal);
     await carregarSelecaoPrecos(termo);
-    carregarPrecos(); mostrarResumoPrecos();
+    recarregarPrecos();
   });
   $("pr-btn-selecionar-faixa").addEventListener("click", async () => {
     const minimo = $("pr-sel-valor-min").value ? +$("pr-sel-valor-min").value : null;
@@ -2113,14 +2145,14 @@ function ligarToolbarSelecaoPrecos(termo, ano, origemVal) {
     if ((minimo == null && maximo == null) || !api.selecionar_por_faixa) return;
     await api.selecionar_por_faixa(termo, minimo, maximo, ano, origemVal);
     await carregarSelecaoPrecos(termo);
-    carregarPrecos(); mostrarResumoPrecos();
+    recarregarPrecos();
   });
   $("pr-btn-selecionar-texto").addEventListener("click", async () => {
     const texto = $("pr-sel-texto").value.trim();
     if (!texto || !api.selecionar_por_texto) return;
     await api.selecionar_por_texto(termo, texto, ano, origemVal);
     await carregarSelecaoPrecos(termo);
-    carregarPrecos(); mostrarResumoPrecos();
+    recarregarPrecos();
   });
 }
 
@@ -2131,16 +2163,25 @@ async function mostrarResumoPrecos() {
     caixa.classList.add("oculto");
     return;
   }
+  await garantirSelecaoPrecos(termo);
   const ano = $("pr-ano").value ? +$("pr-ano").value : null;
   // Licitarium não tem filtro "só meu município" na aba Preços (o
   // Pretiarium tinha) — a seleção em lote por fornecedor/faixa/texto
   // sempre olha a pesquisa inteira, próprio + referência
   const origemVal = null;
   const unidade = $("pr-unidade").value || null;
-  const s = await api.estatisticas_preco(termo, ano, origemVal, null,
+  // item descartado (motivo obrigatório) não pode seguir contando na
+  // mediana/quartis nem nos "sinais" da comparação com vizinhos — achado
+  // do teste manual 2026-09-07: `_where_pesquisa_precos` deliberadamente
+  // não olha descarte (documentado na própria função), e é responsa-
+  // bilidade de quem chama `estatisticas_preco` passar os excluídos; a
+  // tela nunca buscava essa lista.
+  const excluidos = api.descartes
+    ? (await api.descartes(termo)).map(d => String(d.item_id)) : [];
+  const s = await api.estatisticas_preco(termo, ano, origemVal, excluidos,
     $("pr-conteudo").checked, $("pr-ipca").checked, [...precosSelecionados],
     unidade);
-  mostrarComparacaoVizinhos(termo, ano, origemVal, unidade);
+  mostrarComparacaoVizinhos(termo, ano, origemVal, unidade, excluidos);
   if (!s) { caixa.classList.add("oculto"); return; }
   if (s.nada_selecionado) {
     caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
@@ -2216,13 +2257,17 @@ async function mostrarResumoPrecos() {
 // acima). Sinal de sobrepreço = item fora da curva de QUALQUER
 // município no conjunto todo; descartar um sinal usa o mesmo modal de
 // motivo obrigatório de sempre — sem categoria de "ignorar sem rastro".
-async function mostrarComparacaoVizinhos(termo, ano, origemVal, unidade) {
+async function mostrarComparacaoVizinhos(termo, ano, origemVal, unidade,
+                                         excluidos) {
   const caixa = $("precos-vizinhos");
   if (termo.length < 3 || !api.estatisticas_preco) {
     caixa.classList.add("oculto");
     return;
   }
-  const s = await api.estatisticas_preco(termo, ano, origemVal, null,
+  if (excluidos === undefined)
+    excluidos = api.descartes
+      ? (await api.descartes(termo)).map(d => String(d.item_id)) : [];
+  const s = await api.estatisticas_preco(termo, ano, origemVal, excluidos,
     $("pr-conteudo").checked, $("pr-ipca").checked, null, unidade);
   if (!s || !s.n || !s.por_municipio?.length) {
     caixa.classList.add("oculto");
@@ -2273,8 +2318,7 @@ $("desc-confirmar").addEventListener("click", async () => {
   }
   fecharModal("veu-descarte");
   descarteAlvo = null;
-  carregarPrecos();
-  mostrarResumoPrecos();
+  recarregarPrecos();
 });
 
 $("pr-csv").addEventListener("click", async () => {
@@ -2283,7 +2327,7 @@ $("pr-csv").addEventListener("click", async () => {
 });
 ["pr-ano", "pr-orgao", "pr-homologados"].forEach(id =>
   $(id).addEventListener("change", () => {
-    estado.paginaPrecos = 1; carregarPrecos(); mostrarResumoPrecos();
+    estado.paginaPrecos = 1; recarregarPrecos();
   }));
 // escolher uma unidade já filtra a lista, mas sozinho não classificava a
 // pesquisa — buscar "alface" mistura maço, quilo e unidade, e comparar por
@@ -2302,7 +2346,7 @@ $("pr-unidade").addEventListener("change", async () => {
   mostrarResumoPrecos();
 });
 ["pr-ipca", "pr-conteudo"].forEach(id =>
-  $(id).addEventListener("change", () => { carregarPrecos(); mostrarResumoPrecos(); }));
+  $(id).addEventListener("change", () => { recarregarPrecos(); }));
 let buscaPrecosTimer;
 $("pr-busca").addEventListener("input", () => {
   clearTimeout(buscaPrecosTimer);

@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.52.2 — 2026-09-07
+
+**Correções achadas no teste manual de ponta a ponta da pesquisa de preços**
+
+- Gerar relatório "Pesquisa de Preços" falhava sempre que havia item
+  descartado na pesquisa (`KeyError: 'sequencial'` — a consulta dos itens
+  desconsiderados não trazia essa coluna, usada no link pro PNCP).
+- Item descartado (✕, motivo obrigatório) continuava aparecendo na lista
+  da tela depois de descartado — a lista nunca excluía os itens já
+  registrados em `precos_descartes`, só o resumo/relatório excluíam.
+- Colunas "Corrigido (IPCA)" e "Por conteúdo" da lista de itens vinham
+  sempre em branco — só o resumo agregado calculava esses valores; a
+  lista nunca recebia os dois parâmetros.
+- Checkbox do cabeçalho da lista não virava "indeterminado" ao desmarcar
+  um item manualmente — ficava marcado como se tudo seguisse selecionado.
+- Texto e números da aba Preços (resumo, comparação com municípios de
+  referência) e de "Situação do banco" saíam com a cor errada (variável
+  CSS `--fg` nunca foi definida) — trocado pelo token `--text` já usado
+  em todo o resto da tela.
+- Trocar de termo mostrava "0 selecionados" mesmo com seleção persistida
+  do banco: `carregarPrecos()` e `mostrarResumoPrecos()` rodavam em
+  paralelo em vários pontos, e o resumo lia a seleção antes dela
+  terminar de recarregar.
+- Descartar um item (sozinho ou em lote, motivo obrigatório) não tirava
+  ele da mediana/quartis nem dos "sinais" da comparação com vizinhos —
+  a tela nunca buscava a lista de descartados pra excluir da conta.
+- Corrigido o `KeyError('sequencial')` acima, o relatório de "Pesquisa
+  de Preços" ainda falhava na exportação em .xlsx (`por_conteudo` é um
+  dict usado só pelo documento impresso; a planilha não sabe gravar um
+  dict numa célula) — as duas quebras só apareciam juntas, a segunda
+  ficou escondida atrás da primeira até agora.
+
 ## 1.52.1 — 2026-09-07
 
 **Motor de sync atualizado (motor_pncp v0.4.2 → v0.4.4)**

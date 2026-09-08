@@ -324,3 +324,41 @@ def test_concentracao_fornecedores(api):
     assert r["total"] == 3
     assert {f["fornecedor"] for f in r["fornecedores"]} == \
         {"Fornecedor A", "Fornecedor B", "Fornecedor C"}
+
+
+def test_gerar_relatorio_precos_com_descarte_e_conteudo_declarado(
+        api, monkeypatch):
+    """Achados do teste manual 2026-09-07: (1) `_processo` no relatório
+    quebrava com KeyError('sequencial') sempre que havia item descartado
+    — a consulta dos "desconsiderados" não trazia essa coluna; (2) uma
+    vez corrigido isso, a exportação em .xlsx quebrava de novo porque
+    `l["por_conteudo"]` é um dict (montado pra QUALQUER item cuja
+    descrição/unidade deixe claro o conteúdo, mesmo fora do modo "Comparar
+    por conteúdo" — usado só depois por render_precos) e
+    `escrever_planilha` grava toda chave como coluna: openpyxl não sabe
+    converter dict pra célula. As duas só apareciam juntas: a 2ª ficou
+    mascarada pela 1ª até ela ser corrigida."""
+    from openpyxl import load_workbook
+    monkeypatch.setattr(licitarium.webbrowser, "open", lambda *a, **k: None)
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " descricao, unidade, valor_unitario_homologado, fornecedor_ni,"
+        " fornecedor_nome, tem_resultado, referencia, municipio_ibge, ano)"
+        " VALUES ('D#1','A',1,"
+        "'PAPEL SULFITE A4 EMBALADO EM RESMAS COM 500 FOLHAS','RESMA',"
+        "24.0,'4','Fornecedor D',1,0,'3550308',2026)")
+    db.commit()
+    db.close()
+    api.selecionar_todos_precos("papel a4")
+    api.descartar_preco("papel a4", "A#2", "excessivo")
+    r = api.gerar_relatorio("precos", {"termo": "papel a4"})
+    assert r["ok"] is True
+    wb = load_workbook(r["xlsx"])
+    ws = wb.active
+    cab = [c.value for c in ws[1]]
+    col = cab.index("POR CONTEUDO")
+    valores = [linha[col] for linha in ws.iter_rows(min_row=2,
+                                                    values_only=True)]
+    assert not any(isinstance(v, dict) for v in valores)
+    assert any(v is not None for v in valores)

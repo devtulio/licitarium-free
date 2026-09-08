@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.1"
+VERSAO = "1.52.2"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1039,6 +1039,7 @@ class Api:
             return {"itens": [], "total": 0}
         f = filtros or {}
         where, args = [], []
+        db = abrir_db()
         # município de referência alimenta só o banco de preços (aba
         # Preços): no acervo ele não existe
         if tipo == "contratacoes":
@@ -1103,6 +1104,18 @@ class Api:
             where.append("unidade_canonica(unidade)=?")
             args.append(f["unidade"])
         if f.get("busca"):
+            if tipo == "itens":
+                # item descartado (motivo obrigatório) some da lista da
+                # pesquisa de preços — some sim, não fica "invisível sem
+                # explicação": o motivo mora em precos_descartes e a razão
+                # de cada um aparece no relatório impresso (seção "itens
+                # desconsiderados", relatorios._desconsiderados_html).
+                descartados = [r[0] for r in db.execute(
+                    "SELECT item_id FROM precos_descartes WHERE termo=?",
+                    (relatorios.chave_termo(f["busca"]),))]
+                for grupo in relatorios._blocos(descartados):
+                    where.append("id NOT IN (%s)" % ",".join("?" * len(grupo)))
+                    args += grupo
             termo = _termo_fts(f["busca"]) if tipo == "itens" else None
             if termo:
                 # palavras em qualquer ordem: "papel a4" acha "PAPEL ... A4"
@@ -1127,7 +1140,6 @@ class Api:
         if coluna_ord:
             direcao = "ASC" if f.get("dir") == "asc" else "DESC"
             ordem = f"{coluna_ord} {direcao}"
-        db = abrir_db()
         try:
             total = db.execute(
                 f"SELECT COUNT(*) FROM {tabela}{sql_where}", args).fetchone()[0]
@@ -1147,6 +1159,28 @@ class Api:
                 for d in itens:
                     d["municipio_nome"] = nomes.get(d.get("municipio_ibge")) \
                         or "–"
+                # colunas "Corrigido (IPCA)"/"Por conteúdo" da própria lista
+                # de itens (não só do resumo agregado) — achado de QA manual
+                # 2026-09-07: a tela ligava o toggle e a coluna aparecia
+                # sempre em branco, porque só o resumo/vizinhos calculava
+                # isso; a lista nunca recebia os dois parâmetros.
+                if f.get("corrigir"):
+                    ipca = relatorios.fatores_ipca(db)
+                    publicacao = {r[0]: r[1] for r in db.execute(
+                        "SELECT numero_controle, data_publicacao"
+                        " FROM contratacoes")} if ipca else {}
+                    for d in itens:
+                        d["corrigido"] = relatorios.corrigir(
+                            d.get("valor_unitario_homologado"),
+                            d.get("data_resultado") or publicacao.get(
+                                d.get("contratacao_controle")),
+                            ipca) if ipca else None
+                if f.get("conteudo"):
+                    for d in itens:
+                        d["por_conteudo"] = relatorios.preco_por_conteudo(
+                            d.get("corrigido") if f.get("corrigir")
+                            else d.get("valor_unitario_homologado"),
+                            d.get("descricao"), d.get("unidade"))
             return {"itens": itens, "total": total}
         finally:
             db.close()

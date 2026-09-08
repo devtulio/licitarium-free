@@ -121,6 +121,10 @@ test("arrastar a alça redimensiona a coluna de preços e persiste",
       .gridTemplateColumns.split(" ")[n]), i);
   const antes = await larguraDe(2);   // coluna Unid.
   const alca = page.locator("#pr-lista .cab > span").nth(2).locator(".alca");
+  // com a corrida do resumo corrigida (2026-09-07), "papel" agora conta
+  // com seleção completa de verdade e a comparação com vizinhos acusa
+  // sinal fora da curva — a tabela desce e a alça sai do viewport padrão
+  await alca.scrollIntoViewIfNeeded();
   const cx = await alca.boundingBox();
   await page.mouse.move(cx.x + cx.width / 2, cx.y + cx.height / 2);
   await page.mouse.down();

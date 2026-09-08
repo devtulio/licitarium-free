@@ -1864,7 +1864,7 @@ def dados_precos(db, termo, ano=None, orgao=None, excluidos=None,
         desconsiderados += [dict(r) for r in db.execute(
             "SELECT id, descricao, unidade, quantidade_homologada,"
             " valor_unitario_homologado, fornecedor_nome, numero_item, ano,"
-            " orgao_cnpj FROM itens WHERE id IN (%s)"
+            " sequencial, orgao_cnpj FROM itens WHERE id IN (%s)"
             % ",".join("?" * len(grupo)), grupo)]
     for l in desconsiderados:
         l["motivo"] = rotulo_motivo(motivos.get(l["id"]))
@@ -3152,7 +3152,17 @@ def gerar(db, tipo, params, municipio, uf, destino):
                                  categoria=categoria, acervo=acervo)
         limpo = re.sub(r"[^\w-]+", "_", termo.lower())[:40]
         nome = f"pesquisa_precos_{limpo}"
-        linhas_csv = d["linhas"]
+        # `l["por_conteudo"]` é um dict ({"valor", "base", ...}, usado só
+        # pra render_precos montar a célula "R$/kg" do documento impresso)
+        # — sempre presente em toda linha, mesmo fora do modo por
+        # conteúdo. `escrever_planilha` grava toda chave como coluna, e
+        # openpyxl não sabe converter dict pra célula: achado do teste
+        # manual 2026-09-07 ("Cannot convert {...} to Excel"), mascarado
+        # até agora pelo crash de `_processo`/`sequencial` (corrigido
+        # acima) que nunca deixava a exportação rodar.
+        linhas_csv = [
+            {**l, "por_conteudo": (l["por_conteudo"] or {}).get("valor")}
+            for l in d["linhas"]]
     elif tipo == "fracionamento":
         if not ano:
             ano = date.today().year
