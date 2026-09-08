@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.52.7 — 2026-09-08
+
+**CNPJ/CPF com máscara na ficha de detalhe**
+
+- A ficha de detalhe (Contratações, Contratos, Atas, Preços) mostrava o
+  CNPJ do fornecedor e do órgão cru, sem máscara — diferente da
+  planilha exportada, que já formatava. Achado do usuário.
+
 ## 1.52.6 — 2026-09-08
 
 **Cor de série dos gráficos unificada com a cor de destaque do tema**

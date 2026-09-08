@@ -969,6 +969,19 @@ function jsonColorido(obj) {
 // número de controle de uma contratação: CNPJ-1-SEQUENCIAL/ANO (mesmo
 // formato que Api.abrir_pncp usa pro link de edital) — dá pra montar o
 // link direto no JS, sem chamada nova à ponte pywebview
+// mesma regra de relatorios.py:_para_documento (planilha exportada) — o
+// campo mostra CPF (11 dígitos) ou CNPJ (14), decide pelo tamanho.
+// Achado do usuário (2026-09-08): a ficha de detalhe mostrava o número
+// cru, sem máscara nenhuma, diferente da planilha.
+function mascararDocumento(v) {
+  const d = String(v ?? "").replace(/\D/g, "");
+  if (d.length === 11)
+    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (d.length === 14)
+    return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return v;
+}
+
 function linkPncpContratacao(numeroControle) {
   const m = /^(\d{14})-\d+-(\d+)\/(\d{4})$/.exec(numeroControle || "");
   if (!m) return null;
@@ -999,6 +1012,8 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
       if (campo.startsWith("valor")) v = dinheiro(v);
       else if (campo === "numero_contrato") v = numContrato(d);
       else if (/^(data|vigencia)/.test(campo)) v = dataBr(v);
+      else if (campo === "fornecedor_ni" || campo === "orgao_cnpj")
+        v = mascararDocumento(v);
       return `<div><div class="k">${rotulo}</div><div class="v">${esc(v)}</div></div>`;
     }).join("");
   $("det-raw").innerHTML = jsonColorido(d.raw);

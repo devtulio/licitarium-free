@@ -33,6 +33,7 @@ const DADOS = {
     { numero_controle: "Y-1", numero_contrato: "0033/26", ano_contrato: 2026,
       objeto: "Serviços de assessoria e consultoria técnica na área da educação",
       fornecedor_nome: "DANILO HENRIQUE NUNES CONSULTORIA",
+      fornecedor_ni: "09475002000101", orgao_cnpj: "45148970000177",
       valor_global: 30294, vigencia_inicio: "2026-05-28",
       vigencia_fim: emDias(300), data_publicacao: "2026-07-13" },
     { numero_controle: "Y-2", numero_contrato: "0041/26", ano_contrato: 2026,

@@ -206,6 +206,17 @@ test("ficha impressa: objeto no corpo (não no cabeçalho) e origem vira link do
   expect(metaTela).not.toContain("<a href");
 });
 
+test("CNPJ/CPF na ficha de detalhe sai com máscara (achado do usuário)",
+    async ({ page }) => {
+  await page.locator('nav.abas button[data-tipo="contratos"]').click();
+  await page.locator(".linha:not(.cab)").first().click();
+  await expect(page.locator("#veu-detalhe")).toBeVisible();
+  const metaTela = await page.locator("#det-meta").innerText();
+  expect(metaTela).toContain("09.475.002/0001-01");
+  expect(metaTela).toContain("45.148.970/0001-77");
+  expect(metaTela).not.toContain("09475002000101");
+});
+
 test("botão Imprimir do modal de detalhe manda o que a tela já mostra",
     async ({ page }) => {
   await page.locator('nav.abas button[data-tipo="contratos"]').click();
