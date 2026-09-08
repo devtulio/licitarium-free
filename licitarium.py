@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.7"
+VERSAO = "1.52.8"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -362,6 +362,10 @@ def fechar_limpo():
     try:
         db = sqlite3.connect(ARQUIVO_DB)
         try:
+            # atualiza a estatística do query planner (sqlite_stat1) uma vez
+            # por sessão — sem isso um índice pode existir e nunca ser usado,
+            # porque o planner decide por estatística, não só por existência
+            db.execute("PRAGMA optimize")
             db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         finally:
             db.close()
@@ -482,6 +486,14 @@ def abrir_db():
                        deterministic=True)
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("PRAGMA busy_timeout=10000")
+    # NORMAL é seguro com WAL (só perde durabilidade em crash do SO, nunca
+    # corrompe); cache/mmap maiores evitam releitura de disco em relatório
+    # agregado sobre banco de preço grande; temp_store em memória tira
+    # ORDER BY/GROUP BY grande do disco
+    db.execute("PRAGMA synchronous=NORMAL")
+    db.execute("PRAGMA cache_size=-64000")
+    db.execute("PRAGMA temp_store=MEMORY")
+    db.execute("PRAGMA mmap_size=268435456")
     # o índice de busca nasce vazio; banco que já tinha itens precisa popular
     # (COUNT(*) em tabela FTS externa lê o conteúdo, não serve de teste)
     sem_fts = not db.execute("SELECT 1 FROM sqlite_master WHERE"

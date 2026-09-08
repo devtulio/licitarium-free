@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.52.8 — 2026-09-08
+
+**Ajuste de PRAGMA do SQLite para banco de preço grande**
+
+- `synchronous=NORMAL` (seguro com WAL já ligado), `cache_size` maior,
+  `temp_store=MEMORY` e `mmap_size` na abertura do banco — reduz I/O de
+  disco no sync e nos relatórios agregados (Situação do banco) conforme
+  o acervo cresce.
+- `PRAGMA optimize` no fechamento do app — mantém a estatística do
+  otimizador de consulta (`sqlite_stat1`) atualizada, para que os
+  índices adicionados na v1.52.3 continuem sendo escolhidos pelo
+  planner à medida que o banco cresce.
+
 ## 1.52.7 — 2026-09-08
 
 **CNPJ/CPF com máscara na ficha de detalhe**
