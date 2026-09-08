@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.8"
+VERSAO = "1.52.9"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -366,6 +366,10 @@ def fechar_limpo():
             # por sessão — sem isso um índice pode existir e nunca ser usado,
             # porque o planner decide por estatística, não só por existência
             db.execute("PRAGMA optimize")
+            # devolve página livre ao SO aos poucos (auto_vacuum=INCREMENTAL,
+            # ligado por _migrar_auto_vacuum) — sem argumento, libera tudo
+            # que já estiver marcado como livre, sem VACUUM completo
+            db.execute("PRAGMA incremental_vacuum")
             db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         finally:
             db.close()
@@ -2490,9 +2494,44 @@ def _conferir_interface(janela):
         f"Detalhes gravados em {DIR_DADOS / ARQUIVO_LOG}")
 
 
+def _migrar_auto_vacuum(db):
+    """Liga auto_vacuum incremental — banco desde sempre usou o padrão
+    NONE, que nunca devolve página apagada ao sistema operacional; com
+    `INSERT OR REPLACE` reescrevendo item a cada resync, o arquivo cresce
+    mais que o dado real (achado do usuário 2026-09-08: 14,7% do
+    licitarium.db era espaço livre, banco de 894 MB).
+
+    Só roda uma vez: depois da migração, `auto_vacuum` já fica
+    INCREMENTAL e a checagem abaixo passa direto. Fica em `main()`, não
+    em `abrir_db()` — este é chamado por operação, e `VACUUM` reescreve
+    o arquivo inteiro (trava por segundos); rodar isso 1x no boot, antes
+    da janela abrir, evita repetir a rotina em cada chamada da API.
+    """
+    if db.execute("PRAGMA auto_vacuum").fetchone()[0] == 2:  # já é INCREMENTAL
+        return
+    if not ARQUIVO_DB.exists() or ARQUIVO_DB.stat().st_size < 10_000_000:
+        # banco novo/pequeno: nada a compactar, só liga o modo pra frente
+        db.execute("PRAGMA auto_vacuum=INCREMENTAL")
+        db.execute("VACUUM")
+        return
+    carimbo = datetime.now().strftime("%Y%m%d-%H%M%S")
+    copia = ARQUIVO_DB.with_name(f"{ARQUIVO_DB.name}.pre-vacuum-{carimbo}")
+    try:
+        shutil.copy2(ARQUIVO_DB, copia)
+    except OSError as e:
+        registrar_falha("backup antes do VACUUM falhou, migração adiada", e)
+        return   # sem cópia de segurança, não arrisca reescrever o arquivo
+    db.execute("PRAGMA auto_vacuum=INCREMENTAL")
+    db.execute("VACUUM")
+
+
 def main():
     api = Api()
     db = abrir_db()
+    try:
+        _migrar_auto_vacuum(db)
+    except sqlite3.DatabaseError as e:
+        registrar_falha("migração para auto_vacuum incremental falhou", e)
     try:  # título já nasce com o município (a UI reconfirma no boot)
         municipio = pncp._config(db, "municipio_nome")
         uf = pncp._config(db, "municipio_uf")

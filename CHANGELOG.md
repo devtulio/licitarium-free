@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.52.9 — 2026-09-08
+
+**auto_vacuum incremental — banco não infla mais com o tempo**
+
+- `INSERT OR REPLACE` (usado a cada resync de item) deixa página livre
+  no arquivo do banco sem devolver ao sistema operacional — achado do
+  usuário (2026-09-08): 14,7% do `licitarium.db` era espaço livre, num
+  banco de 894 MB. Migração automática no boot liga
+  `auto_vacuum=INCREMENTAL` (banco existente passa por um `VACUUM`
+  único, com cópia de segurança antes; banco novo/pequeno só liga o
+  modo, sem compactar); a partir daí, o fechamento do app libera página
+  livre aos poucos, sem travar.
+
 ## 1.52.8 — 2026-09-08
 
 **Ajuste de PRAGMA do SQLite para banco de preço grande**
