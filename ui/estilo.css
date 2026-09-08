@@ -721,6 +721,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .painel.carregando .vista { opacity:.45; transition:opacity .12s; }
 .painel.carregando .painel-topo select,
 .painel.carregando .painel-topo button { cursor:progress; }
+/* mesmo sinal do Painel (opacidade + aria-busy) na "Situação do banco" da
+   pesquisa de preços — achado do usuário (2026-09-08): sem sinal na
+   tela, a consulta em banco grande (170 mil+ itens) parece travamento. */
+#precos-situacao.carregando { opacity:.45; transition:opacity .12s;
+  cursor:progress; }
 .painel svg text { font-family:var(--font-ui); }
 .painel .rot { font-size:10.5px; fill:var(--muted); }
 

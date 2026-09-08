@@ -238,6 +238,22 @@ test("tema troca via configurações e persiste via set_config",
   expect(salvo.v).toBe("observatorio");
 });
 
+test("trocar de tema redesenha os gráficos da tela atual", async ({ page }) => {
+  // achado do usuário (2026-09-08): os gráficos ECharts leem a cor do
+  // tema (--s1/--accent/...) só no instante em que desenham — sem
+  // redesenhar ao trocar de tema, ficavam com a cor antiga até a
+  // próxima ação. `aplicarTema` agora chama de novo quem desenhou a
+  // tela visível (Painel aqui).
+  await page.locator('nav.abas button[data-tipo="painel"]').click();
+  const antes = await page.evaluate(() =>
+    window.__chamadas.filter(c => c.metodo === "painel").length);
+  await page.locator("#btn-config").click();
+  await page.locator('.tcard[data-tema="observatorio"]').click();
+  const depois = await page.evaluate(() =>
+    window.__chamadas.filter(c => c.metodo === "painel").length);
+  expect(depois).toBeGreaterThan(antes);
+});
+
 test("arrastar a alça redimensiona a coluna e persiste", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   await page.locator('nav.abas button[data-tipo="contratacoes"]').click();

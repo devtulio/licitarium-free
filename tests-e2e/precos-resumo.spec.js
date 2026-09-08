@@ -186,6 +186,21 @@ test("comparação com municípios de referência aparece mesmo sem nada selecio
   expect(chamada.incluidos).toBeNull();
 });
 
+test("limpar a busca esconde a comparação com vizinhos da pesquisa anterior",
+    async ({ page }) => {
+  // achado do usuário (2026-09-08): só o resumo escondia ao apagar a
+  // busca — a comparação com vizinhos da pesquisa anterior ficava lá
+  await page.evaluate(() => { window.__selecionados = {}; });
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await expect(page.locator("#precos-vizinhos")).toBeVisible();
+  await page.locator("#pr-busca").fill("");
+  await page.waitForTimeout(400);
+  await expect(page.locator("#precos-resumo")).toBeHidden();
+  await expect(page.locator("#precos-vizinhos")).toBeHidden();
+});
+
 test("descartar um sinal na comparação com vizinhos exige motivo",
     async ({ page }) => {
   await page.locator('nav.abas button[data-tipo="precos"]').click();

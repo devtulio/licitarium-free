@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.52.3 — 2026-09-08
+
+**Achados do usuário: tema, gráfico órfão e demora na Situação do banco**
+
+- Trocar de tema (Configurações → Aparência) não redesenhava os
+  gráficos já abertos — ECharts só lê a cor do tema (`--s1`/`--accent`/
+  `--muted`/...) no instante em que desenha. Agora a troca redesenha a
+  tela que já estava visível (Painel, resumo/vizinhos de Preços,
+  Situação do banco).
+- Limpar a busca de preços deixava o gráfico "Comparação com
+  municípios de referência" da pesquisa anterior na tela — só o resumo
+  escondia.
+- "Situação do banco" sem sinal nenhum de carregamento (mesmo achado
+  já corrigido no Painel de execução) — parece travar num banco grande
+  (170 mil+ itens), mesmo a consulta sendo rápida (medido: <0,6s com
+  volume e variedade de dados realistas). Adicionado o mesmo sinal
+  visual (opacidade + `aria-busy`) do Painel. De qualquer forma,
+  índices que faltavam em `itens` (fornecedor, município, ano, tipo)
+  foram acrescentados — não mudaram o tempo medido, mas tendem a
+  ajudar conforme o banco cresce além disso.
+
 ## 1.52.2 — 2026-09-07
 
 **Correções achadas no teste manual de ponta a ponta da pesquisa de preços**

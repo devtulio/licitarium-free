@@ -186,6 +186,18 @@ function aplicarTema(tema, salvar = true) {
   document.querySelectorAll(".tcard").forEach(c =>
     c.classList.toggle("on", c.dataset.tema === tema));
   if (salvar && api) api.set_config("tema", tema);
+  // gráficos ECharts leem a cor do tema (--s1/--accent/--muted/...) só no
+  // instante em que desenham — sem redesenhar aqui, trocar de tema deixa
+  // o gráfico já aberto com a cor antiga até a próxima ação do usuário
+  // (achado do usuário, 2026-09-08). Só redesenha a tela que já estava
+  // visível, sem tocar nas outras.
+  if (!api) return;
+  if (estado.tipo === "painel") carregarPainel();
+  else if (estado.tipo === "precos") {
+    if (!$("precos-pesquisar")?.classList.contains("oculto"))
+      mostrarResumoPrecos();
+    if (situacaoPrecosCarregada) carregarSituacaoPrecos();
+  }
 }
 document.querySelectorAll(".tcard").forEach(c =>
   c.addEventListener("click", () => aplicarTema(c.dataset.tema)));
@@ -2161,6 +2173,11 @@ async function mostrarResumoPrecos() {
   const termo = $("pr-busca").value.trim();
   if (termo.length < 3 || !api.estatisticas_preco) {
     caixa.classList.add("oculto");
+    // achado do usuário (2026-09-08): limpar a busca deixava o gráfico
+    // da comparação com vizinhos da pesquisa anterior visível — só o
+    // resumo escondia, porque mostrarComparacaoVizinhos só é chamado
+    // daqui pra baixo.
+    $("precos-vizinhos")?.classList.add("oculto");
     return;
   }
   await garantirSelecaoPrecos(termo);
@@ -2372,7 +2389,15 @@ $("tela-precos")?.querySelectorAll(".subabas button[data-vista-precos]")
 
 async function carregarSituacaoPrecos() {
   if (!api.painel_precos) return;
+  // banco grande (170 mil+ itens) — a consulta é rápida, mas sem sinal
+  // na tela a espera parece travamento (mesmo achado do Painel de
+  // execução, ui/painel.js:carregarPainel)
+  const tela = $("precos-situacao");
+  tela.setAttribute("aria-busy", "true");
+  tela.classList.add("carregando");
   const d = await api.painel_precos();
+  tela.classList.remove("carregando");
+  tela.removeAttribute("aria-busy");
   situacaoPrecosCarregada = true;
   $("pk-itens").textContent = d.total.toLocaleString("pt-BR");
   $("pk-homologado").textContent = `${d.pct_homologado}%`;

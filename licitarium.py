@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.2"
+VERSAO = "1.52.3"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -120,6 +120,16 @@ CREATE INDEX IF NOT EXISTS ix_pca_ano ON pca_itens (ano);
 CREATE INDEX IF NOT EXISTS ix_itens_desc ON itens (descricao);
 CREATE INDEX IF NOT EXISTS ix_itens_contratacao ON itens (contratacao_controle);
 CREATE INDEX IF NOT EXISTS ix_itens_unit ON itens (valor_unitario_homologado);
+-- "Situação do banco" (relatorios.dados_banco_precos) agrupa por cada uma
+-- destas colunas num banco que já passa de 170 mil itens — sem índice,
+-- cada GROUP BY vira scan completo + ordenação em disco. Achado do
+-- usuário (2026-09-08: "parece demorar pra responder").
+CREATE INDEX IF NOT EXISTS ix_itens_fornecedor_ni ON itens (fornecedor_ni);
+CREATE INDEX IF NOT EXISTS ix_itens_fornecedor_nome ON itens (fornecedor_nome);
+CREATE INDEX IF NOT EXISTS ix_itens_municipio ON itens (municipio_ibge);
+CREATE INDEX IF NOT EXISTS ix_itens_ano ON itens (ano);
+CREATE INDEX IF NOT EXISTS ix_itens_material_servico ON itens (material_servico);
+CREATE INDEX IF NOT EXISTS ix_itens_unidade ON itens (unidade);
 -- busca por palavras soltas nos itens: "papel a4" acha "PAPEL SULFITE A4"
 CREATE VIRTUAL TABLE IF NOT EXISTS itens_fts USING fts5(
   descricao, fornecedor_nome, content='itens', content_rowid='rowid');
