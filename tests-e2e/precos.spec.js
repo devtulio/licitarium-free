@@ -76,6 +76,25 @@ test("Municípios de referência: listar, estimar e adicionar",
     .toBe(true);
 });
 
+test("estimar município de referência mostra sinal de carregamento (achado do usuário)",
+  async ({ page }) => {
+  // consulta real ao PNCP sem sinal nenhum parecia travada — achado do
+  // usuário, 2026-09-08
+  await page.evaluate(() => { window.__delayEstimar = 80; });
+  await page.locator("#btn-config").click();
+  await page.locator("#ref-uf").selectOption("SP");
+  await page.locator("#ref-busca").fill("Olímpia");
+  await expect(page.locator("#ref-sugestoes button[data-c]").first())
+    .toBeVisible();
+  page.on("dialog", d => d.accept());
+  await page.locator("#ref-sugestoes button[data-c]").first().click();
+  await expect(page.locator("#ref-sugestoes")).toContainText("Estimando");
+  await expect
+    .poll(() => page.evaluate(() => window.__chamadas
+      .some(c => c.metodo === "adicionar_municipio_referencia")))
+    .toBe(true);
+});
+
 test("relatório de cobertura da coleta abre pela ponte",
   async ({ page }) => {
   await page.locator("#btn-config").click();

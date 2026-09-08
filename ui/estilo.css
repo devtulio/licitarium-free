@@ -277,6 +277,7 @@ nav.abas button.on { color:var(--accent); font-weight:600;
 .g-atas         { grid-template-columns:var(--cols, 90px 210px 1fr 100px 100px 110px); }
 .g-pca          { grid-template-columns:var(--cols, 60px 1fr 150px 80px 110px); }
 .g-itens        { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 118px 212px 96px 88px); }
+.g-itens:not(.cab) { cursor:pointer; }
 /* cada modo da aba Preços acrescenta uma coluna de dinheiro entre o valor
    pago e o fornecedor, daí um padrão por variante. Todas leem o MESMO
    --cols: as variantes liam --cols-conteudo/-corrigido/-ambos, que nada
@@ -613,6 +614,10 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
                margin:4px 0 12px; }
 .painel-topo .cresce { flex:1; }
 .subabas { display:flex; gap:6px; }
+/* aqui (Preços) o .subabas não vive dentro de .painel-topo — sem folga
+   própria, colava direto no campo de busca abaixo (achado do usuário,
+   2026-09-08) */
+#tela-precos > .subabas { margin-bottom:12px; }
 .subabas button { font:inherit; font-size:13px; padding:7px 16px; cursor:pointer;
   border:1px solid var(--border); background:var(--surface); color:var(--muted);
   border-radius:var(--pill); }

@@ -978,14 +978,20 @@ function linkPncpContratacao(numeroControle) {
 
 let detalheAtual = null;
 let detalheDados = null;
-async function abrirDetalhe(nc) {
-  const d = await api.detalhe(estado.tipo, nc);
+let detalheTipo = null;
+// tipo do backend (TABELAS/CHAVES em licitarium.py) — normalmente igual à
+// aba (`estado.tipo`), mas a aba "precos" guarda os registros na tabela
+// "itens" (mesma usada pelo acervo de contratações), então quem chama
+// pela pesquisa de preços passa "itens" explícito
+async function abrirDetalhe(nc, tipo = estado.tipo) {
+  const d = await api.detalhe(tipo, nc);
   if (!d) return;
   detalheAtual = nc;
   detalheDados = d;
+  detalheTipo = tipo;
   $("det-titulo").textContent = d.objeto || d.descricao || d.numero_controle || d.id;
   $("det-sub").textContent = d.numero_controle || d.id_pca || "";
-  $("det-pncp").classList.toggle("oculto", estado.tipo === "pca");
+  $("det-pncp").classList.toggle("oculto", tipo === "pca");
   $("det-meta").innerHTML = Object.entries(ROTULOS)
     .filter(([campo]) => d[campo] != null && d[campo] !== "")
     .map(([campo, rotulo]) => {
@@ -999,7 +1005,7 @@ async function abrirDetalhe(nc) {
   abrirModal("veu-detalhe");
 }
 $("det-pncp").addEventListener("click", () =>
-  api.abrir_pncp(estado.tipo, detalheAtual));
+  api.abrir_pncp(detalheTipo, detalheAtual));
 // pedido do usuário (2026-08-12): na ficha impressa, "Contratação de
 // origem" vira link pro edital no PNCP — só na impressão, não na tela:
 // um <a href> de verdade dentro da modal pywebview navegaria a própria
@@ -1017,7 +1023,7 @@ function metaParaImpressao() {
   return clone.innerHTML;
 }
 $("det-imprimir").addEventListener("click", () =>
-  api.imprimir_detalhe(estado.tipo, detalheAtual,
+  api.imprimir_detalhe(detalheTipo, detalheAtual,
     $("det-titulo").textContent, $("det-sub").textContent,
     metaParaImpressao(), $("det-raw").innerHTML));
 
@@ -1786,7 +1792,7 @@ async function carregarPrecos() {
       <span class="dim col-processo">
         <button class="btn-descartar-item" data-descartar="${esc(id)}"
           title="Descartar este item da pesquisa" aria-label="Descartar este item da pesquisa">✕</button>
-        <span>${d.ano ?? ""}/${d.sequencial ?? ""}</span></span>
+        <span>${d.sequencial ?? "–"}/${d.ano ?? ""}</span></span>
     </div>`;
   }).join("");
   $("pr-lista").innerHTML = cab + (linhas || `<div class="vazio"><p>${
@@ -1802,6 +1808,14 @@ async function carregarPrecos() {
     }));
   $("pr-lista").querySelectorAll("button[data-descartar]").forEach(b =>
     b.addEventListener("click", () => abrirDescarte(b.dataset.descartar)));
+  // mesma ficha (dados/JSON do PNCP/imprimir) que Contratações — pedido
+  // do usuário (2026-09-08); ignora clique no checkbox/✕, que já têm o
+  // próprio comportamento
+  $("pr-lista").querySelectorAll(".linha[data-id]").forEach(linha =>
+    linha.addEventListener("click", e => {
+      if (e.target.closest("input, button")) return;
+      abrirDetalhe(linha.dataset.id, "itens");
+    }));
   const idsPaginaAtual = r.itens.map(d => String(d.id));
   function atualizarCabecalhoSelecao() {
     const cab = $("pr-selecionar-cabecalho");
@@ -2632,17 +2646,24 @@ $("ref-busca")?.addEventListener("input", async () => {
   caixa.classList.remove("oculto");
   caixa.querySelectorAll("button[data-c]").forEach(b =>
     b.addEventListener("click", async () => {
-      caixa.classList.add("oculto");
       const codigo = b.dataset.c, nome = b.dataset.n, uf = b.dataset.uf;
       $("ref-busca").value = "";
       if (api.estimar_municipio_referencia) {
+        // consulta REAL ao PNCP (pncp.estimar_volume) — pode levar alguns
+        // segundos; sem sinal nenhum, a caixa de sugestões parada parecia
+        // travada (achado do usuário, 2026-09-08)
+        caixa.innerHTML =
+          `<button disabled>Estimando o volume de ${esc(nome)}…</button>`;
         const est = await api.estimar_municipio_referencia(codigo);
+        caixa.classList.add("oculto");
         if (est.erro) { alert(est.erro); return; }
         const ok = confirm(`${nome} tem cerca de `
           + `${(est.contratacoes ?? 0).toLocaleString("pt-BR")} contratações e `
           + `${(est.itens ?? 0).toLocaleString("pt-BR")} preços a coletar. `
           + `Adicionar como referência?`);
         if (!ok) return;
+      } else {
+        caixa.classList.add("oculto");
       }
       const r = await api.adicionar_municipio_referencia(codigo, nome, uf);
       if (r.ok) carregarMunicipiosReferencia();

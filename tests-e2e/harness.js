@@ -231,9 +231,14 @@ function scriptPonte(temaBanco = "portal") {
                  ],
                  proprios: 2, referencia: 1, total };
       },
-      detalhe: async (tipo, nc) =>
-        ({ ...(DADOS[tipo] || []).find(d => d.numero_controle === nc),
-           raw: { exemplo: true } }),
+      detalhe: async (tipo, nc) => {
+        window.__chamadas.push({ metodo: "detalhe", tipo, nc });
+        // mesma exceção de licitarium.py:CHAVES — "itens" (pesquisa de
+        // preços) usa "id", os demais tipos usam "numero_controle"
+        const chave = tipo === "itens" ? "id" : "numero_controle";
+        const d = (DADOS[tipo] || []).find(x => String(x[chave]) === nc);
+        return d && { ...d, raw: { exemplo: true } };
+      },
       descartes: async (busca) => {
         window.__chamadas.push({ metodo: "descartes", busca });
         return window.__descartes?.[String(busca).toLowerCase().trim()] ?? [];
@@ -518,6 +523,10 @@ function scriptPonte(temaBanco = "portal") {
       estimar_municipio_referencia: async codigo => {
         window.__chamadas.push({ metodo: "estimar_municipio_referencia",
                                  codigo });
+        // consulta real ao PNCP no backend — testes que precisam ver o
+        // estado intermediário ("Estimando…") setam window.__delayEstimar
+        if (window.__delayEstimar)
+          await new Promise(r => setTimeout(r, window.__delayEstimar));
         return window.__respostaEstimarRef
           ?? { contratacoes: 210, itens: 1800, mb: 6.4, minutos: 3 };
       },

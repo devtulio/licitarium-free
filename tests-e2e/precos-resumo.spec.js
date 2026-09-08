@@ -36,6 +36,31 @@ test("botão de descartar não tampa o número do processo (achado do usuário)"
   await expect(numero).toBeVisible();
 });
 
+test("número do processo sai sequencial/ano, não ano/sequencial (achado do usuário)",
+    async ({ page }) => {
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  const numero = page.locator("#pr-lista .linha:not(.cab) .col-processo span").first();
+  // X-3#1 no mock: sequencial 50, ano 2025 — sequencial vem primeiro,
+  // igual ao mesmo dado em Contratações (achado do usuário, 2026-09-08:
+  // estava saindo "2025/50")
+  await expect(numero).toHaveText("50/2025");
+});
+
+test("clicar num item de preço abre a mesma ficha de detalhe de Contratações",
+    async ({ page }) => {
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await page.locator("#pr-lista .linha:not(.cab)").first().click();
+  await expect(page.locator("#veu-detalhe")).toBeVisible();
+  await expect(page.locator("#det-raw")).toContainText("exemplo");
+  const chamada = await page.evaluate(() => window.__chamadas
+    .filter(c => c.metodo === "detalhe").pop());
+  expect(chamada.tipo).toBe("itens");
+});
+
 test("gráficos de preço desenham: boxplot, série temporal e por município",
     async ({ page }) => {
   await buscarESelecionarTudo(page);

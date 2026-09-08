@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.52.4 — 2026-09-08
+
+**Mais achados do usuário na pesquisa de preços**
+
+- Número do processo saía invertido (ano/sequencial) — agora é
+  sequencial/ano, igual ao mesmo dado em Contratações.
+- Falta de espaçamento entre a busca e as abas "Pesquisar"/"Situação do
+  banco".
+- Clicar num item da pesquisa de preços não abria nada — agora abre a
+  mesma ficha de detalhe de Contratações (dados, JSON do PNCP,
+  imprimir); o backend já suportava (`Api.detalhe`/`abrir_pncp` com
+  `tipo="itens"`), só faltava o clique na lista.
+- Adicionar um município de referência (Configurações) faz uma consulta
+  real ao PNCP antes de perguntar se quer adicionar — sem sinal nenhum,
+  parecia travado; adicionado "Estimando o volume de X…" na caixa de
+  sugestões.
+
 ## 1.52.3 — 2026-09-08
 
 **Achados do usuário: tema, gráfico órfão e demora na Situação do banco**
