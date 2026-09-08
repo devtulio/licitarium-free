@@ -544,24 +544,25 @@ def test_ipca_desde_com_sync_anterior_recorta_60_dias(db):
     assert pncp._ipca_desde(db) == "07/07/2026"
 
 
-def test_sync_ipca_grava_por_competencia(db):
-    motor = FakeMotor(ipca=lambda inicio: iter([
+def test_sync_ipca_grava_por_competencia(db, monkeypatch):
+    monkeypatch.setattr(pncp, "ipca", lambda inicio, **kw: iter([
         {"competencia": "2026-01", "variacao": 0.5},
         {"competencia": "2026-02", "variacao": 0.3}]))
-    assert pncp.sync_ipca(db, motor=motor) == 2
+    assert pncp.sync_ipca(db) == 2
     linhas = {r["competencia"]: r["variacao"] for r in db.execute("SELECT * FROM ipca")}
     assert linhas == {"2026-01": 0.5, "2026-02": 0.3}
 
 
-def test_sincronizar_tudo_nao_rebaixa_ipca_inteiro_na_segunda_chamada(db):
+def test_sincronizar_tudo_nao_rebaixa_ipca_inteiro_na_segunda_chamada(db, monkeypatch):
     """`sincronizar_tudo` chamado várias vezes seguidas não pode
     redownloadar a série inteira do IPCA em toda chamada — só a primeira."""
     inicios = []
 
-    def fake_ipca(inicio=None):
+    def fake_ipca(inicio=None, **kw):
         inicios.append(inicio)
         return iter(())
-    motor = FakeMotor(ipca=fake_ipca)
+    monkeypatch.setattr(pncp, "ipca", fake_ipca)
+    motor = FakeMotor()
 
     pncp.sincronizar_tudo(db, "3534203", motor=motor)
     pncp.sincronizar_tudo(db, "3534203", motor=motor)

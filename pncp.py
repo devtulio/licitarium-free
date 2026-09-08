@@ -29,6 +29,7 @@ from motor_pncp import (
     Motor,
     PncpErro,
     SyncCancelado,
+    ipca,
 )
 
 USER_AGENT = "Licitarium/0.1 (repositorio local de contratacoes; open-source)"
@@ -113,20 +114,23 @@ def _ipca_desde(db):
     """
     ultimo = _config(db, "last_sync_ipca")
     if not ultimo:
-        return None  # motor.ipca() usa o início da série (2021) como default
+        return None  # ipca() usa o início da série (2021) como default
     return (date.fromisoformat(ultimo) - timedelta(days=60)).strftime("%d/%m/%Y")
 
 
-def sync_ipca(db, inicio=None, motor=None):
+def sync_ipca(db, inicio=None):
     """Baixa a variação mensal do IPCA e guarda mês a mês.
 
     O índice do mês corrente não existe: o IBGE publica com semanas de
     atraso e o BCB republica depois. O programa corrige até o último mês
     disponível — melhor que projetar um número que ninguém publicou.
+
+    Função de módulo `motor_pncp.ipca` (não `Motor.ipca`, deprecado desde
+    a v1.2.0 do motor): tem cliente HTTP próprio, então falha do BCB não
+    conta mais como bloqueio do PNCP no paralelismo da coleta.
     """
-    motor = motor or Motor(user_agent=USER_AGENT)
     gravados = 0
-    for linha in motor.ipca(inicio):
+    for linha in ipca(inicio, user_agent=USER_AGENT):
         db.execute(
             "INSERT INTO ipca (competencia, variacao) VALUES (?,?)"
             " ON CONFLICT(competencia) DO UPDATE SET variacao=excluded.variacao",
@@ -596,7 +600,7 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True,
     # fase 0 — índice de correção monetária: leve (poucos KB) e usado pela
     # aba Preços; falhar aqui não pode impedir a coleta do acervo
     try:
-        resumo["ipca"] = sync_ipca(db, _ipca_desde(db), motor=motor)
+        resumo["ipca"] = sync_ipca(db, _ipca_desde(db))
         _config(db, "last_sync_ipca", hoje.isoformat())
     except PncpErro as e:
         _log(db, "ipca", hoje, hoje, 0, "erro", str(e))

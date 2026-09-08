@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.52.10 — 2026-09-08
+
+**`motor_pncp` v0.4.4 → v1.2.0**
+
+- Backoff com full jitter, `Retry-After` honrado também em 503 (data
+  HTTP ou segundos), pacing por host entre threads em paralelo,
+  `Motor(cancelado=...)` pra parar a coleta na hora — mudanças de
+  comportamento validadas com smoke real contra o PNCP e o BCB antes de
+  entrar.
+- `motor.ipca()` (deprecado desde a v1.2.0 do motor) trocado por
+  `motor_pncp.ipca()`, função de módulo com cliente HTTP próprio — falha
+  do BCB não conta mais como bloqueio do PNCP no paralelismo da coleta.
+- Sem mudança visível na interface.
+
 ## 1.52.9 — 2026-09-08
 
 **auto_vacuum incremental — banco não infla mais com o tempo**
