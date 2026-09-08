@@ -421,17 +421,6 @@
       </div>
     </div>
     <div class="card cfg">
-      <h2>Sincronização</h2>
-      <div class="ajuda">A coleta roda em segundo plano e pode demorar na
-        primeira vez. Parar não corrompe nada: o que já entrou fica, e a
-        próxima coleta refaz de onde faltou.</div>
-      <div style="display:flex; align-items:center; gap:12px; margin-top:8px">
-        <button class="btn ghost" id="btn-parar-sync" disabled>Parar
-          sincronização</button>
-        <span class="dim" id="parar-sync-status" role="status"></span>
-      </div>
-    </div>
-    <div class="card cfg">
       <h2>Município</h2>
       <div style="font-size:13.5px" id="cfg-municipio"></div>
       <div class="aviso">Para trocar de município, use o assistente inicial:
@@ -552,6 +541,14 @@
       <div style="display:flex; justify-content:space-between">
         <h2>O que sincronizar</h2>
         <button class="fechar" data-fecha="veu-sync-opcoes" aria-label="Fechar">×</button>
+      </div>
+      <div class="ajuda">A coleta roda em segundo plano e pode demorar na
+        primeira vez. Parar não corrompe nada: o que já entrou fica, e a
+        próxima coleta refaz de onde faltou.</div>
+      <div style="display:flex; align-items:center; gap:12px; margin:8px 0 14px">
+        <button class="btn ghost" id="btn-parar-sync" disabled>Parar
+          sincronização</button>
+        <span class="dim" id="parar-sync-status" role="status"></span>
       </div>
       <div class="opcoes-sync" id="opcoes-sync-lista"></div>
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px">

@@ -1354,13 +1354,8 @@ $("btn-importar-acervo")?.addEventListener("click", async () => {
 // em vez de em fila — o tempo total vira o da mais lenta, não a soma.
 $("btn-config").addEventListener("click", async () => {
   abrirModal("veu-config");
-  const [e, brasao, orgaos, log, sync] = await Promise.all([
-    api.get_estado(), api.brasao(), api.listar_orgaos(), api.ultimo_log(),
-    api.status_sync?.() ?? {rodando: false}]);
-  // abrir as Configurações no meio de uma coleta não recebe evento de
-  // progresso retroativo: sem esta leitura, o botão de parar nasceria
-  // desabilitado justo quando ele é necessário
-  estadoDoParar(!!sync.rodando);
+  const [e, brasao, orgaos, log] = await Promise.all([
+    api.get_estado(), api.brasao(), api.listar_orgaos(), api.ultimo_log()]);
   $("cfg-municipio").innerHTML = `${esc(e.municipio)} — ${esc(e.uf)}
     <small class="dim">(IBGE ${esc(e.ibge)})</small>`;
   mostrarBrasao(brasao.dataurl);
@@ -1491,6 +1486,11 @@ $("btn-sync").addEventListener("click", () => api.sincronizar());
 // guardado em data-escopo; o campo de município só aparece quando esse é
 // o escolhido.
 $("btn-sync-opcoes")?.addEventListener("click", async () => {
+  // abrir as opções de sync no meio de uma coleta não recebe evento de
+  // progresso retroativo: sem esta leitura, o botão de parar nasceria
+  // desabilitado justo quando ele é necessário
+  const sync = await api.status_sync?.() ?? {rodando: false};
+  estadoDoParar(!!sync.rodando);
   const d = await api.opcoes_sync();
   const pendentes = d.referencia.filter(m => m.nunca_sincronizado);
   $("opcoes-sync-lista").innerHTML = `

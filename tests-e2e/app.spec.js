@@ -823,17 +823,17 @@ test("Compacta é metade da janela, Expandida é a janela inteira",
 
 test("parar sincronização: botão só vale enquanto há coleta em curso",
     async ({ page }) => {
-  await page.locator("#btn-config").click();
+  await page.locator("#btn-sync-opcoes").click();
   // sem coleta, o botão nasce desabilitado — clicar nele não faria nada
   await expect(page.locator("#btn-parar-sync")).toBeDisabled();
 });
 
-test("parar sincronização: Configurações aberta no meio da coleta já vem armada",
+test("parar sincronização: opções de sync abertas no meio da coleta já vem armado",
     async ({ page }) => {
   // sem ler o status ao abrir, o botão nasceria desabilitado justamente
   // quando é necessário — o evento de progresso não é retroativo
   await page.evaluate(() => { window.__syncRodando = true; });
-  await page.locator("#btn-config").click();
+  await page.locator("#btn-sync-opcoes").click();
   const parar = page.locator("#btn-parar-sync");
   await expect(parar).toBeEnabled();
 

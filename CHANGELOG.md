@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.52.12 — 2026-09-08
+
+**"Parar sincronização" movido pra dentro das opções de sync**
+
+- O botão vivia enterrado em Configurações → Sincronização; achado do
+  usuário: quem quer parar uma coleta em andamento procura no menu ▾
+  ao lado do botão Sincronizar, não em Configurações. Movido pro modal
+  "O que sincronizar" — mesmo comportamento (habilitado só com coleta
+  em curso, motivo de descarte não muda).
+
 ## 1.52.11 — 2026-09-08
 
 **"database is locked" logo após abrir a v1.52.10 — achado do usuário**
