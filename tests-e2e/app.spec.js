@@ -238,6 +238,25 @@ test("tema troca via configurações e persiste via set_config",
   expect(salvo.v).toBe("observatorio");
 });
 
+test("--s1 (série principal dos gráficos) é sempre --accent, nos 4 temas",
+    async ({ page }) => {
+  // pedido do usuário (2026-09-08): antes cada tema tinha um tom próprio
+  // pra --s1, pensado só pra daltonismo/contraste — no Observatório isso
+  // divergia visualmente do resto da interface (série azul, destaque em
+  // âmbar). Unificado: --s1 é sempre var(--accent).
+  for (const tema of ["portal", "pergaminho", "observatorio", "civil"]) {
+    await page.evaluate(t => {
+      document.documentElement.dataset.theme = t;
+    }, tema);
+    const [s1, accent] = await page.evaluate(() => {
+      const cs = getComputedStyle(document.documentElement);
+      return [cs.getPropertyValue("--s1").trim(),
+              cs.getPropertyValue("--accent").trim()];
+    });
+    expect(s1, `tema ${tema}`).toBe(accent);
+  }
+});
+
 test("trocar de tema redesenha os gráficos da tela atual", async ({ page }) => {
   // achado do usuário (2026-09-08): os gráficos ECharts leem a cor do
   // tema (--s1/--accent/...) só no instante em que desenham — sem

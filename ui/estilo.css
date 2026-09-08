@@ -569,10 +569,15 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 
 /* ══ Painel: subabas, cartões e gráficos ══
    Os gráficos são SVG desenhado no próprio app — sem biblioteca, sem rede.
-   As cores de série vêm daqui, e não do tema: foram validadas para daltonismo
-   e contraste sobre as superfícies clara e escura (ver design/DASHBOARD.md). */
+   `--s1` (série principal) é sempre `--accent` — pedido do usuário
+   (2026-09-08): antes tinha tom próprio por tema, pensado só pra
+   daltonismo/contraste, e no Observatório isso divergia visualmente do
+   resto da interface (série azul, botões/destaque em âmbar). `--s2..s4`
+   continuam com tom próprio — ainda precisam se distinguir entre si em
+   gráfico de mais de uma série (validados para daltonismo e contraste
+   sobre as superfícies clara e escura, ver design/DASHBOARD.md). */
 :root, [data-theme="portal"] {
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --s1:var(--accent); --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
   --seq1:#cde2fb; --seq2:#9ec5f4; --seq3:#5598e7; --seq4:#2571c9; --seq5:#1c5cab;
   /* Tinta do número dentro da célula do mapa de calor. Vai por degrau,
      não por tema: a rampa do Observatório é INVERTIDA (seq1 escuro,
@@ -585,27 +590,27 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    superfície #fbf7ee — terracota, ocre, verde e ardósia. A ardósia é fria de
    propósito; sem ela, quatro tons quentes não se separam sob daltonismo. */
 [data-theme="pergaminho"] {
-  --s1:#a03521; --s2:#c98a00; --s3:#1f8a52; --s4:#3f5fa8;
+  --s1:var(--accent); --s2:#c98a00; --s3:#1f8a52; --s4:#3f5fa8;
   --seq1:#f0e2c6; --seq2:#ddc294; --seq3:#c19d5c; --seq4:#96702c; --seq5:#5d4415;
   --seq1-ink:#141414; --seq2-ink:#141414; --seq3-ink:#141414;
   --seq4-ink:#ffffff; --seq5-ink:#ffffff;
 }
 [data-theme="observatorio"] {
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --s1:var(--accent); --s2:#d95926; --s3:#199e70; --s4:#c98500;
   /* degraus mais espaçados que os do tema claro: sobre fundo escuro, dois
      azuis próximos viram a mesma cor e o mapa de calor deixa de informar */
   --seq1:#123a6e; --seq2:#1c5cab; --seq3:#2571c9; --seq4:#5598e7; --seq5:#b7d3f6;
   --seq1-ink:#ffffff; --seq2-ink:#ffffff; --seq3-ink:#ffffff;
   --seq4-ink:#141414; --seq5-ink:#141414;
 }
-/* Civil: série em verde (s1, a cor de acento) + laranja/azul/dourado pra
-   separar sob daltonismo — validada pelo script de seis checks da skill
-   dataviz contra a superfície #ffffff (2026-08-13): banda de luminosidade,
-   piso de croma, separação CVD (pior par ΔE 8,3 protan), piso de visão
-   normal e contraste — todas passam. Rampa sequencial de um hue só
-   (verde), degraus validados por monotonicidade/gap/faixa de matiz. */
+/* Civil: série em verde (s1 = accent) + laranja/azul/dourado pra separar
+   sob daltonismo — validada pelo script de seis checks da skill dataviz
+   contra a superfície #ffffff (2026-08-13): banda de luminosidade, piso
+   de croma, separação CVD (pior par ΔE 8,3 protan), piso de visão normal
+   e contraste — todas passam. Rampa sequencial de um hue só (verde),
+   degraus validados por monotonicidade/gap/faixa de matiz. */
 [data-theme="civil"] {
-  --s1:#1b7a4d; --s2:#c97a2e; --s3:#2e6fa8; --s4:#a88a1f;
+  --s1:var(--accent); --s2:#c97a2e; --s3:#2e6fa8; --s4:#a88a1f;
   --seq1:#8fcfad; --seq2:#6bb98d; --seq3:#4a9c6d; --seq4:#1b7a4d; --seq5:#0d4028;
   --seq1-ink:#141414; --seq2-ink:#141414; --seq3-ink:#141414;
   --seq4-ink:#ffffff; --seq5-ink:#ffffff;

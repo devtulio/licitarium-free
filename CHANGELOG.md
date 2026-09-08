@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.52.6 — 2026-09-08
+
+**Cor de série dos gráficos unificada com a cor de destaque do tema**
+
+- `--s1` (a série principal de todo gráfico — barra por ano, boxplot,
+  série temporal, comparativo por município etc.) tinha um tom próprio
+  por tema, pensado só pra daltonismo/contraste, independente de
+  `--accent` (a cor de destaque da interface — botões, aba ativa). Em 3
+  dos 4 temas os dois coincidiam por acaso; no Observatório não (série
+  azul, destaque em âmbar), o que fazia o mesmo gráfico parecer "fora do
+  tema" ali. `--s1` agora é sempre `--accent`, nos 4 temas — pedido do
+  usuário. `--s2..--s4` (séries secundárias, quando o gráfico tem mais
+  de uma) continuam com tom próprio, ainda precisam se distinguir entre
+  si.
+
 ## 1.52.5 — 2026-09-08
 
 **Aviso de volume ao adicionar município de referência**
