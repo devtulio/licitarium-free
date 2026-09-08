@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.10"
+VERSAO = "1.52.11"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -489,7 +489,14 @@ def abrir_db():
     db.create_function("unidade_canonica", 1, _unidade_canonica,
                        deterministic=True)
     db.execute("PRAGMA journal_mode=WAL")
-    db.execute("PRAGMA busy_timeout=10000")
+    # 30s, não 10s (achado do usuário, v1.52.10): a migração pro
+    # auto_vacuum incremental reescreve o arquivo inteiro (VACUUM) uma
+    # única vez, na primeira abertura após o update — no Windows, o
+    # antivírus varre o arquivo grande recém-reescrito e trava o handle
+    # por alguns segundos, fora do controle do SQLite. 10s não cobria
+    # essa janela; a 1ª chamada da API (painel_precos) batia em
+    # "database is locked" logo após o boot.
+    db.execute("PRAGMA busy_timeout=30000")
     # NORMAL é seguro com WAL (só perde durabilidade em crash do SO, nunca
     # corrompe); cache/mmap maiores evitam releitura de disco em relatório
     # agregado sobre banco de preço grande; temp_store em memória tira

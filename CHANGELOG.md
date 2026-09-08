@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.52.11 — 2026-09-08
+
+**"database is locked" logo após abrir a v1.52.10 — achado do usuário**
+
+- A migração pro `auto_vacuum` incremental (v1.52.9) reescreve o
+  arquivo inteiro (`VACUUM`) uma única vez, na primeira abertura após o
+  update. No Windows, o antivírus varre o arquivo grande recém-escrito
+  e trava o handle por alguns segundos — fora do controle do SQLite.
+  `busy_timeout` de 10s não cobria essa janela; a primeira chamada da
+  API (`painel_precos`, logo depois do boot) batia no erro.
+  `busy_timeout` subiu pra 30s.
+
 ## 1.52.10 — 2026-09-08
 
 **`motor_pncp` v0.4.4 → v1.2.0**
