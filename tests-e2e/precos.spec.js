@@ -68,12 +68,18 @@ test("Municípios de referência: listar, estimar e adicionar",
   await page.locator("#ref-busca").fill("Olímpia");
   await expect(page.locator("#ref-sugestoes button[data-c]").first())
     .toBeVisible();
-  page.on("dialog", d => d.accept());
+  // MB e minutos de coleta somem sem querer da mensagem em algum ponto do
+  // histórico (o backend sempre calculou os dois) — achado do usuário,
+  // 2026-09-08
+  let mensagemDialogo = "";
+  page.on("dialog", d => { mensagemDialogo = d.message(); d.accept(); });
   await page.locator("#ref-sugestoes button[data-c]").first().click();
   await expect
     .poll(() => page.evaluate(() => window.__chamadas
       .some(c => c.metodo === "adicionar_municipio_referencia")))
     .toBe(true);
+  expect(mensagemDialogo).toMatch(/MB/);
+  expect(mensagemDialogo).toMatch(/min/);
 });
 
 test("estimar município de referência mostra sinal de carregamento (achado do usuário)",

@@ -2659,7 +2659,9 @@ $("ref-busca")?.addEventListener("input", async () => {
         if (est.erro) { alert(est.erro); return; }
         const ok = confirm(`${nome} tem cerca de `
           + `${(est.contratacoes ?? 0).toLocaleString("pt-BR")} contratações e `
-          + `${(est.itens ?? 0).toLocaleString("pt-BR")} preços a coletar. `
+          + `${(est.itens ?? 0).toLocaleString("pt-BR")} preços a coletar `
+          + `(~${(est.mb ?? 0).toLocaleString("pt-BR")} MB, ~`
+          + `${(est.minutos ?? 0).toLocaleString("pt-BR")} min de coleta). `
           + `Adicionar como referência?`);
         if (!ok) return;
       } else {

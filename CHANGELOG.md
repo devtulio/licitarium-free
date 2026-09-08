@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.52.5 — 2026-09-08
+
+**Aviso de volume ao adicionar município de referência**
+
+- A mensagem de confirmação ("X tem cerca de N contratações e M preços a
+  coletar") nunca mostrou o tamanho em MB nem o tempo estimado de coleta
+  no Licitarium Free — o backend (`pncp.estimar_volume`) sempre calculou
+  os dois, só a tela não exibia. Achado do usuário, que lembrava dessa
+  informação do Pretiarium Free (onde a feature nasceu).
+
 ## 1.52.4 — 2026-09-08
 
 **Mais achados do usuário na pesquisa de preços**
