@@ -321,6 +321,11 @@ function scriptPonte(temaBanco = "portal") {
         return window.__respostaImportar ?? { ok: true, itens: 2674,
           municipio: "Orindiúva", exportado_em: "2026-08-05T09:00:00" };
       },
+      exportar_json: async () => {
+        window.__chamadas.push({ metodo: "exportar_json" });
+        return window.__respostaExportarJson ?? { ok: true,
+          arquivo: "C:/tmp/licitarium.json", mb: 8.4 };
+      },
       sincronizar: async (forcado, escopo, ibge_escolhido) => {
         window.__chamadas.push({ metodo: "sincronizar", forcado, escopo,
                                  ibge_escolhido });

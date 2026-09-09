@@ -11,6 +11,21 @@ test("salvar cópia relata o que foi guardado", async ({ page }) => {
   await expect(msg).toContainText("2.674 itens");
 });
 
+test("exportar json relata o tamanho salvo", async ({ page }) => {
+  await page.locator("#btn-config").click();
+  await page.locator("#btn-exportar-json").click();
+  await expect(page.locator("#json-msg")).toContainText("Exportado (8.4 MB)");
+});
+
+test("exportar json cancelado não mostra erro", async ({ page }) => {
+  await page.evaluate(() => {
+    window.__respostaExportarJson = { ok: false, erro: null };
+  });
+  await page.locator("#btn-config").click();
+  await page.locator("#btn-exportar-json").click();
+  await expect(page.locator("#json-msg")).toHaveText("");
+});
+
 test("restaurar pede confirmação e avisa que precisa reabrir",
     async ({ page }) => {
   await page.locator("#btn-config").click();

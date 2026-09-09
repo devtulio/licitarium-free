@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.52.17 — 2026-09-09
+
+**Exportar acervo em .json (formato aberto)**
+
+- Configurações → nova seção "Exportar dados": gera um `.json` com todas
+  as tabelas do acervo (contratações, contratos, atas, itens, PCA,
+  municípios de referência) pra abrir fora do Licitarium — Excel/Power
+  Query, Python, Power BI. Diferente da Cópia do acervo (.zip), que só
+  serve pra restaurar aqui dentro: o `.json` é pra sair daqui, com as
+  colunas como o programa usa (não o `raw` bruto do PNCP).
+
 ## 1.52.16 — 2026-09-09
 
 **Notificação do Windows quando há vigência vencendo**

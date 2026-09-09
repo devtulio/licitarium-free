@@ -1345,6 +1345,15 @@ $("btn-importar-acervo")?.addEventListener("click", async () => {
         + "acervo restaurado.");
 });
 
+// ── exportar dados brutos (.json) ───────────────────────────────────────
+$("btn-exportar-json")?.addEventListener("click", async () => {
+  const msg = $("json-msg");
+  msg.textContent = "Exportando…";
+  const r = await api.exportar_json();
+  if (!r.ok) { msg.textContent = r.erro ? `Falhou: ${r.erro}` : ""; return; }
+  msg.textContent = `Exportado (${r.mb} MB).`;
+});
+
 // ── config ────────────────────────────────────────────────────────────────
 // A modal demorava a abrir porque as ~5 chamadas à ponte pywebview
 // (get_estado, brasao, listar_orgaos, referência, log) rodavam uma

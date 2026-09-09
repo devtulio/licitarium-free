@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.16"
+VERSAO = "1.52.17"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -2270,6 +2270,62 @@ class Api:
         return {"ok": True, "arquivo": caminho,
                 "mb": round(Path(caminho).stat().st_size / 1e6, 1),
                 "contagens": contagens}
+
+    def exportar_json(self):
+        """Acervo inteiro num único .json — formato aberto pra abrir fora
+        do Licitarium (Excel/Power Query, Python, Power BI). Diferente da
+        Cópia do acervo (.zip): aquela é pra restaurar aqui dentro (é o
+        `.db` cru); isto é pra sair daqui — colunas como o programa usa,
+        não o `raw` do PNCP.
+
+        Escrito linha a linha em vez de montar tudo em memória e chamar
+        `json.dumps` uma vez só: o banco de preço já passou de 170 mil
+        itens (achado real desta sessão, ver `diagnostico_banco.py`) —
+        construir a lista inteira antes de escrever dobraria o pico de
+        memória à toa.
+        """
+        db = abrir_db()
+        try:
+            municipio = pncp._config(db, "municipio_nome") or "acervo"
+            agora = datetime.now()
+            sugerido = f"LICITARIUM_{agora:%Y-%m-%d}_{agora:%H-%M-%S}.json"
+            destino = self._janela.create_file_dialog(
+                DIALOGO_SALVAR, save_filename=sugerido,
+                file_types=("JSON (*.json)",))
+            if not destino:
+                return {"ok": False, "erro": None}   # cancelado
+            caminho = destino if isinstance(destino, str) else destino[0]
+            tabelas = ("contratacoes", "contratos", "atas", "itens",
+                       "pca_itens", "municipios_referencia")
+            try:
+                with open(caminho, "w", encoding="utf-8") as f:
+                    f.write("{\n")
+                    f.write(f'  "_sgx": "LICITARIUM",\n')
+                    f.write(f'  "exportedAt": {json.dumps(agora.isoformat())},\n')
+                    f.write(f'  "versao": {json.dumps(VERSAO)},\n')
+                    f.write(f'  "municipio": {json.dumps(municipio)}')
+                    for tabela in tabelas:
+                        f.write(f',\n  "{tabela}": [')
+                        tem_linha = False
+                        for linha in db.execute(f"SELECT * FROM {tabela}"):
+                            if tem_linha:
+                                f.write(",")
+                            f.write("\n    " + json.dumps(
+                                dict(linha), ensure_ascii=False))
+                            tem_linha = True
+                        f.write("\n  ]" if tem_linha else "]")
+                    f.write("\n}\n")
+            except OSError as e:
+                try:
+                    Path(caminho).unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return {"ok": False,
+                        "erro": f"não consegui gravar em {caminho}: {e}"}
+            return {"ok": True, "arquivo": caminho,
+                    "mb": round(Path(caminho).stat().st_size / 1e6, 1)}
+        finally:
+            db.close()
 
     def importar_acervo(self):
         """Põe no lugar do acervo atual o de um arquivo .zip exportado.

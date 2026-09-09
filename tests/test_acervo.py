@@ -123,6 +123,41 @@ def test_cancelar_o_dialogo_nao_e_erro(api):
     api._janela.resposta = None
     assert api.exportar_acervo() == {"ok": False, "erro": None}
     assert api.importar_acervo() == {"ok": False, "erro": None}
+    assert api.exportar_json() == {"ok": False, "erro": None}
+
+
+# ── exportar dados brutos (.json) ────────────────────────────────────────
+
+def test_exportar_json_gera_arquivo_valido_com_todas_as_tabelas(api, tmp_path):
+    destino = tmp_path / "acervo.json"
+    api._janela.resposta = str(destino)
+
+    r = api.exportar_json()
+    assert r["ok"] and Path(r["arquivo"]) == destino
+
+    dado = json.loads(destino.read_text(encoding="utf-8"))
+    assert dado["_sgx"] == "LICITARIUM"
+    assert dado["municipio"] == "Orindiúva"
+    assert len(dado["contratacoes"]) == 1
+    assert dado["contratacoes"][0]["objeto"] == "Merenda"
+    assert len(dado["itens"]) == 1
+    assert dado["itens"][0]["descricao"] == "PAPEL A4"
+    assert len(dado["municipios_referencia"]) == 1
+    # tabela sem linha nenhuma continua uma lista válida, não quebra o JSON
+    assert dado["contratos"] == []
+    assert dado["atas"] == []
+
+
+def test_exportar_json_avisa_quando_nao_consegue_gravar(api, tmp_path):
+    # pasta pai inexistente: open() levanta OSError de verdade, sem mock —
+    # mesmo caminho de erro de disco cheio/sem permissão
+    destino = tmp_path / "pasta-que-nao-existe" / "acervo.json"
+    api._janela.resposta = str(destino)
+
+    r = api.exportar_json()
+    assert r["ok"] is False
+    assert "não consegui gravar" in r["erro"]
+    assert not destino.exists()
 
 
 def test_copia_leva_o_que_ainda_esta_no_diario_de_transacoes(api, tmp_path):
