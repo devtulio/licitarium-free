@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.52.22 — 2026-09-09
+
+**Busca global ganha teto de largura, status de sync ganha o resto**
+
+- A busca esticando até o fim (v1.52.21) ficava larga demais pro que
+  se digita ali. Achado do usuário. Campo agora tem teto de 360px; o
+  espaço que sobra vai pro bloco de status ("Sincronizado em..."),
+  que ganha respiro à esquerda em vez de ficar espremido contra os
+  botões.
+
 ## 1.52.21 — 2026-09-09
 
 **Busca global estica até o status de sync**

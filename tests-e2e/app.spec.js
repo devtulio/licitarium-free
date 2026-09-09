@@ -948,6 +948,18 @@ test.describe("busca global (cabeçalho)", () => {
     const vao = infoBox.x - (buscaBox.x + buscaBox.width);
     expect(vao).toBeLessThan(20);
   });
+
+  test("campo tem teto de largura, status ganha o espaço que sobra"
+      + " (achado do usuário)", async ({ page }) => {
+    // campo esticando até o fim (v1.52.21) ficou largo demais pro que se
+    // digita ali — o teto devolve a largura sobrando pro status de sync
+    await page.setViewportSize({ width: 1600, height: 900 });
+    const [buscaBox, infoBox] = await Promise.all([
+      page.locator(".busca-global").boundingBox(),
+      page.locator(".info-topo").boundingBox()]);
+    expect(buscaBox.width).toBeLessThanOrEqual(360);
+    expect(infoBox.width).toBeGreaterThan(400);
+  });
 });
 
 test("cabeçalho traz marca, edição gratuita e município", async ({ page }) => {

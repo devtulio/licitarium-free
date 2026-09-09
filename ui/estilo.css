@@ -131,14 +131,12 @@ input, select { background:var(--surface); color:var(--text);
   padding:8px 10px; font-size:13px; font-family:var(--font-ui); }
 
 /* busca global (cabeçalho): acha processo/contrato/ata sem trocar de aba
-   antes — pedido do usuário (2026-09-09). flex:1 estica até encostar no
-   status de sync (achado do usuário: largura fixa deixava um vão vazio
-   entre o campo e o "Sincronizado em..."); min-width impede sumir de
-   vista em janela estreita antes dos botões espremerem primeiro */
-/* flex:1 estica até encostar no status de sync (achado do usuário:
-   largura fixa deixava um vão vazio em janela larga); min-width impede
-   sumir de vista em janela estreita antes dos botões espremerem primeiro */
-.busca-global { position:relative; flex:1; min-width:160px; }
+   antes — pedido do usuário (2026-09-09). Teto de 360px (achado do
+   usuário 2026-09-09: esticada até o fim ficava larga demais pro que
+   digita) — o espaço que sobra vai pro status de sync, que ganha
+   `flex:1` logo abaixo. min-width impede sumir de vista em janela
+   estreita antes dos botões espremerem primeiro. */
+.busca-global { position:relative; flex:0 1 360px; min-width:160px; }
 .busca-global input { width:100%; }
 #busca-global-resultados { position:absolute; top:calc(100% + 4px); left:0;
   right:0; background:var(--surface); border:1px solid var(--border);
@@ -435,10 +433,13 @@ body.redimensionando { cursor:col-resize; user-select:none; }
    pra ler inteira; quebra em 2 linhas em vez de cortar */
 /* achado do usuário (2026-09-09): mensagem de sync cortava com "…" no meio
    do nome da modalidade — nada de truncar, a fase da coleta tem de dar
-   pra ler inteira; quebra em 2 linhas em vez de cortar */
-.info-topo { margin-left:auto; margin-right:18px; text-align:right;
+   pra ler inteira; quebra em 2 linhas em vez de cortar.
+   `flex:1` (2026-09-09): ganha o espaço que a busca-global (com teto de
+   360px) deixa de usar — sem `margin-left:auto`, que empurrava tudo pra
+   direita sem deixar o bloco crescer pra esquerda. */
+.info-topo { flex:1; margin-right:18px; text-align:right;
              font-size:11.5px; line-height:1.6; color:var(--muted);
-             max-width:280px; min-width:0; }
+             min-width:0; }
 .info-topo .dot { display:inline-block; width:8px; height:8px;
                   border-radius:50%; background:var(--ok); margin-right:6px; }
 .info-topo .dot.rodando { background:var(--warn); animation:pulsa 1s infinite; }
