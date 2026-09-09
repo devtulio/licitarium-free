@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.13"
+VERSAO = "1.52.14"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1341,8 +1341,9 @@ class Api:
                 " ORDER BY 2")]
             orgaos = [{"cnpj": r[0], "nome": r[1]} for r in db.execute(
                 "SELECT cnpj, razao_social FROM orgaos ORDER BY razao_social")]
-            # unidades do banco de preços, já agrupadas: as raras ficam no
-            # fim da lista porque a ordem é por quantidade de itens
+            # unidades do banco de preços, já agrupadas — ordem alfabética
+            # (pedido do usuário 2026-09-09: por quantidade dificultava achar
+            # uma unidade específica na lista)
             contagem = {}
             for (texto,) in db.execute(
                     "SELECT unidade FROM itens"
@@ -1352,7 +1353,7 @@ class Api:
                 if grupo:
                     contagem[grupo] = contagem.get(grupo, 0) + 1
             unidades = [{"nome": g, "n": n} for g, n in
-                        sorted(contagem.items(), key=lambda x: (-x[1], x[0]))]
+                        sorted(contagem.items(), key=lambda x: x[0])]
             return {"anos": anos, "situacoes": situacoes,
                     "modalidades": modalidades, "orgaos": orgaos,
                     "unidades": unidades}

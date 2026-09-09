@@ -78,6 +78,16 @@ def test_classificar_por_unidade_seleciona_e_acumula(api):
     assert set(api.selecionados("papel a4")) == {"A#1", "A#2", "C#1"}
 
 
+def test_unidades_dos_filtros_ordenadas_alfabeticamente(api):
+    # achado do usuário (2026-09-09): por quantidade dificultava achar uma
+    # unidade específica; "Resma" tem 2 itens (mais que Caixa/Unidade, 1
+    # cada) e ainda assim não pode vir primeiro — a ordem é A-Z, não por N
+    r = api.filtros_disponiveis()
+    nomes = [u["nome"] for u in r["unidades"]]
+    assert nomes == sorted(nomes)
+    assert nomes == ["Caixa", "Resma", "Unidade"]
+
+
 def test_fornecedores_pesquisa_precos_ordenado_por_frequencia(api):
     r = api.fornecedores_pesquisa_precos("papel a4")
     # os três fornecedores de PAPEL SULFITE A4 (próprio + referência), um

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.52.14 — 2026-09-09
+
+**Filtro de unidade na pesquisa de preços ordenado alfabeticamente**
+
+- A lista de unidades (Situação do banco → filtro na aba Preços) vinha
+  ordenada por quantidade de itens — dificultava achar uma unidade
+  específica numa lista de dezenas de opções. Achado do usuário. Agora
+  é A-Z.
+
 ## 1.52.13 — 2026-09-08
 
 **Achados de code review na rodada v1.52.8-12**
