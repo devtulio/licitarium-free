@@ -131,8 +131,14 @@ input, select { background:var(--surface); color:var(--text);
   padding:8px 10px; font-size:13px; font-family:var(--font-ui); }
 
 /* busca global (cabeçalho): acha processo/contrato/ata sem trocar de aba
-   antes — pedido do usuário (2026-09-09) */
-.busca-global { position:relative; width:230px; flex:none; }
+   antes — pedido do usuário (2026-09-09). flex:1 estica até encostar no
+   status de sync (achado do usuário: largura fixa deixava um vão vazio
+   entre o campo e o "Sincronizado em..."); min-width impede sumir de
+   vista em janela estreita antes dos botões espremerem primeiro */
+/* flex:1 estica até encostar no status de sync (achado do usuário:
+   largura fixa deixava um vão vazio em janela larga); min-width impede
+   sumir de vista em janela estreita antes dos botões espremerem primeiro */
+.busca-global { position:relative; flex:1; min-width:160px; }
 .busca-global input { width:100%; }
 #busca-global-resultados { position:absolute; top:calc(100% + 4px); left:0;
   right:0; background:var(--surface); border:1px solid var(--border);

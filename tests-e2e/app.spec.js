@@ -935,6 +935,19 @@ test.describe("busca global (cabeçalho)", () => {
     await page.locator("body").click({ position: { x: 5, y: 5 } });
     await expect(page.locator("#busca-global-resultados")).toBeHidden();
   });
+
+  test("campo estica até encostar no status de sync (achado do usuário)",
+      async ({ page }) => {
+    // largura fixa deixava um vão vazio entre o campo e o "Sincronizado
+    // em..." em janela larga — só aparece com espaço de sobra no
+    // cabeçalho, daí o viewport maior que o padrão do teste
+    await page.setViewportSize({ width: 1600, height: 900 });
+    const [buscaBox, infoBox] = await Promise.all([
+      page.locator(".busca-global").boundingBox(),
+      page.locator(".info-topo").boundingBox()]);
+    const vao = infoBox.x - (buscaBox.x + buscaBox.width);
+    expect(vao).toBeLessThan(20);
+  });
 });
 
 test("cabeçalho traz marca, edição gratuita e município", async ({ page }) => {

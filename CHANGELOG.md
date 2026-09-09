@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.52.21 — 2026-09-09
+
+**Busca global estica até o status de sync**
+
+- Campo de busca do cabeçalho tinha largura fixa (230px) — em janela
+  larga sobrava um vão vazio até "Sincronizado em...". Achado do
+  usuário. Agora estica (`flex:1`) até encostar lá.
+
 ## 1.52.20 — 2026-09-09
 
 **Alerta de publicidade fora do prazo — art. 94, Lei 14.133/2021**
