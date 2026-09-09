@@ -5,6 +5,7 @@ cópia de segurança. Em 2026-08-05 um acervo com seis municípios de referênci
 se perdeu, e reconstruí-lo custaria horas de coleta — a cópia troca essas
 horas por um arquivo.
 """
+import csv
 import json
 import sqlite3
 import sys
@@ -146,6 +147,30 @@ def test_exportar_json_gera_arquivo_valido_com_todas_as_tabelas(api, tmp_path):
     # tabela sem linha nenhuma continua uma lista válida, não quebra o JSON
     assert dado["contratos"] == []
     assert dado["atas"] == []
+
+
+def test_exportar_csv_cli_gera_um_arquivo_por_tabela(api, tmp_path):
+    # `exportar_csv_cli` é módulo-nível, não `Api` — roda sem janela/self._janela
+    destino = tmp_path / "saida-csv"
+    gerados = licitarium.exportar_csv_cli(destino)
+
+    assert gerados["contratacoes"] == 1
+    assert gerados["itens"] == 1
+    assert gerados["municipios_referencia"] == 1
+    assert gerados["contratos"] == 0
+    assert gerados["atas"] == 0
+    assert set(p.name for p in destino.glob("*.csv")) == {
+        "contratacoes.csv", "contratos.csv", "atas.csv", "itens.csv",
+        "pca_itens.csv", "municipios_referencia.csv"}
+
+    with open(destino / "itens.csv", newline="", encoding="utf-8-sig") as f:
+        linhas = list(csv.DictReader(f))
+    assert len(linhas) == 1
+    assert linhas[0]["descricao"] == "PAPEL A4"
+
+    # tabela sem linha nenhuma ainda gera cabeçalho, não fica sem arquivo
+    with open(destino / "atas.csv", newline="", encoding="utf-8-sig") as f:
+        assert list(csv.DictReader(f)) == []
 
 
 def test_exportar_json_avisa_quando_nao_consegue_gravar(api, tmp_path):

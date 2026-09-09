@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.52.19 — 2026-09-09
+
+**Exportação por linha de comando (`--exportar-csv`)**
+
+- `Licitarium.exe --exportar-csv <pasta>` gera um `.csv` por tabela do
+  acervo sem abrir a janela — agendável no Agendador de Tarefas do
+  Windows, sem precisar do app aberto. Mesmo recorte da exportação
+  .json da tela (Configurações → Exportar dados), formato diferente
+  por pedido do usuário (CSV, não JSON). `utf-8-sig` (BOM) — Excel abre
+  CSV UTF-8 sem BOM com acento quebrado por padrão.
+
 ## 1.52.18 — 2026-09-09
 
 **Busca global no cabeçalho**

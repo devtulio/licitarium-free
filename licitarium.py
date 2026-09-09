@@ -4,6 +4,7 @@ Entry point: janela pywebview + banco SQLite + ponte Api exposta ao JS.
 A versão vigente é a constante VERSAO, logo abaixo — e só ela.
 """
 import base64
+import csv
 import json
 import shutil
 import re
@@ -27,13 +28,17 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.18"
+VERSAO = "1.52.19"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 DIR_DADOS = Path.home() / "AppData" / "Local" / "Licitarium"
 ARQUIVO_DB = DIR_DADOS / "licitarium.db"
 ICONE_NOTIFICACAO = DIR_APP / "design" / "icone-preview-256.png"
+# mesmo recorte em Api.exportar_json e na exportação por linha de comando
+# (--exportar-csv): tudo que compõe o acervo, sem config/orgaos internos
+TABELAS_ACERVO = ("contratacoes", "contratos", "atas", "itens", "pca_itens",
+                  "municipios_referencia")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS config (chave TEXT PRIMARY KEY, valor TEXT);
@@ -2347,8 +2352,7 @@ class Api:
             if not destino:
                 return {"ok": False, "erro": None}   # cancelado
             caminho = destino if isinstance(destino, str) else destino[0]
-            tabelas = ("contratacoes", "contratos", "atas", "itens",
-                       "pca_itens", "municipios_referencia")
+            tabelas = TABELAS_ACERVO
             try:
                 with open(caminho, "w", encoding="utf-8") as f:
                     f.write("{\n")
@@ -2702,6 +2706,37 @@ def _notificar_vencimento(db):
     pncp._config(db, "ultima_notificacao_vencimento", chave)
 
 
+def exportar_csv_cli(pasta):
+    """Gera um `.csv` por tabela do acervo, sem abrir a janela — pra rodar
+    via linha de comando (`--exportar-csv <pasta>`), agendável no
+    Agendador de Tarefas do Windows sem precisar do app aberto.
+
+    Mesmo recorte de `Api.exportar_json` (`TABELAS_ACERVO`); formato
+    diferente por pedido do usuário — CSV aqui, JSON só na tela.
+    `utf-8-sig` (BOM) porque o Excel abre CSV UTF-8 sem BOM com acento
+    quebrado por padrão.
+    """
+    pasta = Path(pasta)
+    pasta.mkdir(parents=True, exist_ok=True)
+    db = abrir_db()
+    try:
+        gerados = {}
+        for tabela in TABELAS_ACERVO:
+            colunas = [r[1] for r in db.execute(f"PRAGMA table_info({tabela})")]
+            with open(pasta / f"{tabela}.csv", "w", newline="",
+                     encoding="utf-8-sig") as f:
+                w = csv.DictWriter(f, fieldnames=colunas)
+                w.writeheader()
+                n = 0
+                for linha in db.execute(f"SELECT * FROM {tabela}"):
+                    w.writerow(dict(linha))
+                    n += 1
+            gerados[tabela] = n
+        return gerados
+    finally:
+        db.close()
+
+
 def main():
     api = Api()
     db = abrir_db()
@@ -2768,5 +2803,16 @@ if __name__ == "__main__":
     # usado pelo autoupdate para validar e aquecer o exe novo antes da troca
     if "--verificar" in sys.argv:
         print(VERSAO)
+        sys.exit(0)
+    # --exportar-csv <pasta>: gera os .csv sem abrir janela — agendável no
+    # Agendador de Tarefas do Windows (pedido do usuário, 2026-09-09)
+    if "--exportar-csv" in sys.argv:
+        i = sys.argv.index("--exportar-csv")
+        if i + 1 >= len(sys.argv):
+            print("uso: Licitarium.exe --exportar-csv <pasta>")
+            sys.exit(1)
+        gerados = exportar_csv_cli(sys.argv[i + 1])
+        for tabela, n in gerados.items():
+            print(f"{tabela}.csv: {n} linhas")
         sys.exit(0)
     main()
