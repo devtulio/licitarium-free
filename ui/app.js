@@ -927,6 +927,53 @@ $("f-busca").addEventListener("input", () => {
   clearTimeout(buscaTimer);
   buscaTimer = setTimeout(() => { estado.pagina = 1; carregarLista(); }, 300);
 });
+
+// ── busca global (cabeçalho) ─────────────────────────────────────────────
+// Acha o processo em qualquer aba sem trocar de tela antes — abre a mesma
+// ficha de detalhe (abrirDetalhe) de onde o usuário estiver.
+const RÓTULO_TIPO = {contratacoes: "Contratação", contratos: "Contrato",
+                     atas: "Ata"};
+let buscaGlobalTimer;
+$("busca-global-campo").addEventListener("input", () => {
+  clearTimeout(buscaGlobalTimer);
+  const termo = $("busca-global-campo").value.trim();
+  if (termo.length < 3) {
+    $("busca-global-resultados").classList.add("oculto");
+    return;
+  }
+  buscaGlobalTimer = setTimeout(async () => {
+    const r = await api.buscar_global(termo);
+    const painel = $("busca-global-resultados");
+    if (!r.length) {
+      painel.innerHTML = '<div class="bg-vazio">Nada encontrado.</div>';
+    } else {
+      painel.innerHTML = r.map(item => `
+        <button type="button" data-tipo="${item.tipo}"
+          data-nc="${esc(item.numero_controle)}">
+          <span class="bg-tipo">${RÓTULO_TIPO[item.tipo]} · ${esc(item.numero)}</span>
+          <span class="bg-resumo">${esc(item.resumo || "")}</span>
+        </button>`).join("");
+    }
+    painel.classList.remove("oculto");
+  }, 250);
+});
+$("busca-global-resultados").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-nc]");
+  if (!btn) return;
+  $("busca-global-resultados").classList.add("oculto");
+  $("busca-global-campo").value = "";
+  abrirDetalhe(btn.dataset.nc, btn.dataset.tipo);
+});
+$("busca-global-campo").addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    $("busca-global-resultados").classList.add("oculto");
+    $("busca-global-campo").blur();
+  }
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".busca-global"))
+    $("busca-global-resultados").classList.add("oculto");
+});
 $("pag-ant").addEventListener("click", () => {
   estado.pagina--; carregarLista(); });
 $("pag-prox").addEventListener("click", () => {

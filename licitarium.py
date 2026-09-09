@@ -27,7 +27,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.17"
+VERSAO = "1.52.18"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -985,6 +985,58 @@ class Api:
             return [dict(r) for r in db.execute(
                 "SELECT cnpj, razao_social, ativo, origem FROM orgaos "
                 "ORDER BY razao_social")]
+        finally:
+            db.close()
+
+    def buscar_global(self, termo):
+        """Acha um processo/contrato/ata em qualquer aba, buscando de
+        qualquer lugar — nº de processo/contrato/ata, CNPJ/nome de
+        fornecedor ou trecho do objeto.
+
+        Sem FTS5 (isso é o domínio de `itens`/banco de preços, que já
+        tem o seu próprio); LIKE simples porque contratações/contratos/
+        atas somam muito menos linha que o banco de preço.
+        """
+        termo = (termo or "").strip()
+        if len(termo) < 3:
+            return []
+        db = abrir_db()
+        try:
+            coringa = f"%{termo}%"
+            resultados = []
+            for r in db.execute(
+                    "SELECT numero_controle, sequencial, ano, objeto"
+                    " FROM contratacoes WHERE referencia=0 AND"
+                    " (numero_controle LIKE ? OR objeto LIKE ?)"
+                    " LIMIT 8", (coringa, coringa)):
+                numero = (f"{r['sequencial']}/{r['ano']}"
+                          if r["sequencial"] else r["numero_controle"])
+                resultados.append({"tipo": "contratacoes",
+                                   "numero_controle": r["numero_controle"],
+                                   "numero": numero, "resumo": r["objeto"]})
+            for r in db.execute(
+                    "SELECT numero_controle, numero_contrato, objeto,"
+                    " fornecedor_nome FROM contratos WHERE"
+                    " numero_controle LIKE ? OR numero_contrato LIKE ?"
+                    " OR objeto LIKE ? OR fornecedor_nome LIKE ?"
+                    " OR fornecedor_ni LIKE ? LIMIT 8",
+                    (coringa,) * 5):
+                resultados.append({"tipo": "contratos",
+                                   "numero_controle": r["numero_controle"],
+                                   "numero": r["numero_contrato"] or r["numero_controle"],
+                                   "resumo": r["fornecedor_nome"] or r["objeto"]})
+            for r in db.execute(
+                    "SELECT numero_controle, numero_ata, objeto,"
+                    " fornecedor_nome FROM atas WHERE"
+                    " numero_controle LIKE ? OR numero_ata LIKE ?"
+                    " OR objeto LIKE ? OR fornecedor_nome LIKE ?"
+                    " OR fornecedor_ni LIKE ? LIMIT 8",
+                    (coringa,) * 5):
+                resultados.append({"tipo": "atas",
+                                   "numero_controle": r["numero_controle"],
+                                   "numero": r["numero_ata"] or r["numero_controle"],
+                                   "resumo": r["fornecedor_nome"] or r["objeto"]})
+            return resultados
         finally:
             db.close()
 

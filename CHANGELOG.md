@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.52.18 — 2026-09-09
+
+**Busca global no cabeçalho**
+
+- Novo campo de busca no topo (ao lado da versão/sincronização) acha
+  processo, contrato ou ata por número, CNPJ/nome de fornecedor ou
+  trecho do objeto — de qualquer aba, sem precisar trocar de tela
+  antes. Clicar no resultado abre a mesma ficha de detalhe de sempre.
+  Achado de usabilidade (cada aba só filtrava dentro dela mesma).
+
 ## 1.52.17 — 2026-09-09
 
 **Exportar acervo em .json (formato aberto)**

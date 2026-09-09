@@ -345,6 +345,10 @@ function scriptPonte(temaBanco = "portal") {
       set_titulo: async t => {
         window.__chamadas.push({ metodo: "set_titulo", t }); return true; },
       listar_orgaos: async () => [],
+      buscar_global: async (termo) => {
+        window.__chamadas.push({ metodo: "buscar_global", termo });
+        return window.__respostaBuscaGlobal ?? [];
+      },
       brasao: async () => ({ dataurl: window.__brasao ?? null }),
       carregar_brasao: async () => {
         window.__chamadas.push({ metodo: "carregar_brasao" });

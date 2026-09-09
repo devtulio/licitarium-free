@@ -453,6 +453,66 @@ def test_trocar_municipio_limpa_itens_e_pca_itens(api):
         db.close()
 
 
+# ── busca global (cabeçalho) ─────────────────────────────────────────────
+
+@pytest.fixture
+def api_busca(tmp_path, monkeypatch):
+    monkeypatch.setattr(licitarium, "DIR_DADOS", tmp_path)
+    monkeypatch.setattr(licitarium, "ARQUIVO_DB", tmp_path / "bg.db")
+    db = licitarium.abrir_db()
+    db.execute("INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+               " objeto, referencia) VALUES ('K',2026,12,"
+               " 'Aquisição de merenda escolar',0)")
+    # de referência (banco de preços): não pode aparecer na busca global
+    db.execute("INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+               " objeto, referencia) VALUES ('REF',2026,1,"
+               " 'Aquisição de merenda escolar',1)")
+    db.execute("INSERT INTO contratos (numero_controle, contratacao_controle,"
+               " numero_contrato, objeto, fornecedor_nome, fornecedor_ni)"
+               " VALUES ('C1','K','0033/26','Serviço de manutenção',"
+               " 'OFICINA CENTRAL LTDA','11222333000144')")
+    db.execute("INSERT INTO atas (numero_controle, contratacao_controle,"
+               " numero_ata, objeto, fornecedor_nome)"
+               " VALUES ('A1','K','07/26','Registro de preços de material',"
+               " 'DISTRIBUIDORA XYZ')")
+    db.commit()
+    db.close()
+    return licitarium.Api()
+
+
+def test_busca_global_acha_por_numero_de_processo(api_busca):
+    r = api_busca.buscar_global("merenda")
+    assert {"contratacoes"} == {item["tipo"] for item in r}
+    assert r[0]["numero_controle"] == "K"
+    assert r[0]["numero"] == "12/2026"
+
+
+def test_busca_global_nao_traz_referencia_do_banco_de_precos(api_busca):
+    r = api_busca.buscar_global("merenda")
+    assert "REF" not in [item["numero_controle"] for item in r]
+
+
+def test_busca_global_acha_contrato_por_numero_e_fornecedor(api_busca):
+    r = api_busca.buscar_global("0033/26")
+    assert len(r) == 1 and r[0]["tipo"] == "contratos"
+    assert r[0]["resumo"] == "OFICINA CENTRAL LTDA"
+
+    r2 = api_busca.buscar_global("OFICINA CENTRAL")
+    assert len(r2) == 1 and r2[0]["numero_controle"] == "C1"
+
+
+def test_busca_global_acha_ata_por_fornecedor(api_busca):
+    r = api_busca.buscar_global("DISTRIBUIDORA XYZ")
+    assert len(r) == 1 and r[0]["tipo"] == "atas"
+    assert r[0]["numero"] == "07/26"
+
+
+def test_busca_global_termo_curto_nao_busca(api_busca):
+    assert api_busca.buscar_global("me") == []
+    assert api_busca.buscar_global("") == []
+    assert api_busca.buscar_global(None) == []
+
+
 def test_importar_acervo_recusa_com_sync_em_andamento(api, monkeypatch):
     chamou = []
     monkeypatch.setattr(api, "_importar_acervo", lambda: chamou.append(1))

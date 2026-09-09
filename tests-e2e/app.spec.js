@@ -881,6 +881,62 @@ test("fim da coleta atualiza a vista aberta, inclusive o Painel",
   expect(erros).toEqual([]);
 });
 
+test.describe("busca global (cabeçalho)", () => {
+  test("termo curto não busca, 3+ caracteres busca com debounce",
+      async ({ page }) => {
+    await page.locator("#busca-global-campo").fill("me");
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.__chamadas
+      .some(c => c.metodo === "buscar_global"))).toBe(false);
+
+    await page.locator("#busca-global-campo").fill("merenda escolar");
+    await expect.poll(() => page.evaluate(() => window.__chamadas
+      .some(c => c.metodo === "buscar_global"))).toBe(true);
+  });
+
+  test("mostra resultado e clique abre a ficha de detalhe, sem trocar de aba",
+      async ({ page }) => {
+    await page.evaluate(() => {
+      window.__respostaBuscaGlobal = [{ tipo: "contratos",
+        numero_controle: "Y-1", numero: "0033/26",
+        resumo: "DANILO HENRIQUE NUNES CONSULTORIA" }];
+    });
+    // continua no Painel de propósito — a busca não deveria exigir
+    // trocar de aba antes de achar o processo
+    expect(await page.evaluate(() => estado.tipo)).toBe("painel");
+
+    await page.locator("#busca-global-campo").fill("danilo");
+    const resultado = page.locator("#busca-global-resultados button");
+    await expect(resultado).toBeVisible();
+    await expect(resultado).toContainText("Contrato");
+    await expect(resultado).toContainText("0033/26");
+
+    await resultado.click();
+    await expect(page.locator("#veu-detalhe")).toBeVisible();
+    expect(await page.evaluate(() => estado.tipo)).toBe("painel");
+    await expect(page.locator("#busca-global-resultados")).toBeHidden();
+    await expect(page.locator("#busca-global-campo")).toHaveValue("");
+  });
+
+  test("nada encontrado explica em vez de ficar em branco", async ({ page }) => {
+    await page.evaluate(() => { window.__respostaBuscaGlobal = []; });
+    await page.locator("#busca-global-campo").fill("xyzxyz");
+    await expect(page.locator("#busca-global-resultados"))
+      .toContainText("Nada encontrado");
+  });
+
+  test("clique fora fecha o painel de resultados", async ({ page }) => {
+    await page.evaluate(() => {
+      window.__respostaBuscaGlobal = [{ tipo: "atas", numero_controle: "A1",
+        numero: "07/26", resumo: "DISTRIBUIDORA XYZ" }];
+    });
+    await page.locator("#busca-global-campo").fill("distribuidora");
+    await expect(page.locator("#busca-global-resultados")).toBeVisible();
+    await page.locator("body").click({ position: { x: 5, y: 5 } });
+    await expect(page.locator("#busca-global-resultados")).toBeHidden();
+  });
+});
+
 test("cabeçalho traz marca, edição gratuita e município", async ({ page }) => {
   await expect(page.locator("#sub-edicao")).toHaveText("Versão gratuita (9.9.9)");
   await expect(page.locator("#sub-municipio"))
