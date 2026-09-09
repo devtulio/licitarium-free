@@ -906,6 +906,80 @@ def test_moeda_nao_numerica_nao_derruba_o_relatorio():
 
 
 
+# ── publicidade fora do prazo (art. 94, Lei 14.133/2021) ────────────────
+
+@pytest.fixture
+def db_atraso():
+    con = sqlite3.connect(":memory:")
+    con.row_factory = sqlite3.Row
+    con.executescript(licitarium.SCHEMA)
+    con.execute("INSERT INTO contratacoes (numero_controle, modalidade_id)"
+               " VALUES ('K-LIC', 6)")     # pregão = licitação
+    con.execute("INSERT INTO contratacoes (numero_controle, modalidade_id)"
+               " VALUES ('K-DIR', 8)")     # dispensa = contratação direta
+    # 25 dias úteis (base 2026-06-01) — licitação, prazo 20: atraso de 5
+    con.execute("INSERT INTO contratos (numero_controle, contratacao_controle,"
+               " numero_contrato, data_assinatura, data_publicacao)"
+               " VALUES ('C-ATRASADO','K-LIC','0001/26',"
+               " '2026-06-01','2026-07-06')")
+    # 12 dias úteis — contratação direta, prazo 10: atraso de 2
+    con.execute("INSERT INTO contratos (numero_controle, contratacao_controle,"
+               " numero_contrato, data_assinatura, data_publicacao)"
+               " VALUES ('C-DIRETO','K-DIR','0002/26',"
+               " '2026-06-01','2026-06-17')")
+    # 10 dias úteis exatos — contratação direta, prazo 10: DENTRO do prazo
+    con.execute("INSERT INTO atas (numero_controle, contratacao_controle,"
+               " numero_ata, data_assinatura, data_publicacao)"
+               " VALUES ('A-NOPRAZO','K-DIR','01/26','2026-06-01','2026-06-15')")
+    # sem contratacao_controle casável — assume licitação (prazo mais
+    # generoso), 22 dias úteis > 20: atraso de 2
+    con.execute("INSERT INTO atas (numero_controle, contratacao_controle,"
+               " numero_ata, data_assinatura, data_publicacao)"
+               " VALUES ('A-SOLTA', NULL, '02/26','2026-06-01','2026-07-01')")
+    # sem data de assinatura no PNCP: fora da conta, mesmo publicado tarde
+    con.execute("INSERT INTO contratos (numero_controle, contratacao_controle,"
+               " numero_contrato, data_assinatura, data_publicacao)"
+               " VALUES ('C-SEMDATA','K-LIC','0003/26',NULL,'2026-12-01')")
+    con.commit()
+    return con
+
+
+def test_atraso_publicidade_acha_licitacao_e_direta_fora_do_prazo(db_atraso):
+    r = relatorios.dados_atraso_publicidade(db_atraso)
+    achados = {x["numero_controle"]: x for x in r["fora_do_prazo"]}
+    assert achados["C-ATRASADO"]["atraso"] == 5
+    assert achados["C-ATRASADO"]["prazo"] == 20
+    assert achados["C-DIRETO"]["atraso"] == 2
+    assert achados["C-DIRETO"]["prazo"] == 10
+
+
+def test_atraso_publicidade_no_prazo_nao_aparece(db_atraso):
+    r = relatorios.dados_atraso_publicidade(db_atraso)
+    assert "A-NOPRAZO" not in {x["numero_controle"] for x in r["fora_do_prazo"]}
+
+
+def test_atraso_publicidade_sem_join_assume_prazo_de_licitacao(db_atraso):
+    r = relatorios.dados_atraso_publicidade(db_atraso)
+    achados = {x["numero_controle"]: x for x in r["fora_do_prazo"]}
+    assert achados["A-SOLTA"]["prazo"] == 20
+    assert achados["A-SOLTA"]["atraso"] == 2
+
+
+def test_atraso_publicidade_sem_data_assinatura_fica_de_fora(db_atraso):
+    r = relatorios.dados_atraso_publicidade(db_atraso)
+    assert "C-SEMDATA" not in {x["numero_controle"] for x in r["fora_do_prazo"]}
+    # nem entra na contagem de conferidos — não é achado nem "passou limpo"
+    assert r["n_conferidos"] == 4
+
+
+def test_atraso_publicidade_sem_dado_nenhum_nao_quebra():
+    con = sqlite3.connect(":memory:")
+    con.row_factory = sqlite3.Row
+    con.executescript(licitarium.SCHEMA)
+    assert relatorios.dados_atraso_publicidade(con) == \
+        {"fora_do_prazo": [], "n_conferidos": 0}
+
+
 def test_categoria_relatorio_cobre_os_nove_tipos_em_cinco_cores():
     """Selo de procedência: cada tipo de relatório tem categoria e cor
     (Cadastral/Analítico/Vigilância/Planejamento/Operacional). A pesquisa

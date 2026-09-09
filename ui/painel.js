@@ -981,6 +981,29 @@ function vistaAnalise(d) {
                "calor")}`;
 }
 
+// Alerta de publicidade fora do prazo (art. 94, Lei 14.133/2021) — lista
+// simples, não gráfico: cada linha já é o achado inteiro (quem, quantos
+// dias de atraso), sem ganho em virar barra/curva.
+function cartaoAtrasoPublicidade(v) {
+  const lista = v.atraso_publicidade || [];
+  const nota = `Prazo contado em dias úteis (feriado nacional descontado) da
+    assinatura até a publicação no PNCP — 20 dias para licitação, 10 para
+    dispensa/inexigibilidade (art. 94, Lei 14.133/2021). Registro sem data
+    de assinatura no PNCP não entra na conta. Sinal, não veredito — o
+    enquadramento final é juízo do gestor.`;
+  if (!lista.length)
+    return cartao("Publicidade fora do prazo — art. 94",
+      `<p class="dim">Nenhum contrato ou ata fora do prazo.</p>`, nota);
+  const linhas = lista.map(x => `
+    <div class="linha-atraso">
+      <span class="badge err">${x.atraso} d</span>
+      <span>${x.tipo === "atas" ? "Ata" : "Contrato"} ${esc(x.numero)}</span>
+      <span class="dim">${x.dias} de ${x.prazo} dias úteis</span>
+    </div>`).join("");
+  return cartao(`Publicidade fora do prazo — art. 94 (${lista.length})`,
+    `<div class="lista-atraso">${linhas}</div>`, nota);
+}
+
 function vistaVigilancia(d) {
   const v = d.vigilancia;
   return `
@@ -995,6 +1018,7 @@ function vistaVigilancia(d) {
              `${v.funil.publicadas - v.funil.com_resultado} publicadas ainda sem
               resultado registrado no PNCP.`)}
   </div>
+  ${cartaoAtrasoPublicidade(v)}
   ${cartaoGraf("Agenda dos próximos 90 dias", "agenda",
            `O número no canto do dia é quantos contratos ou atas vencem nele
             — passe o mouse para ver quais. Vencimento se concentra em

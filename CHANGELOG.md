@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.52.20 — 2026-09-09
+
+**Alerta de publicidade fora do prazo — art. 94, Lei 14.133/2021**
+
+- Novo card em Painel → Vigilância: contratos e atas publicados no PNCP
+  fora do prazo legal de eficácia — 20 dias úteis para licitação, 10
+  para contratação direta (dispensa/inexigibilidade), contados da
+  assinatura. Mesma regra vale para atas de registro de preço.
+- `dataAssinatura` já vinha em todo contrato/ata sincronizado, só nunca
+  tinha sido extraída pra coluna própria — reprojetada do que já está
+  no banco, sem precisar recoletar nada. Atas ganharam `data_publicacao`
+  pela primeira vez (só tinham `data_atualizacao`, campo diferente).
+- Dias úteis descontam fim de semana e feriado nacional (`holidays`,
+  nova dependência — calendário fixo e móvel, Carnaval/Corpus Christi
+  inclusos). Contrato/ata sem data de assinatura no PNCP fica de fora
+  da conta — dado ausente não é indício de atraso. Sinal, não
+  veredito, mesmo espírito do Alerta de Fracionamento.
+
 ## 1.52.19 — 2026-09-09
 
 **Exportação por linha de comando (`--exportar-csv`)**

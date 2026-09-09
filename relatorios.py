@@ -1,10 +1,9 @@
 """Relatórios do Licitarium — relações oficiais (TCE) e resumo executivo.
 
 Gera HTML standalone timbrado (imprimível pelo navegador, título vira nome do
-PDF) e planilha .xlsx para as relações. Só stdlib, com uma exceção: a
-exportação em planilha usa `openpyxl` (pura Python, sem dependência nativa),
-importado só dentro de `escrever_planilha` — o resto do módulo continua sem
-precisar dela.
+PDF) e planilha .xlsx para as relações. Só stdlib, com duas exceções, cada
+uma importada só dentro de quem precisa: `openpyxl` (planilha) e `holidays`
+(calendário de feriado nacional, pro alerta de publicidade fora do prazo).
 """
 import hashlib
 import html
@@ -13,7 +12,7 @@ import math
 import re
 import unicodedata
 from collections import Counter
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pca_builder
 import pncp
@@ -935,6 +934,87 @@ def dados_fracionamento(db, ano, orgao=None, limites=None, janela=None):
             "janela": str(janela) if meses else "exercicio"}
 
 
+# Art. 94, incisos I e II, Lei 14.133/2021 — divulgação no PNCP é condição
+# de EFICÁCIA do contrato/ata, contada em dias ÚTEIS da assinatura.
+PRAZO_PUBLICIDADE_LICITACAO = 20
+PRAZO_PUBLICIDADE_DIRETA = 10
+# domínio do PNCP (modalidadeId): 8=Dispensa, 9=Inexigibilidade — as duas
+# hipóteses de contratação direta que o art. 94, II, alcança
+MODALIDADES_DIRETA = (8, 9)
+
+
+def _dias_uteis(inicio, fim, feriados):
+    """Dias úteis entre duas datas ISO — exclusivo do início, inclusivo do
+    fim; fim de semana e feriado nacional (`feriados`, um `holidays.
+    Brazil` ou qualquer coleção testável por `in`) não contam."""
+    d0, d1 = date.fromisoformat(inicio[:10]), date.fromisoformat(fim[:10])
+    if d1 <= d0:
+        return 0
+    n, d = 0, d0 + timedelta(days=1)
+    while d <= d1:
+        if d.weekday() < 5 and d not in feriados:
+            n += 1
+        d += timedelta(days=1)
+    return n
+
+
+def dados_atraso_publicidade(db):
+    """Contratos e atas publicados no PNCP fora do prazo do art. 94 da Lei
+    14.133/2021 — a divulgação é condição de EFICÁCIA, obrigatória em até
+    20 dias úteis (licitação) ou 10 (contratação direta — dispensa/
+    inexigibilidade, `modalidade_id` 8/9), contados da assinatura. A
+    mesma regra vale para ata de registro de preços — o art. 94 não
+    distingue contrato de ata (confirmado 2026-09-09, fonte: Zênite/
+    jusbrasil sobre o art. 94, além do texto legal).
+
+    `data_assinatura`/`data_publicacao` vêm direto do PNCP
+    (`dataAssinatura`/`dataPublicacaoPncp`); registro sem uma das duas
+    fica de fora da conta — dado ausente não é indício de atraso. Sem
+    contratação de origem casada (join solto), assume-se o prazo mais
+    generoso (licitação) — não acusa em cima de incerteza.
+
+    Sinal, não veredito: farol pro gestor conferir, nunca acusação
+    automática — mesmo espírito do Alerta de Fracionamento.
+    """
+    import holidays  # única exceção de stdlib além do openpyxl da planilha
+    linhas = [{**dict(r), "tipo": "contratos"} for r in db.execute(
+        "SELECT co.numero_controle, co.numero_contrato numero,"
+        " co.data_assinatura, co.data_publicacao, c.modalidade_id"
+        " FROM contratos co"
+        " LEFT JOIN contratacoes c ON c.numero_controle=co.contratacao_controle"
+        " WHERE co.data_assinatura IS NOT NULL"
+        "   AND co.data_publicacao IS NOT NULL")]
+    linhas += [{**dict(r), "tipo": "atas"} for r in db.execute(
+        "SELECT a.numero_controle, a.numero_ata numero,"
+        " a.data_assinatura, a.data_publicacao, c.modalidade_id"
+        " FROM atas a"
+        " LEFT JOIN contratacoes c ON c.numero_controle=a.contratacao_controle"
+        " WHERE a.data_assinatura IS NOT NULL"
+        "   AND a.data_publicacao IS NOT NULL")]
+
+    if not linhas:
+        return {"fora_do_prazo": [], "n_conferidos": 0}
+
+    anos = set()
+    for l in linhas:
+        anos.add(date.fromisoformat(l["data_assinatura"][:10]).year)
+        anos.add(date.fromisoformat(l["data_publicacao"][:10]).year)
+    feriados = holidays.Brazil(years=sorted(anos))
+
+    fora = []
+    for l in linhas:
+        prazo = (PRAZO_PUBLICIDADE_DIRETA
+                 if l["modalidade_id"] in MODALIDADES_DIRETA
+                 else PRAZO_PUBLICIDADE_LICITACAO)
+        dias = _dias_uteis(l["data_assinatura"], l["data_publicacao"], feriados)
+        if dias > prazo:
+            fora.append({"tipo": l["tipo"], "numero_controle": l["numero_controle"],
+                        "numero": l["numero"] or l["numero_controle"],
+                        "dias": dias, "prazo": prazo, "atraso": dias - prazo})
+    fora.sort(key=lambda x: -x["atraso"])
+    return {"fora_do_prazo": fora, "n_conferidos": len(linhas)}
+
+
 def dados_painel(db, ano, orgao=None, limites=None, janela=None):
     """Tudo o que o Painel mostra, numa consulta só por assunto.
 
@@ -953,6 +1033,7 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
     og_args = [orgao] if orgao else []
     executivo = dados_executivo(db, ano, orgao)
     fracionamento = dados_fracionamento(db, ano, orgao, limites, janela)
+    atraso_publicidade = dados_atraso_publicidade(db)
 
     # ── execução: o ano corrente contra o anterior, no mesmo ponto do mês
     # Comparar o ano em curso com o ano anterior INTEIRO é aritmética do
@@ -1188,7 +1269,8 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
                     "calor": calor, "meses_calor": list(range(1, 13))},
         "vigilancia": {"funil": funil, "limites": objetos[:6],
                        "limite_compras": fracionamento["limite_compras"],
-                       "agenda": executivo["vencendo"][:40]},
+                       "agenda": executivo["vencendo"][:40],
+                       "atraso_publicidade": atraso_publicidade["fora_do_prazo"]},
         "economia": {
             "estimado": executivo["cards"]["estimado"],
             "homologado": executivo["cards"]["homologado"],
@@ -2869,6 +2951,12 @@ _CSS_PAINEL_RESTO = """
   .badge.ok { background:#e6f4ea; color:#2f7d32; }
   .badge.warn { background:#fdf1dc; color:var(--atencao); }
   .badge.err { background:#fbe9e7; color:var(--alerta); }
+  /* alerta de publicidade fora do prazo (art. 94) — mesma lista simples da
+     tela, sem gráfico; precisa da regra aqui pelo mesmo motivo do .cal
+     acima: o papel não carrega ui/estilo.css */
+  .lista-atraso .linha-atraso { display:flex; align-items:center; gap:8px;
+    padding:4px 0; border-bottom:1px solid var(--borda); font-size:8.5pt; }
+  .lista-atraso .linha-atraso:last-child { border-bottom:none; }
   /* Calendário da agenda. PRECISA estar aqui: o painel impresso não carrega
      o ui/estilo.css — ele leva só o HTML das vistas e é este bloco que o
      formata. Sem estas regras a grade some e os 92 dias saem empilhados

@@ -21,3 +21,7 @@ rapidfuzz>=3.0,<4
 # (Windows.UI.Notifications), sem binário COM; app_id vira o nome exibido
 # como remetente sem precisar registrar atalho/AUMID
 winotify>=1.1,<2
+# calendário de feriado nacional (fixo e móvel: Carnaval, Corpus Christi)
+# pro alerta de publicidade fora do prazo (art. 94, Lei 14.133/2021 — dias
+# ÚTEIS, não corridos, contados da assinatura). Pura Python, sem binário.
+holidays>=0.50,<1

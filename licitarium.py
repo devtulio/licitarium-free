@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.19"
+VERSAO = "1.52.20"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -61,12 +61,13 @@ CREATE TABLE IF NOT EXISTS contratos (
   numero_controle TEXT PRIMARY KEY, contratacao_controle TEXT, orgao_cnpj TEXT,
   numero_contrato TEXT, ano_contrato INTEGER, sequencial_contrato INTEGER,
   fornecedor_ni TEXT, fornecedor_nome TEXT, objeto TEXT, valor_global REAL,
-  vigencia_inicio TEXT, vigencia_fim TEXT,
+  vigencia_inicio TEXT, vigencia_fim TEXT, data_assinatura TEXT,
   data_publicacao TEXT, data_atualizacao TEXT, raw TEXT, sync_em TEXT);
 CREATE TABLE IF NOT EXISTS atas (
   numero_controle TEXT PRIMARY KEY, contratacao_controle TEXT, orgao_cnpj TEXT,
   numero_ata TEXT, ano_ata INTEGER, objeto TEXT,
-  vigencia_inicio TEXT, vigencia_fim TEXT, data_atualizacao TEXT,
+  vigencia_inicio TEXT, vigencia_fim TEXT, data_assinatura TEXT,
+  data_publicacao TEXT, data_atualizacao TEXT,
   fornecedor_ni TEXT, fornecedor_nome TEXT,
   raw TEXT, sync_em TEXT);
 CREATE TABLE IF NOT EXISTS itens (
@@ -500,6 +501,26 @@ def abrir_db():
                    " numero_contrato=json_extract(raw,'$.numeroContratoEmpenho'),"
                    " ano_contrato=json_extract(raw,'$.anoContrato'),"
                    " sequencial_contrato=json_extract(raw,'$.sequencialContrato')")
+        db.commit()
+    # Alerta de publicidade fora do prazo (art. 94, Lei 14.133/2021):
+    # `dataAssinatura` já vinha no `raw` do PNCP desde sempre, só nunca
+    # tinha sido extraída pra coluna própria — reprojeta do que já está
+    # sincronizado, sem precisar recoletar nada (achado do usuário,
+    # 2026-09-09).
+    if colunas_ct and "data_assinatura" not in colunas_ct:
+        db.execute("ALTER TABLE contratos ADD COLUMN data_assinatura TEXT")
+        db.execute("UPDATE contratos SET"
+                   " data_assinatura=json_extract(raw,'$.dataAssinatura')")
+        db.commit()
+    colunas_a2 = {r[1] for r in db.execute("PRAGMA table_info(atas)")}
+    if colunas_a2 and "data_assinatura" not in colunas_a2:
+        # atas nunca tiveram data_publicacao própria (só data_atualizacao,
+        # que é outra coisa) — as duas colunas nascem juntas aqui
+        db.execute("ALTER TABLE atas ADD COLUMN data_assinatura TEXT")
+        db.execute("ALTER TABLE atas ADD COLUMN data_publicacao TEXT")
+        db.execute("UPDATE atas SET"
+                   " data_assinatura=json_extract(raw,'$.dataAssinatura'),"
+                   " data_publicacao=json_extract(raw,'$.dataPublicacaoPncp')")
         db.commit()
     # WAL + busy_timeout: a thread de sync grava enquanto a ponte JS lê/grava
     # config — sem isso, "database is locked" na primeira concorrência

@@ -297,6 +297,36 @@ test("vigilância mostra medidores, funil e agenda", async ({ page }) => {
   await expect(v).toContainText("Publicadas");
 });
 
+test("publicidade fora do prazo: sem achado, explica em vez de sumir",
+    async ({ page }) => {
+  // PAINEL_DADOS não tem atraso_publicidade — estado padrão é "sem achado"
+  await page.locator('.subabas button[data-vista="vigilancia"]').click();
+  const v = page.locator("#p-vigilancia");
+  await expect(v).toContainText("Publicidade fora do prazo — art. 94");
+  await expect(v).toContainText("Nenhum contrato ou ata fora do prazo");
+});
+
+test("publicidade fora do prazo: lista achado com dias de atraso",
+    async ({ page }) => {
+  await page.evaluate(() => {
+    window.__painel = { ...window.PAINEL_DADOS,
+      vigilancia: { ...window.PAINEL_DADOS.vigilancia,
+        atraso_publicidade: [
+          { tipo: "contratos", numero_controle: "C1", numero: "0033/26",
+            dias: 35, prazo: 20, atraso: 15 },
+          { tipo: "atas", numero_controle: "A1", numero: "07/26",
+            dias: 18, prazo: 10, atraso: 8 }] } };
+  });
+  await page.locator("#p-ano").selectOption({ index: 0 });
+  await page.locator('.subabas button[data-vista="vigilancia"]').click();
+  const v = page.locator("#p-vigilancia");
+  await expect(v).toContainText("Publicidade fora do prazo — art. 94 (2)");
+  await expect(v).toContainText("Contrato 0033/26");
+  await expect(v).toContainText("15 d");
+  await expect(v).toContainText("Ata 07/26");
+  await expect(v).toContainText("8 d");
+});
+
 test("limite anual de dispensa: barra na largura do cartão, texto abaixo",
     async ({ page }) => {
   // pedido do usuário (2026-09-04): o gráfico de ECharts (barra estreita

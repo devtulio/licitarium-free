@@ -178,9 +178,10 @@ def _upsert_contrato(db, item):
            (numero_controle, contratacao_controle, orgao_cnpj,
             numero_contrato, ano_contrato, sequencial_contrato,
             fornecedor_ni, fornecedor_nome, objeto, valor_global,
-            vigencia_inicio, vigencia_fim, data_publicacao, data_atualizacao,
+            vigencia_inicio, vigencia_fim, data_assinatura,
+            data_publicacao, data_atualizacao,
             raw, sync_em)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (numero,
          _primeiro(item, "numeroControlePncpCompra", "numeroControlePNCPCompra"),
          orgao.get("cnpj"),
@@ -190,6 +191,7 @@ def _upsert_contrato(db, item):
          item.get("objetoContrato"), _num(item.get("valorGlobal")),
          _primeiro(item, "dataVigenciaInicio", "vigenciaInicio"),
          _primeiro(item, "dataVigenciaFim", "vigenciaFim"),
+         item.get("dataAssinatura"),
          item.get("dataPublicacaoPncp"), item.get("dataAtualizacao"),
          json.dumps(item, ensure_ascii=False), datetime.now().isoformat()))
     return True
@@ -203,8 +205,9 @@ def _upsert_ata(db, item):
         """INSERT OR REPLACE INTO atas
            (numero_controle, contratacao_controle, orgao_cnpj,
             numero_ata, ano_ata, objeto,
-            vigencia_inicio, vigencia_fim, data_atualizacao, raw, sync_em)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            vigencia_inicio, vigencia_fim, data_assinatura, data_publicacao,
+            data_atualizacao, raw, sync_em)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (numero,
          _primeiro(item, "numeroControlePNCPCompra", "numeroControlePncpCompra"),
          _primeiro(item, "cnpjOrgao", "cnpj"),
@@ -212,6 +215,7 @@ def _upsert_ata(db, item):
          item.get("objetoContratacao"),
          _primeiro(item, "vigenciaInicio", "dataVigenciaInicio"),
          _primeiro(item, "vigenciaFim", "dataVigenciaFim"),
+         item.get("dataAssinatura"), item.get("dataPublicacaoPncp"),
          _primeiro(item, "dataAtualizacao", "dataAtualizacaoGlobal"),
          json.dumps(item, ensure_ascii=False), datetime.now().isoformat()))
     return True
