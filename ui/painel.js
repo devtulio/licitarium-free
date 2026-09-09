@@ -991,6 +991,15 @@ function cartaoAtrasoPublicidade(v) {
     dispensa/inexigibilidade (art. 94, Lei 14.133/2021). Registro sem data
     de assinatura no PNCP não entra na conta. Sinal, não veredito — o
     enquadramento final é juízo do gestor.`;
+  // achado do usuário (2026-09-09): banco sob escrita concorrente (sync
+  // rodando) podia travar essa consulta — sem distinguir isso de "sem
+  // achado", zero achado parecia "tudo em dia" quando na verdade não deu
+  // pra conferir
+  if (v.atraso_publicidade_indisponivel)
+    return cartao("Publicidade fora do prazo — art. 94",
+      `<p class="dim">Não foi possível conferir agora (banco ocupado
+        — provavelmente uma sincronização em andamento). Tente de novo
+        em instantes.</p>`, nota);
   if (!lista.length)
     return cartao("Publicidade fora do prazo — art. 94",
       `<p class="dim">Nenhum contrato ou ata fora do prazo.</p>`, nota);

@@ -980,6 +980,27 @@ def test_atraso_publicidade_sem_dado_nenhum_nao_quebra():
         {"fora_do_prazo": [], "n_conferidos": 0}
 
 
+def test_painel_nao_quebra_quando_atraso_publicidade_trava(db, monkeypatch):
+    """Achado real do usuário (2026-09-09): "Falha em painel: database is
+    locked" — sync escrevendo ao mesmo tempo travava a consulta nova e
+    derrubava o Painel INTEIRO (KPIs, funil, agenda — tudo que já
+    funcionava antes desse cartão existir). SQLite só trava um leitor no
+    instante exato do commit do escritor (não durante a transação aberta),
+    então uma trava real é questão de timing, não reproduzível
+    deterministicamente sem thread — o monkeypatch exercita o mesmo
+    caminho de exceção que `dados_painel` precisa sobreviver."""
+    def trava(*a, **k):
+        raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(relatorios, "dados_atraso_publicidade", trava)
+
+    r = relatorios.dados_painel(db, 2026)  # não pode levantar
+
+    assert r["vigilancia"]["atraso_publicidade"] == []
+    assert r["vigilancia"]["atraso_publicidade_indisponivel"]
+    # o resto do painel segue de pé mesmo com esse cartão indisponível
+    assert "execucao" in r and "funil" in r["vigilancia"]
+
+
 def test_categoria_relatorio_cobre_os_nove_tipos_em_cinco_cores():
     """Selo de procedência: cada tipo de relatório tem categoria e cor
     (Cadastral/Analítico/Vigilância/Planejamento/Operacional). A pesquisa

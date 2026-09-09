@@ -350,6 +350,22 @@ test("publicidade fora do prazo: muitos achados rolam dentro do card,"
   expect(estouraAltura).toBe(true);          // tem o que rolar
 });
 
+test("publicidade fora do prazo: indisponível não parece \"tudo em dia\""
+    + " (achado do usuário — database is locked derrubava o Painel)",
+    async ({ page }) => {
+  await page.evaluate(() => {
+    window.__painel = { ...window.PAINEL_DADOS,
+      vigilancia: { ...window.PAINEL_DADOS.vigilancia,
+        atraso_publicidade: [],
+        atraso_publicidade_indisponivel: "database is locked" } };
+  });
+  await page.locator("#p-ano").selectOption({ index: 0 });
+  await page.locator('.subabas button[data-vista="vigilancia"]').click();
+  const v = page.locator("#p-vigilancia");
+  await expect(v).toContainText("Não foi possível conferir agora");
+  await expect(v).not.toContainText("Nenhum contrato ou ata fora do prazo");
+});
+
 test("limite anual de dispensa: barra na largura do cartão, texto abaixo",
     async ({ page }) => {
   // pedido do usuário (2026-09-04): o gráfico de ECharts (barra estreita

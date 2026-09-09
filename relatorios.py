@@ -10,6 +10,7 @@ import html
 import json
 import math
 import re
+import sqlite3
 import unicodedata
 from collections import Counter
 from datetime import date, datetime, timedelta
@@ -1033,7 +1034,15 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
     og_args = [orgao] if orgao else []
     executivo = dados_executivo(db, ano, orgao)
     fracionamento = dados_fracionamento(db, ano, orgao, limites, janela)
-    atraso_publicidade = dados_atraso_publicidade(db)
+    # achado do usuário (2026-09-09): banco sob escrita concorrente (sync
+    # rodando) podia travar esta consulta e derrubar o Painel INTEIRO —
+    # cartão novo, sem motivo pra tirar do ar cartões que já funcionavam
+    # antes dele existir. Falha aqui degrada só este cartão.
+    try:
+        atraso_publicidade = dados_atraso_publicidade(db)
+    except sqlite3.OperationalError as e:
+        atraso_publicidade = {"fora_do_prazo": [], "n_conferidos": 0,
+                              "indisponivel": str(e)}
 
     # ── execução: o ano corrente contra o anterior, no mesmo ponto do mês
     # Comparar o ano em curso com o ano anterior INTEIRO é aritmética do
@@ -1270,7 +1279,9 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
         "vigilancia": {"funil": funil, "limites": objetos[:6],
                        "limite_compras": fracionamento["limite_compras"],
                        "agenda": executivo["vencendo"][:40],
-                       "atraso_publicidade": atraso_publicidade["fora_do_prazo"]},
+                       "atraso_publicidade": atraso_publicidade["fora_do_prazo"],
+                       "atraso_publicidade_indisponivel":
+                           atraso_publicidade.get("indisponivel")},
         "economia": {
             "estimado": executivo["cards"]["estimado"],
             "homologado": executivo["cards"]["homologado"],

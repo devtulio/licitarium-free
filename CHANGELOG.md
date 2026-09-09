@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.52.24 — 2026-09-09
+
+**Fix: "Falha em painel: database is locked" — achado do usuário**
+
+- A consulta nova de publicidade fora do prazo (v1.52.20) rodava sem
+  proteção dentro de `dados_painel` — se travasse por escrita
+  concorrente (sync rodando), derrubava o Painel **inteiro** (KPIs,
+  funil, agenda — tudo que já funcionava antes desse cartão existir).
+  Falha nessa consulta agora degrada só o cartão dela, com mensagem
+  própria ("Não foi possível conferir agora — banco ocupado"), sem
+  confundir com "nenhum achado" (que pareceria falsamente "tudo em
+  dia").
+
 ## 1.52.23 — 2026-09-09
 
 **Lista de publicidade fora do prazo ganha teto — não empurra mais a Agenda**
