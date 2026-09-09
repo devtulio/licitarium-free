@@ -1,22 +1,27 @@
 # Changelog
 
-## 1.52.25 — 2026-09-09
+## 1.52.26 — 2026-09-09
 
-**Reduz paralelismo do sync — muitos 429 do PNCP nas sincronizações**
+**Sync passa a sequencial — muitos 429 do PNCP nas sincronizações**
 
-- Medido contra o PNCP real (sync completa de Orindiúva-SP, log DEBUG
-  do motor): com `conexoes_paralelas=4` (padrão do motor), 58% das
-  requisições bateram 429 (83 de 143) e o disjuntor abortou a fase
-  (28 de 78 consultas perdidas). Com `conexoes_paralelas=2`: 31% de
-  429 (31 de 99), só 10 de 78 consultas perdidas, tempo total
-  comparável (~21 min vs ~25 min — nenhuma das duas terminou a janela
-  histórica inteira de Orindiúva, quase 5 anos de dado). Nenhum 403 ou
+- Medido contra o PNCP real (sync completa de contratações de
+  Orindiúva-SP, ~5 anos de janela, log DEBUG do motor), 3 configs:
+
+  | `conexoes_paralelas` | 429 em retry | Consultas perdidas | Tempo | Terminou? |
+  |---|---|---|---|---|
+  | 4 (padrão do motor) | 58% (83/143) | 28/78 | ~25 min | Não — disjuntor abortou |
+  | 2 | 31% (31/99) | 10/78 | ~21 min | Não — disjuntor abortou |
+  | **1 (sequencial)** | 35% (42/120) | **0/78** | **4,8 min** | **Sim** |
+
+  Sequencial tem taxa de 429 parecida com paralelas=2, mas cada
+  requisição espera a vez sem brigar com as irmãs pelo mesmo limite de
+  taxa — o disjuntor nunca dispara, e o backoff sempre resolve. 5×
+  mais rápido que as duas opções que nem terminavam. Nenhum 403 ou
   bloqueio longo em nenhuma medição — é throttling do WAF, não
   escalada (ver `reference_pncp_429_waf` na memória).
 - `pncp.py` passa a construir todo `Motor` com `Config(conexoes_
-  paralelas=2)` — estimativa de tempo de coleta (Configurações →
-  Municípios de referência) ajustada junto, pra continuar batendo com
-  o paralelismo real.
+  paralelas=1)` — estimativa de tempo de coleta (Configurações →
+  Municípios de referência) ajustada junto.
 
 ## 1.52.24 — 2026-09-09
 

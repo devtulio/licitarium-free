@@ -33,15 +33,17 @@ from motor_pncp import (
 )
 
 USER_AGENT = "Licitarium/0.1 (repositorio local de contratacoes; open-source)"
-# conexoes_paralelas=2, não o padrão 4 (achado do usuário, 2026-09-09):
-# medido contra o PNCP real (sync completa de Orindiúva, 429 em DEBUG) —
-# 4 paralelas deu 58% de 429 (83/143), disjuntor abortou a fase com
-# 28/78 consultas perdidas; 2 paralelas deu 31% (31/99), 10/78 perdidas,
-# tempo total comparável (~21 min vs ~25 min, nenhuma das duas terminou a
-# janela histórica inteira — ver [[reference_pncp_429_waf]] e memória do
-# projeto). Estritamente melhor em toda medida, não só "dentro do
-# orçamento de 20%".
-CONFIG_MOTOR = Config(conexoes_paralelas=2)
+# conexoes_paralelas=1, não o padrão 4 (achado do usuário, 2026-09-09):
+# medido contra o PNCP real, sync completa de contratações de Orindiúva
+# (13 modalidades, ~5 anos de janela) — 4 paralelas: 58% de 429 (83/143),
+# disjuntor abortou com 28/78 consultas perdidas, ~25 min sem terminar;
+# 2 paralelas: 31% (31/99), 10/78 perdidas, ~21 min, também não terminou.
+# 1 (sequencial): 35% de 429 em retry (42/120) — parecido com o de 2 —
+# mas ZERO consulta perdida (disjuntor nunca dispara, cada requisição
+# retenta sem brigar com as irmãs pelo mesmo limite de taxa) e terminou
+# em 4,8 min, mais rápido que as outras duas que nem terminaram. Sem
+# paralelismo, o backoff sempre ganha. Ver [[reference_pncp_429_waf]].
+CONFIG_MOTOR = Config(conexoes_paralelas=1)
 
 
 def _primeiro(item, *chaves):
