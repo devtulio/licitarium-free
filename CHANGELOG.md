@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.52.16 — 2026-09-09
+
+**Notificação do Windows quando há vigência vencendo**
+
+- Ao abrir o app, se houver contrato ou ata vencendo nos próximos 60
+  dias (mesma janela do chip do cabeçalho), dispara uma notificação
+  nativa do Windows (`winotify`, sem servidor) — remetente "Licitarium",
+  ícone próprio. Não repete a cada abertura se a contagem não mudar
+  desde a última vez. Sem botão de ação (clicar só dispensa) — vira
+  proposta separada se fizer falta.
+
 ## 1.52.15 — 2026-09-09
 
 **Mensagem de sincronização não corta mais com reticências**

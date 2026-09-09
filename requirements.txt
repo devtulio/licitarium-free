@@ -16,3 +16,8 @@ motor_pncp @ git+https://github.com/devtulio/motor-pncp.git@v1.2.0
 # de edição contra o vocabulário já coletado, mesma dependência do
 # Pretiarium Free
 rapidfuzz>=3.0,<4
+# toast do Windows quando há contrato/ata vencendo nos próximos 60 dias
+# (pedido do usuário 2026-09-09) — só monta o script de PowerShell nativo
+# (Windows.UI.Notifications), sem binário COM; app_id vira o nome exibido
+# como remetente sem precisar registrar atalho/AUMID
+winotify>=1.1,<2

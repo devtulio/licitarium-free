@@ -27,12 +27,13 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.15"
+VERSAO = "1.52.16"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 DIR_DADOS = Path.home() / "AppData" / "Local" / "Licitarium"
 ARQUIVO_DB = DIR_DADOS / "licitarium.db"
+ICONE_NOTIFICACAO = DIR_APP / "design" / "icone-preview-256.png"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS config (chave TEXT PRIMARY KEY, valor TEXT);
@@ -2554,6 +2555,45 @@ def _migrar_auto_vacuum(db):
         registrar_falha("não consegui apagar a cópia pré-VACUUM", e)
 
 
+def _notificar_vencimento(db):
+    """Toast do Windows se houver contrato/ata vencendo nos próximos 60
+    dias — mesma janela do chip do cabeçalho (`Api._kpis`). Só notifica
+    de novo se a contagem mudar desde a última vez (não repete a cada
+    abertura do dia com o mesmo total parado)."""
+    if not ICONE_NOTIFICACAO.exists():
+        return   # exe sem o asset embutido (ex.: rodando via `python
+                 # licitarium.py` fora do bundle) — sem toast, sem erro
+    n_contratos = db.execute(
+        "SELECT COUNT(*) FROM contratos WHERE date(vigencia_fim)"
+        " BETWEEN date('now') AND date('now','+60 day')").fetchone()[0]
+    n_atas = db.execute(
+        "SELECT COUNT(*) FROM atas WHERE date(vigencia_fim)"
+        " BETWEEN date('now') AND date('now','+60 day')").fetchone()[0]
+    total = n_contratos + n_atas
+    if not total:
+        return
+    chave = f"{n_contratos}:{n_atas}"
+    if pncp._config(db, "ultima_notificacao_vencimento") == chave:
+        return
+    partes = []
+    if n_contratos:
+        partes.append(f"{n_contratos} contrato" + ("s" if n_contratos != 1 else ""))
+    if n_atas:
+        partes.append(f"{n_atas} ata" + ("s" if n_atas != 1 else ""))
+    try:
+        from winotify import Notification
+        Notification(
+            app_id="Licitarium",
+            title=f"{total} vigência" + ("s" if total != 1 else "")
+                  + " vencem nos próximos 60 dias",
+            msg=" e ".join(partes) + " — abra o Licitarium para ver quais.",
+            icon=str(ICONE_NOTIFICACAO)).show()
+    except Exception as e:
+        registrar_falha("notificação de vencimento falhou", e)
+        return
+    pncp._config(db, "ultima_notificacao_vencimento", chave)
+
+
 def main():
     api = Api()
     db = abrir_db()
@@ -2561,6 +2601,10 @@ def main():
         _migrar_auto_vacuum(db)
     except sqlite3.DatabaseError as e:
         registrar_falha("migração para auto_vacuum incremental falhou", e)
+    try:
+        _notificar_vencimento(db)
+    except sqlite3.DatabaseError as e:
+        registrar_falha("checagem de vencimento pra notificação falhou", e)
     try:  # título já nasce com o município (a UI reconfirma no boot)
         municipio = pncp._config(db, "municipio_nome")
         uf = pncp._config(db, "municipio_uf")

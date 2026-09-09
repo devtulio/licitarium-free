@@ -363,6 +363,74 @@ def test_kpi_do_topo_tambem_separa_contrato_de_ata(tmp_path, monkeypatch):
     assert k["vencendo_60_atas"] == 2
 
 
+# ── notificação de vencimento (toast do Windows) ────────────────────────
+
+@pytest.fixture
+def _banco_com_vencimento(tmp_path, monkeypatch):
+    monkeypatch.setattr(licitarium, "DIR_DADOS", tmp_path)
+    monkeypatch.setattr(licitarium, "ARQUIVO_DB", tmp_path / "n.db")
+    # ícone precisa existir de verdade — sem ele a função nem tenta notificar
+    icone = tmp_path / "icone.png"
+    icone.write_bytes(b"\x89PNG")
+    monkeypatch.setattr(licitarium, "ICONE_NOTIFICACAO", icone)
+    db = licitarium.abrir_db()
+    db.execute("INSERT INTO contratacoes (numero_controle, ano, objeto)"
+               " VALUES ('K',2026,'x')")
+    venc = (date.today() + timedelta(days=10)).isoformat()
+    db.execute("INSERT INTO contratos (numero_controle, contratacao_controle,"
+               " orgao_cnpj, vigencia_fim, raw) VALUES ('C1','K','111',?,"
+               " '{}')", (venc,))
+    db.commit()
+    return db
+
+
+def test_notifica_quando_ha_vencimento(_banco_com_vencimento, monkeypatch):
+    chamadas = []
+    class FakeNotification:
+        def __init__(self, **kw): chamadas.append(kw)
+        def show(self): pass
+    monkeypatch.setattr("winotify.Notification", FakeNotification)
+
+    licitarium._notificar_vencimento(_banco_com_vencimento)
+
+    assert len(chamadas) == 1
+    assert chamadas[0]["app_id"] == "Licitarium"
+    assert "1 vigência" in chamadas[0]["title"]
+    assert "1 contrato" in chamadas[0]["msg"]
+
+
+def test_nao_notifica_de_novo_com_a_mesma_contagem(_banco_com_vencimento,
+                                                     monkeypatch):
+    chamadas = []
+    class FakeNotification:
+        def __init__(self, **kw): chamadas.append(kw)
+        def show(self): pass
+    monkeypatch.setattr("winotify.Notification", FakeNotification)
+
+    licitarium._notificar_vencimento(_banco_com_vencimento)
+    licitarium._notificar_vencimento(_banco_com_vencimento)
+
+    assert len(chamadas) == 1  # 2ª chamada, mesma contagem: sem repetir
+
+
+def test_sem_vencimento_nao_notifica(tmp_path, monkeypatch):
+    monkeypatch.setattr(licitarium, "DIR_DADOS", tmp_path)
+    monkeypatch.setattr(licitarium, "ARQUIVO_DB", tmp_path / "v.db")
+    icone = tmp_path / "icone.png"
+    icone.write_bytes(b"\x89PNG")
+    monkeypatch.setattr(licitarium, "ICONE_NOTIFICACAO", icone)
+    db = licitarium.abrir_db()
+    chamadas = []
+    class FakeNotification:
+        def __init__(self, **kw): chamadas.append(kw)
+        def show(self): pass
+    monkeypatch.setattr("winotify.Notification", FakeNotification)
+
+    licitarium._notificar_vencimento(db)
+
+    assert chamadas == []
+
+
 def test_comparacao_com_o_ano_anterior_usa_o_mesmo_periodo(api):
     """Comparar oito meses com doze é aritmética do calendário.
 

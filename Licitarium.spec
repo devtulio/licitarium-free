@@ -11,7 +11,10 @@ VERSAO = re.search(r'^VERSAO = "([^"]+)"',
 
 a = Analysis(
     ['licitarium.py'],
-    datas=[('ui', 'ui')],
+    # icone-preview-256.png: ICONE_NOTIFICACAO precisa de arquivo em disco
+    # dentro do bundle — o .ico do EXE (abaixo) não é acessível em runtime,
+    # só embutido no binário pelo próprio PyInstaller
+    datas=[('ui', 'ui'), ('design/icone-preview-256.png', 'design')],
     hiddenimports=[],
     excludes=[],
 )
