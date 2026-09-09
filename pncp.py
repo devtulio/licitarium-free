@@ -33,6 +33,15 @@ from motor_pncp import (
 )
 
 USER_AGENT = "Licitarium/0.1 (repositorio local de contratacoes; open-source)"
+# conexoes_paralelas=2, não o padrão 4 (achado do usuário, 2026-09-09):
+# medido contra o PNCP real (sync completa de Orindiúva, 429 em DEBUG) —
+# 4 paralelas deu 58% de 429 (83/143), disjuntor abortou a fase com
+# 28/78 consultas perdidas; 2 paralelas deu 31% (31/99), 10/78 perdidas,
+# tempo total comparável (~21 min vs ~25 min, nenhuma das duas terminou a
+# janela histórica inteira — ver [[reference_pncp_429_waf]] e memória do
+# projeto). Estritamente melhor em toda medida, não só "dentro do
+# orçamento de 20%".
+CONFIG_MOTOR = Config(conexoes_paralelas=2)
 
 
 def _primeiro(item, *chaves):
@@ -82,14 +91,14 @@ def estimar_volume(codigo_ibge, inicio=DATA_INICIO_PNCP, fim=None, motor=None):
     do método no pacote.
     """
     fim = fim or date.today()
-    motor = motor or Motor(user_agent=USER_AGENT)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
     r = motor.contar_contratacoes(codigo_ibge, inicio, fim)
     total = r["total"]
     itens = round(total * ITENS_POR_CONTRATACAO)
     # a fase 3 custa uma requisição por contratação mais uma por item com
     # resultado — é ela que define se a coleta leva minutos ou uma noite
     requisicoes = total + itens * FRACAO_COM_RESULTADO
-    minutos = round(requisicoes * 0.9 / max(Config().conexoes_paralelas, 1) / 60)
+    minutos = round(requisicoes * 0.9 / max(CONFIG_MOTOR.conexoes_paralelas, 1) / 60)
     return {"contratacoes": total, "itens": itens,
             # o que o usuário quer saber é quanto o disco vai crescer, não
             # quanto JSON vem do portal
@@ -231,7 +240,7 @@ def sync_contratacoes(db, codigo_ibge, inicio, fim, motor=None, referencia=0):
     gravar. `referencia=1` grava como município de referência (só preço,
     nunca entra nos relatórios oficiais — todos filtram `WHERE referencia=0`).
     """
-    motor = motor or Motor(user_agent=USER_AGENT)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
     total = 0
     try:
         for contratacao in motor.contratacoes(codigo_ibge, inicio, fim):
@@ -254,7 +263,7 @@ def consultar_orgao(cnpj, motor=None):
     (`licitarium.py`) já espera o formato bruto do PNCP (`razaoSocial`,
     `esferaId`), e trocar isso é risco maior que o ganho de tipagem aqui.
     """
-    motor = motor or Motor(user_agent=USER_AGENT)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
     orgao = motor.consultar_orgao(cnpj)
     return orgao.raw if orgao else None
 
@@ -271,7 +280,7 @@ def descobrir_orgaos(db):
 
 def sync_contratos(db, cnpj, inicio, fim, motor=None):
     """Fase 2: contratos de um órgão (API não filtra por município)."""
-    motor = motor or Motor(user_agent=USER_AGENT)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
     total = 0
     try:
         for contrato in motor.contratos(cnpj, inicio, fim):
@@ -283,7 +292,7 @@ def sync_contratos(db, cnpj, inicio, fim, motor=None):
 
 def sync_atas(db, cnpj, inicio, fim, motor=None):
     """Fase 2: atas de registro de preços de um órgão."""
-    motor = motor or Motor(user_agent=USER_AGENT)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
     total = 0
     try:
         for ata in motor.atas(cnpj, inicio, fim):
@@ -326,7 +335,7 @@ def sync_pca(db, cnpj, inicio, fim, motor=None):
     `Motor.pca` já cuida da regra de data mínima do endpoint (rejeita
     início anterior a 01/04/2021) — não precisa repetir aqui.
     """
-    motor = motor or Motor(user_agent=USER_AGENT)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
     total = 0
     try:
         for plano in motor.pca(cnpj, inicio, fim):
@@ -437,7 +446,7 @@ def sync_itens(db, progresso=None, limite=None, motor=None, municipios_ibge=None
     a fila pro escopo escolhido em `sincronizar_tudo` — sem isso, "só meu
     município" ainda varreria itens pendentes de todo mundo.
     """
-    motor = motor or Motor(user_agent=USER_AGENT, progresso=progresso)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR, progresso=progresso)
     where = ["orgao_cnpj IS NOT NULL", "sequencial IS NOT NULL",
             "(itens_versao IS NULL OR itens_versao <> data_atualizacao)"]
     args = []
@@ -589,7 +598,7 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True,
                 return {"pulado": True,
                         "faltam": int(INTERVALO_MINIMO - idade)}
     _config(db, "ultimo_sync_em", datetime.now().isoformat())
-    motor = motor or Motor(user_agent=USER_AGENT, progresso=progresso)
+    motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR, progresso=progresso)
     hoje = date.today()
     resumo = {}
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.52.25 — 2026-09-09
+
+**Reduz paralelismo do sync — muitos 429 do PNCP nas sincronizações**
+
+- Medido contra o PNCP real (sync completa de Orindiúva-SP, log DEBUG
+  do motor): com `conexoes_paralelas=4` (padrão do motor), 58% das
+  requisições bateram 429 (83 de 143) e o disjuntor abortou a fase
+  (28 de 78 consultas perdidas). Com `conexoes_paralelas=2`: 31% de
+  429 (31 de 99), só 10 de 78 consultas perdidas, tempo total
+  comparável (~21 min vs ~25 min — nenhuma das duas terminou a janela
+  histórica inteira de Orindiúva, quase 5 anos de dado). Nenhum 403 ou
+  bloqueio longo em nenhuma medição — é throttling do WAF, não
+  escalada (ver `reference_pncp_429_waf` na memória).
+- `pncp.py` passa a construir todo `Motor` com `Config(conexoes_
+  paralelas=2)` — estimativa de tempo de coleta (Configurações →
+  Municípios de referência) ajustada junto, pra continuar batendo com
+  o paralelismo real.
+
 ## 1.52.24 — 2026-09-09
 
 **Fix: "Falha em painel: database is locked" — achado do usuário**
