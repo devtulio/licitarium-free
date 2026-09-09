@@ -402,10 +402,15 @@ body.redimensionando { cursor:col-resize; user-select:none; }
 .rodape { display:flex; justify-content:center; align-items:center;
           margin-top:12px; font-size:12px; color:var(--muted); }
 /* estado da sincronização e origem dos dados ficam no topo, junto à marca */
+/* achado do usuário (2026-09-09): mensagem de sync cortava com "…" no meio
+   do nome da modalidade — nada de truncar, a fase da coleta tem de dar
+   pra ler inteira; quebra em 2 linhas em vez de cortar */
+/* achado do usuário (2026-09-09): mensagem de sync cortava com "…" no meio
+   do nome da modalidade — nada de truncar, a fase da coleta tem de dar
+   pra ler inteira; quebra em 2 linhas em vez de cortar */
 .info-topo { margin-left:auto; margin-right:18px; text-align:right;
              font-size:11.5px; line-height:1.6; color:var(--muted);
-             white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-             min-width:0; }
+             max-width:280px; min-width:0; }
 .info-topo .dot { display:inline-block; width:8px; height:8px;
                   border-radius:50%; background:var(--ok); margin-right:6px; }
 .info-topo .dot.rodando { background:var(--warn); animation:pulsa 1s infinite; }

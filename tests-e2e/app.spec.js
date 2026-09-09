@@ -855,6 +855,17 @@ test("interrupção a pedido não é anunciada como falha", async ({ page }) => 
   await expect(msg).not.toContainText("Falha");
 });
 
+test("mensagem de sync longa não corta com reticências (achado do usuário)",
+    async ({ page }) => {
+  const longa = "Contratações — Diálogo competitivo (11/78)";
+  await page.evaluate(msg => window.onSyncProgresso({ rodando: true, msg }),
+                       longa);
+  await expect(page.locator("#sync-msg")).toHaveText(longa);
+  const overflow = await page.locator(".info-topo").evaluate(
+    el => getComputedStyle(el).textOverflow);
+  expect(overflow).not.toBe("ellipsis");
+});
+
 test("fim da coleta atualiza a vista aberta, inclusive o Painel",
     async ({ page }) => {
   // achado 2026-08-13: onSyncFim chamava carregarLista() sempre, e COLUNAS

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.52.15 — 2026-09-09
+
+**Mensagem de sincronização não corta mais com reticências**
+
+- A mensagem de fase da coleta ("Contratações — Diálogo competitivo
+  (11/78)") era truncada com "…" quando o nome da modalidade era longo
+  — achado do usuário. Agora quebra em 2 linhas em vez de cortar.
+
 ## 1.52.14 — 2026-09-09
 
 **Filtro de unidade na pesquisa de preços ordenado alfabeticamente**
