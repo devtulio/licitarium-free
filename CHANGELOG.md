@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.52.23 — 2026-09-09
+
+**Lista de publicidade fora do prazo ganha teto — não empurra mais a Agenda**
+
+- No banco real, o card "Publicidade fora do prazo — art. 94" chegou a
+  90 registros — sem teto, a lista empurrava o card "Agenda dos
+  próximos 90 dias" pra muito longe da dobra. Achado do usuário. Mesmo
+  padrão de scroll já testado em Preços → Situação do banco
+  (`max-height:220px`).
+- Achado validado contra a API real do PNCP: contrato 0011/24
+  (Orindiúva) assinado em 28/02/2024, publicado só em 03/04/2025 —
+  mais de um ano de atraso, bate com o "270 d" que o app mostrou.
+
 ## 1.52.22 — 2026-09-09
 
 **Busca global ganha teto de largura, status de sync ganha o resto**

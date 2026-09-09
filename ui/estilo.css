@@ -571,7 +571,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .aviso-concentracao { font-size:12.5px; margin-bottom:14px; }
 /* alerta de publicidade fora do prazo (art. 94) — lista simples, mesmo
    padrão de linha do .lista-painel, sem depender dele (vive fora da aba
-   Preços) */
+   Preços). max-height/overflow: achado do usuário — banco real chegou a
+   90 registros fora do prazo, sem teto a lista empurrava o card Agenda
+   pra muito longe; mesmo valor (220px) do #painel-concentracao-lista, o
+   scroll de lista já testado e aprovado em Preços → Situação do banco. */
+.lista-atraso { max-height:220px; overflow-y:auto; }
 .lista-atraso .linha-atraso { display:flex; align-items:center; gap:10px;
   padding:6px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
 .lista-atraso .linha-atraso:last-child { border-bottom:none; }

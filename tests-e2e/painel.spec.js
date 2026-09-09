@@ -327,6 +327,29 @@ test("publicidade fora do prazo: lista achado com dias de atraso",
   await expect(v).toContainText("8 d");
 });
 
+test("publicidade fora do prazo: muitos achados rolam dentro do card,"
+    + " não empurram a Agenda (achado do usuário — banco real com 90)",
+    async ({ page }) => {
+  const muitos = Array.from({ length: 90 }, (_, i) => ({
+    tipo: "contratos", numero_controle: `C${i}`, numero: `${i}/26`,
+    dias: 30 + i, prazo: 20, atraso: 10 + i }));
+  await page.evaluate((lista) => {
+    window.__painel = { ...window.PAINEL_DADOS,
+      vigilancia: { ...window.PAINEL_DADOS.vigilancia,
+        atraso_publicidade: lista } };
+  }, muitos);
+  await page.locator("#p-ano").selectOption({ index: 0 });
+  await page.locator('.subabas button[data-vista="vigilancia"]').click();
+  const v = page.locator("#p-vigilancia");
+  await expect(v).toContainText("Publicidade fora do prazo — art. 94 (90)");
+  const caixa = v.locator(".lista-atraso");
+  const altura = await caixa.evaluate(el => el.getBoundingClientRect().height);
+  expect(altura).toBeLessThanOrEqual(221);   // 220px do padrão já usado
+  const estouraAltura = await caixa.evaluate(
+    el => el.scrollHeight > el.clientHeight);
+  expect(estouraAltura).toBe(true);          // tem o que rolar
+});
+
 test("limite anual de dispensa: barra na largura do cartão, texto abaixo",
     async ({ page }) => {
   // pedido do usuário (2026-09-04): o gráfico de ECharts (barra estreita
