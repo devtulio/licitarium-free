@@ -2,7 +2,6 @@
 do Pretiarium Free.
 """
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -147,7 +146,7 @@ def test_selecionar_todos_precos_reseta_descartes_fora_do_recorte(api):
 
 
 def test_selecionar_por_faixa_com_origem_proprio_exclui_referencia(api):
-    r = api.selecionar_por_faixa("papel a4", maximo=30, origem="proprio")
+    api.selecionar_por_faixa("papel a4", maximo=30, origem="proprio")
     assert set(api.selecionados("papel a4")) == {"A#1"}  # C#1 é referência
 
 

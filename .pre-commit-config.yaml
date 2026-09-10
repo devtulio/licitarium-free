@@ -1,0 +1,29 @@
+# pre-commit run --all-files       # roda uma vez em tudo
+# pre-commit install                # liga o hook (roda sozinho a cada commit)
+#
+# Fecha o buraco achado em 2026-09-09: ruff/bandit já eram usados antes de
+# cada release, mas só quando alguém lembrava de rodar — nunca eram
+# obrigatórios. Mesmas duas ferramentas, agora automáticas.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+      - id: ruff
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.9.4
+    hooks:
+      - id: bandit
+        # B608: interpolação vem de nome de tabela/coluna fixo em tupla
+        # interna, não de entrada externa — 53 ocorrências verificadas em
+        # 2026-09-09, mesmo padrão seguro de query-builder; valor de usuário
+        # sempre via "?" (placeholder real).
+        # B603/B607: subprocess com lista de args fixa (sem shell, sem
+        # entrada externa) — abrir .bat de troca de exe e checar update.
+        # B310: urlopen só pro host fixo do PNCP, timeout curto, sem
+        # esquema controlável por entrada externa.
+        # B110: mesmo caso do S110 do ruff, pontos de robustez de UI onde
+        # a falha não pode derrubar o Painel/relatório.
+        # B404: só sinaliza o import de subprocess em si — inerente ao
+        # B603/B607 já revisados acima.
+        args: ["-q", "--skip", "B608,B603,B607,B310,B110,B404"]
+        exclude: ^(tests/|tests-e2e/|build/|dist/)

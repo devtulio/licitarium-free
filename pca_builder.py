@@ -267,7 +267,7 @@ def consolidar(db, anos=None, palavras=PALAVRAS_CHAVE_PADRAO,
     where = ["referencia=0", "valor_unitario_homologado IS NOT NULL"]
     args = []
     if anos:
-        where.append("ano IN (%s)" % ",".join("?" * len(anos)))
+        where.append("ano IN ({})".format(",".join("?" * len(anos))))
         args += list(anos)
     if orgao:
         where.append("orgao_cnpj=?")

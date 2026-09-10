@@ -762,7 +762,7 @@ def test_documento_sai_com_a_paleta_institucional(db, tmp_path):
     # a paleta é o que importa; o estandarte tem cores próprias cravadas no
     # SVG (design/IDENTIDADE.md: marca não troca de cor com a pele), então a
     # varredura é só no bloco de variáveis
-    paleta = re.search(r":root \{(.*?)\}", html, re.S).group(1)
+    paleta = re.search(r":root \{(.*?)\}", html, re.DOTALL).group(1)
     assert "--bg:#ffffff" in paleta        # papel branco
     assert "#10151c" not in paleta         # nada do Observatório
     assert "#f5efe2" not in paleta         # nem do pergaminho

@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.52.27 — 2026-09-09
+
+**Qualidade e automação: pip-audit no CI, pre-commit local, fix de import**
+
+- CI ganhou job `auditoria`: `pip-audit` contra `requirements.txt` a cada
+  push, `build` passa a depender dele também. `motor_pncp` (git+URL) é
+  pulado sozinho pelo pip-audit — não é falha, é "não auditável".
+- Novo `.pre-commit-config.yaml` (ruff + bandit), até agora só rodavam
+  manualmente antes de cada release — viravam obrigatórios a cada commit
+  pra quem instalar o hook. Exige `pyproject.toml` novo: exclui
+  `requirements.txt`/`build`/`dist` do ruff (sem isso ele tentava parsear
+  o requirements como Python) e documenta as exceções deliberadas
+  (`DTZ*` naive-datetime — app desktop de fuso único; `BLE001`/`S110`/
+  `B110` — except genérico em pontos de robustez de UI; `B608` — 53
+  ocorrências revisadas, interpolação de nome de tabela fixo, não de
+  entrada externa).
+- Corrigido durante a limpeza: `ruff --fix` tinha removido a reexportação
+  `pncp.SyncCancelado` por parecer import não usado — quebrava 3 testes
+  que dependem dela. `hashlib.sha1` (hash cosmético, não de segurança)
+  ganhou `usedforsecurity=False`.
+- Avaliado e descartado `axe-core` para o teste de contraste WCAG: o
+  calculador próprio já compõe fundo translúcido corretamente (coisa que
+  o axe-core não faz bem) e a instabilidade observada era do fuso da
+  suíte completa, não da matemática de contraste — trocar não resolvia a
+  causa real.
+
 ## 1.52.26 — 2026-09-09
 
 **Sync passa a sequencial — muitos 429 do PNCP nas sincronizações**

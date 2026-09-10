@@ -14,7 +14,15 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from motor_pncp.tipos import Ata, Contratacao, Contrato, Item, Orgao, PlanoPca, Resultado
+from motor_pncp.tipos import (
+    Ata,
+    Contratacao,
+    Contrato,
+    Item,
+    Orgao,
+    PlanoPca,
+    Resultado,
+)
 
 import licitarium
 import pncp

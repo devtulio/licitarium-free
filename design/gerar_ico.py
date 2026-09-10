@@ -10,11 +10,10 @@
 # saía diferente da arte vetorial (que já era Georgia normal, não Bold).
 from pathlib import Path
 
+import gerar_marca as marca
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
-
-import gerar_marca as marca
 
 AQUI = Path(__file__).resolve().parent
 RED = (139, 46, 46, 255)      # #8b2e2e

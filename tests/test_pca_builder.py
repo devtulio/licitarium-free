@@ -186,7 +186,7 @@ def test_sem_serie_ipca_nao_corrige_nada(db):
 def test_corrigir_precos_false_desliga_a_correcao(db):
     db.execute("INSERT INTO ipca VALUES ('2026-07', 10.0)")
     db.commit()
-    grupos, meta = pca_builder.consolidar(db, corrigir_precos=False)
+    _grupos, meta = pca_builder.consolidar(db, corrigir_precos=False)
     assert meta["ipca_ate"] is None and meta["precos_corrigidos"] == 0
 
 

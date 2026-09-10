@@ -159,7 +159,7 @@ def test_exportar_csv_cli_gera_um_arquivo_por_tabela(api, tmp_path):
     assert gerados["municipios_referencia"] == 1
     assert gerados["contratos"] == 0
     assert gerados["atas"] == 0
-    assert set(p.name for p in destino.glob("*.csv")) == {
+    assert {p.name for p in destino.glob("*.csv")} == {
         "contratacoes.csv", "contratos.csv", "atas.csv", "itens.csv",
         "pca_itens.csv", "municipios_referencia.csv"}
 

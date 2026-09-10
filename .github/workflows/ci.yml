@@ -15,6 +15,18 @@ jobs:
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest tests/ -q
 
+  auditoria:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      # motor_pncp vem de git+URL, não do PyPI — pip-audit pula ele sozinho
+      # (não é falha, é "não auditável"); as demais dependências, sim
+      - run: python -m pip_audit -r requirements.txt
+
   e2e:
     runs-on: windows-latest
     steps:
@@ -31,7 +43,7 @@ jobs:
 
   build:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: testes
+    needs: [testes, auditoria]
     runs-on: windows-latest
     permissions:
       contents: write

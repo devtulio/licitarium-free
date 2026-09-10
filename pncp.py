@@ -28,7 +28,7 @@ from motor_pncp import (
     ItensIndisponiveis,
     Motor,
     PncpErro,
-    SyncCancelado,
+    SyncCancelado,  # noqa: F401 — reexportado, usado como pncp.SyncCancelado
     ipca,
 )
 

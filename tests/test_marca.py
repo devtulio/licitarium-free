@@ -21,7 +21,7 @@ fonttools = pytest.importorskip
 
 
 def _miolo(svg):
-    return re.search(r"<svg[^>]*>(.*)</svg>", svg, re.S).group(1).strip("\n")
+    return re.search(r"<svg[^>]*>(.*)</svg>", svg, re.DOTALL).group(1).strip("\n")
 
 
 def test_marca_js_espelha_o_svg_canonico():

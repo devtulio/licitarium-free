@@ -45,7 +45,7 @@ def test_ordenacao_por_coluna(api):
     assert [i["numero_controle"] for i in r["itens"]] == ["B", "C", "A"]
     r = api.listar("contratacoes", {"ord": "numero", "dir": "asc"})
     # cronológico: 1/2025, 1/2026, 2/2026 (fixture: C=1/2025? A e B são 2026)
-    assert [i["numero_controle"] for i in r["itens"]][0] == "C"
+    assert next(i["numero_controle"] for i in r["itens"]) == "C"
 
 
 def test_ordenacao_invalida_cai_no_padrao(api):

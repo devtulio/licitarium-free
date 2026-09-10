@@ -6,8 +6,8 @@ A versão vigente é a constante VERSAO, logo abaixo — e só ela.
 import base64
 import csv
 import json
-import shutil
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.52.26"
+VERSAO = "1.52.27"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1239,7 +1239,7 @@ class Api:
                     "SELECT item_id FROM precos_descartes WHERE termo=?",
                     (relatorios.chave_termo(f["busca"]),))]
                 for grupo in relatorios._blocos(descartados):
-                    where.append("id NOT IN (%s)" % ",".join("?" * len(grupo)))
+                    where.append("id NOT IN ({})".format(",".join("?" * len(grupo))))
                     args += grupo
             termo = _termo_fts(f["busca"]) if tipo == "itens" else None
             if termo:
@@ -1765,12 +1765,12 @@ class Api:
             return {"n": 0, "nada_selecionado": True, "total": total}
         where, args = _where_pesquisa_precos(busca, ano, origem, unidade)
         for grupo in relatorios._blocos(excluidos):
-            where.append("id NOT IN (%s)" % ",".join("?" * len(grupo)))
+            where.append("id NOT IN ({})".format(",".join("?" * len(grupo))))
             args += grupo
         if incluidos:
             grupos_inc = relatorios._blocos(incluidos)
             where.append("(" + " OR ".join(
-                "id IN (%s)" % ",".join("?" * len(g)) for g in grupos_inc)
+                "id IN ({})".format(",".join("?" * len(g))) for g in grupos_inc)
                 + ")")
             for g in grupos_inc:
                 args += g
@@ -2377,7 +2377,7 @@ class Api:
             try:
                 with open(caminho, "w", encoding="utf-8") as f:
                     f.write("{\n")
-                    f.write(f'  "_sgx": "LICITARIUM",\n')
+                    f.write('  "_sgx": "LICITARIUM",\n')
                     f.write(f'  "exportedAt": {json.dumps(agora.isoformat())},\n')
                     f.write(f'  "versao": {json.dumps(VERSAO)},\n')
                     f.write(f'  "municipio": {json.dumps(municipio)}')
@@ -2541,7 +2541,7 @@ class Api:
                             f"{i['sequencial_contrato']}/{i['ano_contrato']}"
             colunas = COLUNAS_EXPORT.get(tipo)
             if colunas:
-                chaves = [c for c in colunas if c in itens[0].keys()]
+                chaves = [c for c in colunas if c in itens[0]]
                 linhas = [{k: i[k] for k in chaves} for i in itens]
             else:
                 linhas = itens

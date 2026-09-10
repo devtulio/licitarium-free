@@ -1,0 +1,12 @@
+[tool.ruff]
+extend-exclude = ["requirements.txt", "build", "dist"]
+
+[tool.ruff.lint]
+# DTZ* (naive-datetime): app é desktop, usuário único, fuso único — tz-aware
+# datetime aqui é complexidade sem ganho prático.
+# BLE001/S110 (except genérico): pontos de robustez de UI onde qualquer falha
+# não pode derrubar o Painel/relatório — silenciar aqui é intencional, não
+# preguiça (achados de 2026-09-09 no adotar pre-commit).
+# PLW1510/RUF012: pré-existentes, baixo risco, não vale reescrever às cegas
+# via --unsafe-fixes sem revisar caso a caso.
+ignore = ["DTZ001", "DTZ005", "DTZ011", "BLE001", "S110", "PLW1510", "RUF012"]

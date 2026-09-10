@@ -240,7 +240,7 @@ import re
 
 def _miolo(svg):
     """Conteúdo entre <svg> e </svg>, sem o cabeçalho XML."""
-    corpo = re.search(r"<svg[^>]*>(.*)</svg>", svg, re.S).group(1)
+    corpo = re.search(r"<svg[^>]*>(.*)</svg>", svg, re.DOTALL).group(1)
     return corpo.strip("\n")
 
 

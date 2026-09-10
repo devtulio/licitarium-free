@@ -616,7 +616,7 @@ def escrever_planilha(caminho, linhas):
         # texto ISO ("2026-08-26T11:19:47") — vira datetime de verdade (não
         # texto), pra Excel ordenar/filtrar como data e mostrar formatado,
         # não a string crua. Pedido do usuário (2026-08-30).
-        if not (chave.startswith("data_") or chave.startswith("vigencia_")):
+        if not (chave.startswith(("data_", "vigencia_"))):
             return valor
         if not isinstance(valor, str) or not valor:
             return valor
@@ -1454,11 +1454,7 @@ def e_extremo(valor, resumo):
     if resumo.get("limite_sup") is not None and (
             valor < resumo["limite_inf"] or valor > resumo["limite_sup"]):
         return True
-    if resumo.get("limite_sup_robusto") is not None and (
-            valor < resumo["limite_inf_robusto"]
-            or valor > resumo["limite_sup_robusto"]):
-        return True
-    return False
+    return bool(resumo.get("limite_sup_robusto") is not None and (valor < resumo["limite_inf_robusto"] or valor > resumo["limite_sup_robusto"]))
 
 
 def sensibilidade_sem_extremo(valores, resumo):
@@ -1544,8 +1540,8 @@ EMBALAGEM_INDIVIDUAL = {"PCT", "PACOTE", "BALDE", "GL", "GALAO", "SC", "SACO",
                         "BISNAGA", "SACHE"}
 _SOLTA = re.compile(rf"{_NUM}\s*([A-Z]+)")
 
-_GRAMATURA = re.compile(rf"{_NUM}\s*(?:G|GR)\s*/\s*M", re.I)
-_DIMENSAO = re.compile(rf"{_NUM}\s*(MM|CM|M)\s*(?:X|POR)\s*{_NUM}", re.I)
+_GRAMATURA = re.compile(rf"{_NUM}\s*(?:G|GR)\s*/\s*M", re.IGNORECASE)
+_DIMENSAO = re.compile(rf"{_NUM}\s*(MM|CM|M)\s*(?:X|POR)\s*{_NUM}", re.IGNORECASE)
 
 
 def _sem_acento(texto):
@@ -1863,7 +1859,7 @@ def dados_precos(db, termo, ano=None, orgao=None, excluidos=None,
     for extra in (excluidos or []):
         motivos.setdefault(str(extra), None)
     for grupo in _blocos(list(motivos)):
-        where.append("id NOT IN (%s)" % ",".join("?" * len(grupo)))
+        where.append("id NOT IN ({})".format(",".join("?" * len(grupo))))
         args += grupo
     selecionados = [r[0] for r in db.execute(
         "SELECT item_id FROM precos_selecionados WHERE termo=?",
@@ -1871,7 +1867,7 @@ def dados_precos(db, termo, ano=None, orgao=None, excluidos=None,
     if selecionados:
         grupos_sel = _blocos(selecionados)
         where.append("(" + " OR ".join(
-            "id IN (%s)" % ",".join("?" * len(g)) for g in grupos_sel) + ")")
+            "id IN ({})".format(",".join("?" * len(g))) for g in grupos_sel) + ")")
         for g in grupos_sel:
             args += g
     sql_where = " WHERE " + " AND ".join(where)
@@ -1957,8 +1953,7 @@ def dados_precos(db, termo, ano=None, orgao=None, excluidos=None,
         desconsiderados += [dict(r) for r in db.execute(
             "SELECT id, descricao, unidade, quantidade_homologada,"
             " valor_unitario_homologado, fornecedor_nome, numero_item, ano,"
-            " sequencial, orgao_cnpj FROM itens WHERE id IN (%s)"
-            % ",".join("?" * len(grupo)), grupo)]
+            " sequencial, orgao_cnpj FROM itens WHERE id IN ({})".format(",".join("?" * len(grupo))), grupo)]
     for l in desconsiderados:
         l["motivo"] = rotulo_motivo(motivos.get(l["id"]))
     desconsiderados.sort(key=lambda l: l["valor_unitario_homologado"] or 0)
@@ -1977,11 +1972,11 @@ def dados_precos(db, termo, ano=None, orgao=None, excluidos=None,
 # discretas. Os três temas continuam valendo integralmente na tela — e por
 # isso não existe parâmetro de tema aqui: o documento não tem como seguir a
 # tela nem por engano.
-PALETA_DOCUMENTO = dict(
-    bg="#ffffff", superficie="#ffffff", zebra="#f6f7f8",
-    cabecalho="#eef0f2", texto="#17181a", suave="#5b6066",
-    borda="#d3d6da", acento="#1f2933", detalhe="#b8bec4",
-    alerta="#a6231b", atencao="#7a5c0e", azul="#2f4b7c", verde="#2c6149")
+PALETA_DOCUMENTO = {
+    "bg": "#ffffff", "superficie": "#ffffff", "zebra": "#f6f7f8",
+    "cabecalho": "#eef0f2", "texto": "#17181a", "suave": "#5b6066",
+    "borda": "#d3d6da", "acento": "#1f2933", "detalhe": "#b8bec4",
+    "alerta": "#a6231b", "atencao": "#7a5c0e", "azul": "#2f4b7c", "verde": "#2c6149"}
 
 _VARS = " ".join(f"--{chave}:{cor};" for chave, cor in PALETA_DOCUMENTO.items())
 
@@ -2143,7 +2138,8 @@ def _pagina(titulo_doc, corpo, municipio, uf, periodo_txt, paisagem,
         if categoria else ''
     faixa_html = ''
     if categoria and acervo:
-        hash_curto = hashlib.sha1(str(acervo).encode()).hexdigest()[:6].upper()
+        hash_curto = hashlib.sha1(str(acervo).encode(),
+                                  usedforsecurity=False).hexdigest()[:6].upper()
         faixa_html = (f'<hr class="regua"><div class="faixa-acervo">'
                       f'Acervo sincronizado em {data_br(acervo)} · {hash_curto}'
                       f'</div>')
@@ -2409,13 +2405,13 @@ def _secao_metodologia(r, coluna_corrigido, coluna_conteudo):
     ESTA pesquisa (com IPCA desligado, por exemplo, não cita IPCA)."""
     tem_tukey = r.get("limite_sup") is not None
     itens = [
-        '<li><b>Fonte:</b> Portal Nacional de Contratações Públicas (PNCP), '
+        ('<li><b>Fonte:</b> Portal Nacional de Contratações Públicas (PNCP), '
         'art. 23 da Lei 14.133/2021 e IN SEGES/ME 65/2021 — só entram preços '
-        'com <b>resultado homologado</b>, não estimativa de edital.</li>',
-        '<li><b>Mediana e média</b> aparecem juntas de propósito: a '
+        'com <b>resultado homologado</b>, não estimativa de edital.</li>'),
+        ('<li><b>Mediana e média</b> aparecem juntas de propósito: a '
         'distância entre as duas denuncia série puxada por um extremo. '
         'Acima de 25% de coeficiente de variação, a mediana representa '
-        'melhor o conjunto que a média.</li>',
+        'melhor o conjunto que a média.</li>'),
     ]
     if tem_tukey:
         itens.append(
@@ -2857,7 +2853,7 @@ de bom fornecedor: pode ser estimativa inflada na origem.</div></div>"""
 <table><thead><tr><th>{coluna}</th><th class="num">Qtde</th>
 <th class="num">Estimado</th><th class="num">Homologado</th>
 <th class="num">Economizado</th></tr></thead>
-<tbody>{corpo_linhas or f'<tr><td colspan="5">Sem dados.</td></tr>'}</tbody>
+<tbody>{corpo_linhas or '<tr><td colspan="5">Sem dados.</td></tr>'}</tbody>
 </table>"""
 
     mod_linhas = [{"nome": m["modalidade"], **m} for m in e["por_modalidade"]]
@@ -2888,9 +2884,9 @@ soma.</div>
 # v1.20.0. Os conjuntos do Pergaminho e do Observatório continuam existindo
 # na tela (ui/estilo.css); aqui não entram porque, medidos contra papel
 # branco, caem a 1,28-2,99 de contraste. Detalhe em design/DASHBOARD.md.
-SERIE_DOCUMENTO = dict(s1="#2a78d6", s2="#eb6834", s3="#1baf7a", s4="#eda100",
-                       seq1="#cde2fb", seq2="#9ec5f4", seq3="#5598e7",
-                       seq4="#2571c9", seq5="#1c5cab")
+SERIE_DOCUMENTO = {"s1": "#2a78d6", "s2": "#eb6834", "s3": "#1baf7a", "s4": "#eda100",
+                       "seq1": "#cde2fb", "seq2": "#9ec5f4", "seq3": "#5598e7",
+                       "seq4": "#2571c9", "seq5": "#1c5cab"}
 
 # Tinta do número dentro da célula do mapa de calor. Precisa vir para o papel
 # junto da rampa: sem ela o número herda a cor de texto do documento e some
