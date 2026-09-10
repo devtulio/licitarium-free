@@ -3,6 +3,24 @@ const { abrirApp } = require("./harness");
 
 test.beforeEach(async ({ page }) => abrirApp(page));
 
+test("indicador de passos acompanha buscar → selecionar → comparar (Fase 8)",
+    async ({ page }) => {
+  await page.evaluate(() => { window.__selecionados = {}; });
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  const passoOn = () => page.locator("#pr-passos [data-passo].on")
+    .getAttribute("data-passo");
+
+  await expect.poll(passoOn).toBe("buscar");   // termo vazio
+
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await expect.poll(passoOn).toBe("selecionar");   // termo válido, nada marcado
+
+  await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
+  await expect.poll(passoOn).toBe("comparar");   // com seleção
+});
+
 test("abrir a aba Preços esconde as outras telas", async ({ page }) => {
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await expect(page.locator("#tela-precos")).toBeVisible();
@@ -11,7 +29,7 @@ test("abrir a aba Preços esconde as outras telas", async ({ page }) => {
   await expect(page.locator("#kpis-topo")).toBeHidden();
 });
 
-test("buscar um termo lista os itens e mostra o resumo estatístico",
+test("buscar um termo lista os itens; resumo só chega no passo 3 (com seleção)",
   async ({ page }) => {
   await page.evaluate(() => { window.__selecionados = {}; });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
@@ -19,11 +37,14 @@ test("buscar um termo lista os itens e mostra o resumo estatístico",
   await page.waitForTimeout(400);   // debounce da busca
   await expect(page.locator("#pr-lista .linha:not(.cab)").first())
     .toBeVisible();
-  await expect(page.locator("#precos-resumo")).toBeVisible();
-  await expect(page.locator("#precos-resumo")).toContainText("selecionados");
+  // redesenho 2026-09-10 (Fase 8): passo 3 (Comparar) não monta sem
+  // seleção — a contagem do passo 2 é quem avisa "0 de N selecionados"
+  await expect(page.locator("#precos-resumo")).toBeHidden();
+  await expect(page.locator("#pr-selecao-contagem")).toContainText("selecionados");
 
   await page.locator("#pr-selecionar-cabecalho").check();
   await page.waitForTimeout(100);
+  await expect(page.locator("#precos-resumo")).toBeVisible();
   await expect(page.locator("#precos-resumo")).toContainText("mediana");
 });
 

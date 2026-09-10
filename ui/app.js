@@ -2380,8 +2380,20 @@ function ligarToolbarSelecaoPrecos(termo, ano, origemVal) {
   });
 }
 
+// fluxo em 3 passos (redesenho 2026-09-10, Fase 8) — atualiza o
+// indicador `.steps` de acordo com onde o usuário está: termo curto
+// (Buscar), termo válido sem nada marcado (Selecionar), com seleção
+// (Comparar). Puro reflexo de estado, não decide nada sozinho.
+function atualizarPassoPrecos(passo) {
+  $("pr-passos")?.querySelectorAll("[data-passo]").forEach(el =>
+    el.classList.toggle("on", el.dataset.passo === passo));
+}
+
 async function mostrarResumoPrecos() {
   const caixa = $("precos-resumo");
+  const vizinhos = $("precos-vizinhos");
+  const contagem = $("pr-selecao-contagem");
+  const toolbarCaixa = $("pr-toolbar-selecao");
   const termo = $("pr-busca").value.trim();
   if (termo.length < 3 || !api.estatisticas_preco) {
     caixa.classList.add("oculto");
@@ -2389,7 +2401,10 @@ async function mostrarResumoPrecos() {
     // da comparação com vizinhos da pesquisa anterior visível — só o
     // resumo escondia, porque mostrarComparacaoVizinhos só é chamado
     // daqui pra baixo.
-    $("precos-vizinhos")?.classList.add("oculto");
+    vizinhos?.classList.add("oculto");
+    contagem.classList.add("oculto");
+    toolbarCaixa.classList.add("oculto");
+    atualizarPassoPrecos("buscar");
     return;
   }
   await garantirSelecaoPrecos(termo);
@@ -2410,27 +2425,33 @@ async function mostrarResumoPrecos() {
   const s = await api.estatisticas_preco(termo, ano, origemVal, excluidos,
     $("pr-conteudo").checked, $("pr-ipca").checked, [...precosSelecionados],
     unidade);
-  mostrarComparacaoVizinhos(termo, ano, origemVal, unidade, excluidos);
-  if (!s) { caixa.classList.add("oculto"); return; }
-  if (s.nada_selecionado) {
-    caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
-      <div class="dim" role="status">0 de ${s.total} selecionados</div>
-      <div>Nenhum item selecionado ainda. Marque os que quer comparar na
-        lista abaixo, ou
-        <button class="btn ghost" id="pr-selecionar-todos-resumo"
-          style="margin-left:4px">Selecionar todos</button></div>
-      ${await toolbarSelecaoPrecos(termo, ano, origemVal)}`;
-    caixa.classList.remove("oculto");
-    $("pr-selecionar-todos-resumo").addEventListener("click", () => {
-      const cab = $("pr-selecionar-cabecalho");
-      if (!cab) return;
-      cab.checked = true;
-      cab.dispatchEvent(new Event("change"));
-    });
-    ligarToolbarSelecaoPrecos(termo, ano, origemVal);
+  if (!s) {
+    caixa.classList.add("oculto"); vizinhos?.classList.add("oculto");
+    contagem.classList.add("oculto"); toolbarCaixa.classList.add("oculto");
     return;
   }
-  if (!s.n) {
+
+  // passo 2: a ferramenta de seleção em lote e a contagem ficam
+  // disponíveis assim que a busca tem resultado — não dependem de já
+  // ter marcado nada, é justamente pra ajudar a marcar
+  contagem.textContent = `${precosSelecionados.size} de ${s.total} selecionados`;
+  contagem.classList.remove("oculto");
+  toolbarCaixa.innerHTML = await toolbarSelecaoPrecos(termo, ano, origemVal);
+  toolbarCaixa.classList.remove("oculto");
+  ligarToolbarSelecaoPrecos(termo, ano, origemVal);
+
+  // passo 3: sem seleção, nem monta — regra "Buscar → Selecionar →
+  // Comparar" do artefato (decisão do usuário, 2026-09-10, reverte a
+  // escolha anterior de mostrar a comparação sempre)
+  if (!precosSelecionados.size) {
+    caixa.classList.add("oculto");
+    vizinhos?.classList.add("oculto");
+    atualizarPassoPrecos("selecionar");
+    return;
+  }
+  atualizarPassoPrecos("comparar");
+  mostrarComparacaoVizinhos(termo, ano, origemVal, unidade, excluidos);
+  if (!s.n || s.nada_selecionado) {
     caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
       <div>Nenhum dos itens selecionados tem dado suficiente para o
         cálculo${s.sem_conversao
@@ -2443,7 +2464,6 @@ async function mostrarResumoPrecos() {
     `<div class="cel${destaque ? " destaque" : ""}">
        <div class="v">${v}</div><div class="r">${r}</div></div>`;
   caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
-    <div class="dim" role="status">${s.n} de ${s.total} selecionados</div>
     <div class="grade">
       ${cel(val(s.minimo), "menor")}
       ${s.q1 != null ? cel(val(s.q1), "1º quartil") : ""}
@@ -2458,8 +2478,7 @@ async function mostrarResumoPrecos() {
     <div id="precos-boxplot" class="oculto" style="height:150px"></div>
     ${dispersaoHtml(s)}${foraDaCurvaHtml(s)}
     ${serieTemporalHtml(s)}
-    ${porMunicipioHtml(s)}
-    ${await toolbarSelecaoPrecos(termo, ano, origemVal)}`;
+    ${porMunicipioHtml(s)}`;
   caixa.classList.remove("oculto");
   desenharBoxplotPreco($("precos-boxplot"), s);
   desenharGraficoSerie($("precos-serie"), s);
@@ -2475,7 +2494,6 @@ async function mostrarResumoPrecos() {
   });
   $("pr-descartar-fora")?.addEventListener("click", () =>
     abrirDescarte((s.fora_da_curva ?? []).map(String)));
-  ligarToolbarSelecaoPrecos(termo, ano, origemVal);
 }
 
 // ── comparação com municípios de referência (redesenho 2026-09-07) ──────

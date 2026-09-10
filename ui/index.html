@@ -197,8 +197,16 @@
         </div>
       </div>
       <div id="precos-pesquisar" class="vista">
-      <div class="card precos oculto" id="precos-resumo"></div>
-      <div class="card precos oculto" id="precos-vizinhos"></div>
+      <!-- fluxo em 3 passos (redesenho 2026-09-10, Fase 8): Buscar →
+           Selecionar → Comparar, na MESMA ordem que o DOM segue abaixo
+           (antes o resumo/vizinhos vinham primeiro no HTML, lendo ao
+           contrário do rótulo de qualquer passo). ui/app.js decide
+           qual .on via atualizarPassoPrecos(). -->
+      <div class="steps" id="pr-passos">
+        <span data-passo="buscar" class="on"><b>1</b> Buscar</span>
+        <span data-passo="selecionar"><b>2</b> Selecionar</span>
+        <span data-passo="comparar"><b>3</b> Comparar</span>
+      </div>
       <div class="filtros" id="filtros-precos">
         <input type="search" id="pr-busca" autocomplete="off"
                placeholder="Buscar item — ex.: papel A4, óleo, pneu…"
@@ -221,6 +229,15 @@
           <input type="checkbox" id="pr-conteudo"> Comparar por conteúdo</label>
         <button class="btn ghost" id="pr-csv">Exportar planilha</button>
       </div>
+      <!-- contagem do passo 2 — sozinha porque o resumo completo
+           (#precos-resumo) só monta depois de selecionar; sem isso o
+           passo 2 ficava mudo sobre quantos já foram marcados -->
+      <div class="dim oculto" id="pr-selecao-contagem" role="status"></div>
+      <!-- seleção em lote (fornecedor/faixa/texto) é ferramenta de
+           SELECIONAR, não de comparar — antes morava dentro de
+           #precos-resumo (passo 3), ficava fora de alcance até marcar
+           o 1º item na mão. Fica aqui, sempre junto da lista. -->
+      <div class="oculto" id="pr-toolbar-selecao"></div>
       <div class="card lista" id="pr-lista"></div>
       <div class="rodape" id="pr-rodape">
         <div class="paginacao">
@@ -229,6 +246,8 @@
           <button class="btn ghost" id="pr-pag-prox" aria-label="Próxima página">›</button>
         </div>
       </div>
+      <div class="card precos oculto" id="precos-resumo"></div>
+      <div class="card precos oculto" id="precos-vizinhos"></div>
       </div>
     </section>
     <div class="filtros" id="filtros-lista">

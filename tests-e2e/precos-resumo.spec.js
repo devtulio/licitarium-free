@@ -193,19 +193,34 @@ test("desmarcar o checkbox de cabeçalho limpa só o recorte filtrado",
   expect(chamada.unidade).toBe("Caixa");
 });
 
-test("comparação com municípios de referência aparece mesmo sem nada selecionado",
+test("comparação com municípios de referência só aparece com pelo menos 1 selecionado (Fase 8)",
     async ({ page }) => {
+  // decisão do usuário (2026-09-10): reverte a decisão anterior (que
+  // mostrava sempre) — agora segue o fluxo "Buscar → Selecionar →
+  // Comparar" à risca; passo 3 não monta sem seleção nenhuma
   await page.evaluate(() => { window.__selecionados = {}; });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
-  // resumo (seleção) ainda vazio — comparação com vizinhos já mostra dado
-  await expect(page.locator("#precos-resumo")).toContainText(
-    "Nenhum item selecionado");
+  await expect(page.locator("#precos-resumo")).toBeHidden();
+  await expect(page.locator("#precos-vizinhos")).toBeHidden();
+  await expect(page.locator("#pr-selecao-contagem")).toContainText("0 de");
+  // passo 2: a ferramenta de seleção em lote já está disponível, mesmo
+  // sem nada marcado ainda — é ela que ajuda a selecionar
+  await expect(page.locator("#pr-toolbar-selecao")).toBeVisible();
+  await expect(page.locator("#pr-toolbar-selecao #pr-sel-fornecedor"))
+    .toBeVisible();
+
+  await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
   await expect(page.locator("#precos-vizinhos")).toBeVisible();
   await expect(page.locator("#precos-vizinhos")).toContainText(
     "Comparação com municípios de referência");
   await expect(page.locator("#precos-vizinhos-grafico svg")).toBeVisible();
+  // a chamada da comparação com vizinhos continua olhando a pesquisa
+  // INTEIRA (incluidos=null), não só o que está selecionado — é uma
+  // pergunta diferente da do resumo ("onde está mais barato" vs. "a
+  // minha seleção"), só o momento de MOSTRAR o card é que mudou
   const chamada = await page.evaluate(() => window.__chamadas
     .filter(c => c.metodo === "estatisticas_preco").pop());
   expect(chamada.incluidos).toBeNull();
@@ -219,6 +234,8 @@ test("limpar a busca esconde a comparação com vizinhos da pesquisa anterior",
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
+  await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
   await expect(page.locator("#precos-vizinhos")).toBeVisible();
   await page.locator("#pr-busca").fill("");
   await page.waitForTimeout(400);
@@ -231,6 +248,8 @@ test("descartar um sinal na comparação com vizinhos exige motivo",
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
+  await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
   await expect(page.locator("#precos-vizinhos")).toContainText("preço destoa");
   await page.locator("#pr-descartar-sinal-vizinhos").click();
   await expect(page.locator("#veu-descarte")).toBeVisible();

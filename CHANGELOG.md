@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.60.0 — 2026-09-10
+
+**Redesenho de UI — Fase 8 (fluxo de 3 passos em Preços · Pesquisar)**
+
+- **Preços · Pesquisar segue Buscar → Selecionar → Comparar de
+  verdade**: indicador de passos no topo, e o HTML foi reordenado (o
+  card de comparação vinha ANTES da busca e da lista na tela — lia ao
+  contrário de qualquer rótulo de passo).
+- **Decisão do usuário**: a "Comparação com municípios de referência"
+  deixa de aparecer sempre — passa a exigir pelo menos 1 item
+  selecionado (reverte uma decisão anterior, de 2026-09-08).
+- **Ferramenta de seleção em lote** (por fornecedor, faixa de valor,
+  texto na descrição) sai de dentro do card de comparação e vira parte
+  do passo 2 — antes só aparecia depois de já ter marcado um item na
+  mão ou de rodar a consulta de estatísticas; agora está disponível
+  assim que a busca tem resultado, que é justamente quando ela ajuda.
+- Nova linha "N de M selecionados" mostra o progresso do passo 2 sem
+  depender do card de comparação (que só monta no passo 3).
+
+Com esta fase, o redesenho do artefato do Fable está encerrado —
+nenhum item pendente dele.
+
 ## 1.59.0 — 2026-09-10
 
 **Redesenho de UI — Fase 7 (filtros em chips)**

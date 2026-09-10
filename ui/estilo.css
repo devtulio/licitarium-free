@@ -297,6 +297,18 @@ main { max-width:max(50vw, 1000px); margin:0 auto; padding:18px 22px 30px; }
    está ativo, senão a lista parece filtrada por modalidade sozinha */
 .filtro-alerta { display:flex; align-items:center; gap:6px; font-size:12.5px;
                  color:var(--warn); white-space:nowrap; }
+/* indicador de passos (redesenho 2026-09-10, Fase 8 — Preços ·
+   Pesquisar): "1 Buscar · 2 Selecionar · 3 Comparar", o atual em
+   destaque. Mesmo padrão visual da faixa "Atenção" (Fase 1) — texto
+   pequeno, sem caixa em volta, só o passo ativo ganha peso e cor. */
+.steps { display:flex; gap:18px; font-size:12.5px; color:var(--muted);
+         margin-bottom:12px; }
+.steps span { display:flex; align-items:center; gap:6px; }
+.steps b { display:inline-grid; place-items:center; width:18px; height:18px;
+           border-radius:50%; background:var(--surface2); font-size:10.5px;
+           font-weight:600; }
+.steps span.on { color:var(--text); font-weight:600; }
+.steps span.on b { background:var(--accent); color:var(--accent-fg); }
 /* sem tabular-nums: numero de exibicao usa figura proporcional; largura
    fixa de digito e para onde numero alinha na vertical (tabela, eixo) */
 .kpi .n { font-size:22px; font-weight:700; color:var(--accent);
