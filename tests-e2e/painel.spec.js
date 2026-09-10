@@ -817,8 +817,10 @@ test("a barra fica com o grosso do cartão, não o texto em volta",
     document.querySelectorAll(".vista:not(.oculto) .graf[data-graf]")
       .forEach(el => {
         const svg = el.querySelector("svg");
-        // só os que usam grafBarras — `economia_series` é linha, não barra
-        if (!svg || !["modalidades", "economia_modalidade", "economia_familia",
+        // só os que usam grafBarras — `economia_series` é linha, não barra;
+        // `modalidades` virou dumbbell (Fase 6, pesquisa de dashboard
+        // 2026-09-10), marca é ponto pequeno por desenho, não barra longa
+        if (!svg || !["economia_modalidade", "economia_familia",
                       "economia_categoria", "economia_fornecedor"]
                      .includes(el.dataset.graf)) return;
         const larg = el.getBoundingClientRect().width;
@@ -838,7 +840,8 @@ test("a barra fica com o grosso do cartão, não o texto em volta",
       expect(pct, `${graf}: barra mais longa com só ${pct}% do cartão`)
         .toBeGreaterThanOrEqual(30);
   };
-  await conferir("execucao");
+  // Execução não tem mais gráfico de barras puro (modalidades virou
+  // dumbbell, Fase 6) — só Economia entra nesta checagem agora
   await page.locator('.subabas button[data-vista="economia"]').click();
   await page.waitForTimeout(400);
   await conferir("economia");

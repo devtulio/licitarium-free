@@ -337,6 +337,65 @@ function grafBarras(el, itens, {valor, rotulo, sub, cor = "var(--s1)"}, larg = 3
   }, 1);
 }
 
+// ── dumbbell: 2 pontos ligados, ano anterior × ano atual ───────────────────
+// Substitui "Por modalidade" (só o ano corrente) — mostra o que MUDOU desde
+// o ano passado, não só o valor de hoje (pesquisa de dashboard,
+// 2026-09-10). `itens` já vem com `homologado`/`homologado_anterior` por
+// modalidade (dados_executivo, relatorios.py).
+function grafDumbbell(el, itens, rotulo, larg = 400) {
+  if (!itens.length) {
+    el.innerHTML = `<div class="vazio">Sem contratações no exercício.</div>`;
+    return;
+  }
+  const rotulosValor = itens.map(it => compacto(it.homologado || 0));
+  const folgaDireita = Math.ceil(Math.max(
+    ...rotulosValor.map(t => _larguraTexto(t, VAL_TXT.fontSize)))) + 10;
+  const larguraRotulo = Math.max(56, Math.floor(larg * 0.32));
+  // legenda: 2 séries sem nome no rótulo ("cor nunca sozinha", regra do
+  // sistema) — mesmo padrão .leg de grafMeses acima
+  el.innerHTML = `<div class="graf-echart" style="height:${
+    itens.length * 34 + 30}px"></div>
+    <div class="leg"><span><i style="background:var(--s2)"></i>ano anterior</span>
+    <span><i style="background:var(--s1)"></i>ano atual</span></div>`;
+  const alvo = el.querySelector(".graf-echart");
+  const chart = _iniciarEchart(alvo);
+  chart.setOption({
+    animation: false,
+    grid: { left: 4, right: folgaDireita, top: 8, bottom: 8, containLabel: true },
+    xAxis: { type: "value", show: false,
+      max: Math.max(...itens.flatMap(it => [it.homologado || 0, it.homologado_anterior || 0])) },
+    yAxis: { type: "category", inverse: true,
+      data: itens.map(it =>
+        _truncarPalavra(rotulo(it) ?? "–", larguraRotulo, ROT_TXT.fontSize)),
+      axisLine: { show: false }, axisTick: { show: false }, axisLabel: ROT_TXT },
+    series: [
+      // linha ligando os 2 pontos da mesma modalidade
+      { type: "custom", silent: true, z: 1,
+        renderItem: (params, api) => {
+          const p1 = api.coord([itens[params.dataIndex].homologado_anterior || 0, params.dataIndex]);
+          const p2 = api.coord([itens[params.dataIndex].homologado || 0, params.dataIndex]);
+          return { type: "line", shape: { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] },
+            style: { stroke: "var(--border)", lineWidth: 3 } };
+        }, data: itens.map(() => 0) },
+      { name: "ano anterior", type: "scatter", symbolSize: 11,
+        itemStyle: { color: "var(--s2)" },
+        data: itens.map(it => it.homologado_anterior || 0) },
+      { name: "ano atual", type: "scatter", symbolSize: 11,
+        itemStyle: { color: "var(--s1)" },
+        label: { show: true, position: "right", ...VAL_TXT,
+          formatter: p => rotulosValor[p.dataIndex] },
+        data: itens.map(it => it.homologado || 0) },
+    ],
+  });
+  ligarBaloEixo(chart, alvo, (i) => {
+    const it = itens[i];
+    return it ? [
+      { v: compacto(it.homologado || 0), l: "ano atual", cor: "var(--s1)" },
+      { v: compacto(it.homologado_anterior || 0), l: "ano anterior", cor: "var(--s2)" },
+    ] : null;
+  }, 1);
+}
+
 // ── linhas do acumulado: ano corrente em destaque, anteriores em contexto ──
 // O ponto e o rótulo do mês corrente ficam sempre visíveis — é o direto que
 // vale sem hover nenhum. Passar o mouse troca para um corte vertical: a
@@ -1022,10 +1081,8 @@ function cartaoGraf(titulo, chave, nota) {
 // depois da montagem e a cada mudança de tamanho da janela.
 const DESENHO = {
   meses: (el, l) => grafMeses(el, P.dados.execucao.meses, l),
-  modalidades: (el, l) => grafBarras(el, P.dados.execucao.modalidades.slice(0, 6), {
-    valor: m => m.homologado || m.estimado || 0,
-    rotulo: m => m.modalidade_nome ?? "–",
-    sub: m => `${m.n} ${m.n === 1 ? "processo" : "processos"}`}, l),
+  modalidades: (el, l) => grafDumbbell(el, P.dados.execucao.modalidades.slice(0, 6),
+    m => m.modalidade_nome, l),
   series: (el, l) => grafSeries(el, P.dados.analise.series, P.dados.ano),
   desagio: (el, l) => grafDesagio(el, P.dados.analise.desagios, l),
   concentracao: (el, l) => grafConcentracao(el, P.dados.analise.curva,
@@ -1132,7 +1189,7 @@ function vistaExecucao(d) {
   </div>
   <div class="faixa f-21">
     ${cartaoGraf(`Contratações por mês — estimado × homologado`, "meses")}
-    ${cartaoGraf("Por modalidade — valor homologado", "modalidades")}
+    ${cartaoGraf(`Por modalidade — ${ano - 1} × ${ano}`, "modalidades")}
   </div>
   <div class="faixa f-11">
     ${cartao("Vence nos próximos 90 dias", tabelaVencendo(d.execucao.vencendo),

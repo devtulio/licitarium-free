@@ -92,6 +92,10 @@ def test_dados_executivo(db):
     # (Fase 4, pesquisa de dashboard 2026-09-10) pro acumulado chegar a 100%
     assert d["fornecedores_valor_total"] == sum(
         f["total"] for f in d["fornecedores"])
+    # homologado_anterior por modalidade — usado pelo dumbbell (Fase 6,
+    # pesquisa de dashboard 2026-09-10); modalidade sem contratação no ano
+    # anterior entra com 0, não falta o campo
+    assert all("homologado_anterior" in m for m in d["modalidades"])
 
 
 def test_gerar_html_e_xlsx(db, tmp_path):

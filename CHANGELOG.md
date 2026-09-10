@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.60.11 — 2026-09-10
+
+**Novo — Fase 6 de 6: dumbbell em "Por modalidade", fecha a pesquisa de dashboard**
+
+- **"Por modalidade" (Painel · Execução) virou dumbbell** (2 pontos
+  ligados por modalidade, ano anterior × ano atual) — mostra o que
+  MUDOU desde o ano passado, não só o valor de hoje. `dados_executivo`
+  (`relatorios.py`) ganhou `homologado_anterior` por modalidade (nova
+  consulta ao ano anterior, agrupada igual à do ano corrente).
+
+**Fecha a pesquisa de dashboard iniciada nesta sessão** (funil, bullet
+graph, waterfall, Pareto, calendário de calor, dumbbell) — 6 fases,
+v1.60.6 a v1.60.11, cada uma planejada, testada e liberada em
+separado, mesmo padrão do redesenho anterior.
+
 ## 1.60.10 — 2026-09-10
 
 **Novo — Fase 5 de 6: calendário de calor na Agenda (pesquisa de dashboard)**

@@ -820,6 +820,16 @@ def dados_executivo(db, ano, orgao=None):
            FROM contratacoes WHERE referencia=0 AND ano=?{og} GROUP BY 1
            ORDER BY COALESCE(SUM(COALESCE(valor_homologado, valor_estimado)),0)
            DESC""", [ano] + og_args)]
+    # mesma agregação, ano anterior — só pro dumbbell (Fase 6, pesquisa de
+    # dashboard 2026-09-10) comparar "o que mudou desde o ano passado" por
+    # modalidade, não só o valor do ano corrente (que já vinha acima)
+    homologado_anterior_por_modalidade = {r[0]: r[1] or 0 for r in db.execute(
+        f"""SELECT modalidade_nome, SUM(valor_homologado)
+           FROM contratacoes WHERE referencia=0 AND ano=?{og}
+           GROUP BY 1""", [ano - 1] + og_args)}
+    for m in modalidades:
+        m["homologado_anterior"] = homologado_anterior_por_modalidade.get(
+            m["modalidade_nome"], 0)
     meses = {r[0]: {"n": r[1], "valor": r[2] or 0} for r in db.execute(
         f"""SELECT substr(data_publicacao,6,2), COUNT(*),
                   SUM(COALESCE(valor_homologado, valor_estimado))
