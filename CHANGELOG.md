@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.60.7 — 2026-09-10
+
+**Novo — Fase 2 de 6: bullet graph na manchete do PCA (pesquisa de dashboard)**
+
+- **Manchete do PCA ganha bullet graph** (planejado × já homologado) —
+  a frase condicional ("X% do plano" / "mais do que o total planejado;
+  o PCA sincronizado cobre só parte...") virou texto fixo ("R$ Y já
+  homologado em {ano}", sempre no mesmo formato) porque a barra agora
+  conta a história sozinha: azul quando dentro do alvo, vermelha
+  quando estoura. Mesmo dado de sempre (`Api.dados_pca`), nenhuma
+  query nova. "Limite anual de dispensa" continua HTML puro como
+  estava (decisão do usuário de 2026-09-04, mantida — consultado antes
+  de mexer).
+
 ## 1.60.6 — 2026-09-10
 
 **Novo — Fase 1 de 6: gráfico de funil em Vigilância (pesquisa de dashboard)**

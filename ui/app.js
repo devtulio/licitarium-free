@@ -816,13 +816,20 @@ async function carregarManchetePca(ano) {
   // que o município contratou — comum quando o PCA está incompleto, ou
   // quando boa parte das contratações reais nunca precisou entrar nele).
   // Sem vínculo item a item (ver Api.dados_pca), não dá pra dizer qual
-  // das duas coisas é — só que a comparação % deixou de ser honesta.
-  $("pca-comparacao").textContent = d.pct == null
-    ? `${dinheiro(d.homologado)} já homologado em ${d.ano}`
-    : d.pct <= 100
-    ? `${dinheiro(d.homologado)} já homologado em ${d.ano} — ${
-        pct(d.pct, 0)} do plano`
-    : `${dinheiro(d.homologado)} já homologado em ${d.ano} — mais do que o total planejado; o PCA sincronizado cobre só parte do que foi contratado`;
+  // das duas coisas é. Bullet graph abaixo (pesquisa de dashboard,
+  // 2026-09-10) resolve isso sem frase condicional — a barra vermelha
+  // já mostra visualmente quando estourou o alvo; o texto agora é só o
+  // fato, sempre no mesmo formato.
+  $("pca-comparacao").textContent =
+    `${dinheiro(d.homologado)} já homologado em ${d.ano}`;
+  const bullet = $("pca-bullet");
+  if (d.planejado > 0) {
+    bullet.classList.remove("oculto");
+    grafBullet(bullet, [{ nome: "", real: d.homologado, alvo: d.planejado,
+      max: Math.max(d.homologado, d.planejado) * 1.15 }]);
+  } else {
+    bullet.classList.add("oculto");
+  }
 }
 
 async function carregarLista() {

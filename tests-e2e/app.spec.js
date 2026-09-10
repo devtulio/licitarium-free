@@ -539,10 +539,44 @@ test("aba PCA mostra manchete própria em vez do kpis-topo genérico",
   const manchete = page.locator("#pca-manchete");
   await expect(manchete).toBeVisible();
   await expect(page.locator("#pca-planejado")).toContainText("3 itens");
-  await expect(page.locator("#pca-comparacao")).toContainText("74%");
+  // texto sempre no mesmo formato agora (sem "% do plano" condicional) —
+  // quem mostra planejado × homologado é o bullet graph abaixo
+  await expect(page.locator("#pca-comparacao")).toContainText("já homologado em 2026");
+  await expect(page.locator("#pca-comparacao")).not.toContainText("%");
   const chamada = await page.evaluate(() =>
     window.__chamadas.find(c => c.metodo === "dados_pca"));
   expect(chamada).toBeTruthy();
+});
+
+test("bullet graph do PCA fica vermelho quando homologado estoura o planejado",
+    async ({ page }) => {
+  // caso real (achado do usuário, print 2026-09-10): PCA sincronizado
+  // pequeno (poucos itens) × homologado do exercício inteiro, bem maior —
+  // a barra vermelha conta a história sem frase condicional
+  await page.evaluate(() => {
+    window.pywebview.api.dados_pca = async () => ({
+      ano: 2026, n_itens: 3, planejado: 254249.95,
+      homologado: 15956061.73, pct: 6276 });
+  });
+  await page.locator('nav.abas button[data-tipo="pca"]').click();
+  await expect(page.locator("#pca-bullet")).toBeVisible();
+  const { fills, erro, s1 } = await page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const fills = [...document.querySelectorAll("#pca-bullet svg rect, #pca-bullet svg path")]
+      .map(el => getComputedStyle(el).fill);
+    return { fills, erro: cs.getPropertyValue("--erro").trim(),
+      s1: cs.getPropertyValue("--s1").trim() };
+  });
+  // a barra do "real" (homologado) usa --erro quando estoura o alvo, não o
+  // --s1 azul de sempre — cores resolvidas pra rgb() pelo navegador, então
+  // compara contra um <div> com a mesma custom property
+  const rgb = async cor => page.evaluate(c => {
+    const d = document.createElement("div");
+    d.style.color = c; document.body.append(d);
+    const r = getComputedStyle(d).color; d.remove(); return r;
+  }, cor);
+  expect(fills).toContain(await rgb(erro));
+  expect(fills).not.toContain(await rgb(s1));
 });
 
 test("manchete do PCA some quando o ano não tem nada planejado",

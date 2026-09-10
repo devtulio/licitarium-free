@@ -758,6 +758,63 @@ function grafFunil(el, f, larg = 500) {
   el.addEventListener("mouseleave", esconderTt);
 }
 
+// ── bullet graph: real × alvo numa faixa só (Few) ──────────────────────────
+// `linhas`: [{nome, real, alvo, max}] — `nome` vazio faz uma faixa única
+// sem coluna de rótulo à esquerda (caso da manchete do PCA, onde o título
+// do cartão já diz do que se trata). Vermelho quando `real` estoura `alvo`
+// — resolve visualmente o que antes precisava de frase condicional
+// ("mais do que o total planejado...", ver carregarManchetePca em app.js).
+function grafBullet(el, linhas, larg = 500) {
+  el.style.height = (linhas.length * 40 + 10) + "px";
+  const chart = _iniciarEchart(el);
+  const temNome = linhas.some(l => l.nome);
+  const rotulos = linhas.map(l => dinheiro(l.real));
+  const folgaDireita = Math.ceil(Math.max(
+    ...rotulos.map(t => _larguraTexto(t, VAL_TXT.fontSize)))) + 14;
+  const folgaEsquerda = temNome ? Math.ceil(Math.max(
+    ...linhas.map(l => _larguraTexto(l.nome, ROT_TXT.fontSize)))) + 10 : 4;
+  chart.setOption({
+    animation: false,
+    grid: { left: folgaEsquerda, right: folgaDireita, top: 6, bottom: 6,
+            containLabel: false },
+    xAxis: { type: "value", show: false, max: Math.max(...linhas.map(l => l.max)) },
+    yAxis: { type: "category", inverse: true, show: temNome,
+      data: linhas.map(l => l.nome || ""),
+      axisLine: { show: false }, axisTick: { show: false }, axisLabel: ROT_TXT },
+    series: [
+      // trilho: o "max" inteiro, cor neutra, por baixo
+      { type: "bar", barWidth: 18, silent: true, z: 1, barGap: "-100%",
+        data: linhas.map(l => l.max), itemStyle: { color: "var(--border)" } },
+      // medida real, por cima do trilho — vermelho só quando estoura o alvo
+      { type: "bar", barWidth: 18, z: 2,
+        data: linhas.map(l => ({ value: l.real,
+          itemStyle: { color: l.real > l.alvo ? "var(--erro)" : "var(--s1)" } })),
+        label: { show: true, position: "right", ...VAL_TXT,
+          formatter: p => rotulos[p.dataIndex] } },
+      // marcador do alvo: um traço vertical na posição exata
+      { type: "custom", z: 3, silent: true,
+        renderItem: (params, api) => {
+          const y = api.coord([0, params.dataIndex])[1];
+          const x = api.coord([linhas[params.dataIndex].alvo, params.dataIndex])[0];
+          return { type: "line", shape: { x1: x, y1: y - 11, x2: x, y2: y + 11 },
+            style: { stroke: "var(--text)", lineWidth: 2 } };
+        },
+        data: linhas.map(() => 0) },
+    ],
+  });
+  // mesmo padrão do funil acima: balão pela faixa inteira, sem precisar
+  // mirar a barra fina
+  el.addEventListener("mousemove", (e) => {
+    const r = el.getBoundingClientRect();
+    const i = Math.max(0, Math.min(linhas.length - 1,
+      Math.floor((e.clientY - r.top) / (r.height / linhas.length))));
+    const l = linhas[i];
+    mostrarTt(e.clientX, e.clientY,
+      [{ v: `${dinheiro(l.real)} de ${dinheiro(l.alvo)}`, l: l.nome || "alvo" }]);
+  });
+  el.addEventListener("mouseleave", esconderTt);
+}
+
 // ── agenda dos próximos 90 dias ───────────────────────────────────────────
 // Vencimentos se amontoam: numa prefeitura pequena, meia dúzia de contratos
 // termina no mesmo dia. Por isso a marca é o DIA, não o contrato — o tamanho
