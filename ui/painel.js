@@ -719,30 +719,43 @@ function grafLimites(el, objetos, limite) {
 }
 
 // ── funil: onde os processos do exercício pararam ─────────────────────────
+// Era 4 barras independentes (mesma largura, só o número mudava) — processo
+// sequencial lê melhor como funil de verdade: a LARGURA decrescente mostra
+// onde o fluxo emperra (degrau largo = gargalo), não só 2 números pra
+// subtrair de cabeça (achado do usuário, pesquisa de dashboard 2026-09-10).
 function grafFunil(el, f, larg = 500) {
   const etapas = [["Publicadas", f.publicadas], ["Com resultado", f.com_resultado],
                   ["Com contrato", f.com_contrato], ["Vigentes hoje", f.vigentes]];
-  const max = etapas[0][1] || 1;
-  el.style.height = (etapas.length * 40 + 10) + "px";
+  el.style.height = (etapas.length * 44 + 16) + "px";
   const chart = _iniciarEchart(el);
+  // rótulo (nome + valor) fica FORA da faixa, à direita — sem medir a
+  // largura real ele cortava em cartões estreitos ("Publicadas 131" virava
+  // "Publicadas  1", canvas sem espaço reservado pro resto do texto).
+  const rotulos = etapas.map(([nome, v]) => `${nome}  ${v}`);
+  const folgaDireita = Math.ceil(Math.max(
+    ...rotulos.map(t => _larguraTexto(t, VAL_TXT.fontSize)))) + 14;
   chart.setOption({
     animation: false,
-    grid: { left: 4, right: 40, top: 4, bottom: 4, containLabel: true },
-    xAxis: { type: "value", max, show: false },
-    yAxis: { type: "category", inverse: true, data: etapas.map(([nome]) => nome),
-      axisLine: { show: false }, axisTick: { show: false }, axisLabel: VAL_TXT },
-    series: [{ type: "bar", barWidth: 26,
-      data: etapas.map(([, v], i) => ({ value: v,
-        itemStyle: { color: "var(--s1)", opacity: 0.85 - i * 0.15,
-                     borderRadius: [0, 4, 4, 0] } })),
+    series: [{ type: "funnel", left: 8, right: folgaDireita, top: 4, bottom: 4,
+      minSize: "30%", maxSize: "100%", gap: 3, sort: "none",
+      itemStyle: { color: "var(--s1)", borderColor: "var(--surface)", borderWidth: 2 },
       emphasis: { disabled: true },
-      label: { show: true, position: "right", ...VAL_TXT } }]
+      label: { show: true, position: "right", ...VAL_TXT,
+        formatter: p => rotulos[p.dataIndex] },
+      data: etapas.map(([nome, v]) => ({ name: nome, value: v })) }]
   });
-  // a linha inteira da etapa (não só a barra) mostra o valor
-  ligarBaloEixo(chart, el, (i) => {
-    const et = etapas[i];
-    return et ? [{ v: et[1], l: et[0] }] : null;
-  }, 1);
+  // balão próprio pela faixa (linha) inteira, não só a forma estreita do
+  // funil — mesmo contrato de `ligarBaloEixo`, mas funil não tem `grid`
+  // (coordinate system cartesiano) pra usar `convertFromPixel`; a altura de
+  // cada faixa é fixa (calculada acima), então dá pra achar o índice só
+  // pela posição vertical do mouse, sem precisar do ECharts pra isso.
+  el.addEventListener("mousemove", (e) => {
+    const r = el.getBoundingClientRect();
+    const i = Math.max(0, Math.min(etapas.length - 1,
+      Math.floor((e.clientY - r.top) / (r.height / etapas.length))));
+    mostrarTt(e.clientX, e.clientY, [{ v: etapas[i][1], l: etapas[i][0] }]);
+  });
+  el.addEventListener("mouseleave", esconderTt);
 }
 
 // ── agenda dos próximos 90 dias ───────────────────────────────────────────

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.60.6 — 2026-09-10
+
+**Novo — Fase 1 de 6: gráfico de funil em Vigilância (pesquisa de dashboard)**
+
+- **"Do edital ao contrato" (Painel · Vigilância) virou funil de
+  verdade** em vez de 4 barras independentes de mesma largura. A
+  largura decrescente mostra visualmente onde o processo emperra (o
+  degrau entre "Publicadas" e "Com resultado" salta aos olhos como
+  estrangulamento), sem precisar comparar 2 números de cabeça. Mesmo
+  dado de sempre (`Api.painel`), nenhuma query nova. Balão continua
+  disparando na faixa inteira da etapa, não só na forma estreita do
+  funil (mesmo contrato de sempre — `tests-e2e/painel.spec.js`
+  "o balão dispara na faixa toda do item").
+
 ## 1.60.5 — 2026-09-10
 
 **Correção — achado com prints reais do usuário (tema Observatório)**
