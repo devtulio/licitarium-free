@@ -808,10 +808,21 @@ async function carregarManchetePca(ano) {
   $("pca-planejado").textContent =
     `${dinheiro(d.planejado)} planejado em ${d.n_itens} ${
       d.n_itens === 1 ? "item" : "itens"}`;
+  // achado do usuário (print real, 2026-09-10): "X% do plano" só faz
+  // sentido lido como "quanto do valor planejado já virou contratação"
+  // QUANDO o homologado é menor ou igual ao planejado — passando disso,
+  // o número vira "6276% do plano", que não quer dizer nada (não é que
+  // o plano "estourou", é que o PCA sincronizado cobre só uma fração do
+  // que o município contratou — comum quando o PCA está incompleto, ou
+  // quando boa parte das contratações reais nunca precisou entrar nele).
+  // Sem vínculo item a item (ver Api.dados_pca), não dá pra dizer qual
+  // das duas coisas é — só que a comparação % deixou de ser honesta.
   $("pca-comparacao").textContent = d.pct == null
     ? `${dinheiro(d.homologado)} já homologado em ${d.ano}`
-    : `${dinheiro(d.homologado)} já homologado em ${d.ano} — ${
-        pct(d.pct, 0)} do plano`;
+    : d.pct <= 100
+    ? `${dinheiro(d.homologado)} já homologado em ${d.ano} — ${
+        pct(d.pct, 0)} do plano`
+    : `${dinheiro(d.homologado)} já homologado em ${d.ano} — mais do que o total planejado; o PCA sincronizado cobre só parte do que foi contratado`;
 }
 
 async function carregarLista() {

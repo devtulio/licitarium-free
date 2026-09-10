@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.60.1 — 2026-09-10
+
+**Correção — 2 bugs achados com prints reais do usuário (redesenho)**
+
+- **Contratos/Atas: objeto voltou a quebrar em várias linhas** em vez
+  de cortar com reticências (regra da Fase 2). Causa: a célula de
+  grid (objeto + fornecedor empilhados) não tinha `min-width:0` —
+  sem isso, o navegador cresce a coluna pra caber o texto todo em vez
+  de deixar o `white-space:nowrap` cortar. Mesma causa derrubava a
+  agenda em lista por semana (Fase 6) quando um dia tinha muitos
+  vencimentos com objeto comprido — coluna estourava a largura da
+  janela. Corrigido nos dois lugares de uma vez (`.linha > *`).
+- **PCA: manchete podia mostrar "6276% do plano"** — número sem
+  sentido quando o PCA sincronizado cobre só uma fração pequena do que
+  o município já contratou no ano (comum: PCA incompleto, ou boa parte
+  das contratações reais nunca precisou entrar nele). Acima de 100% a
+  manchete troca o percentual por uma frase que não finge precisão que
+  não existe.
+
 ## 1.60.0 — 2026-09-10
 
 **Redesenho de UI — Fase 8 (fluxo de 3 passos em Preços · Pesquisar)**

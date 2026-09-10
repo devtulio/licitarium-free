@@ -353,6 +353,14 @@ nav.abas button.on { color:var(--accent); font-weight:600;
 .linha { display:grid; gap:12px; min-height:40px; padding:0 16px;
          align-items:center; font-size:13px; cursor:pointer; border:none;
          background:none; width:100%; text-align:left; color:var(--text); }
+/* achado do usuário (print real, 2026-09-10): célula de grid nasce com
+   min-width:auto (= min-content) — sem isto, a célula de Contratos/Atas
+   (objeto + fornecedor empilhados num <span> só) nunca encolhe abaixo do
+   texto mais longo, e o `white-space:nowrap` do `.obj` lá dentro não tem
+   efeito nenhum: a COLUNA cresce pra caber o texto em vez do texto
+   cortar — mesmo problema documentado em `.faixa > *` mais abaixo, só
+   que ninguém tinha aplicado essa regra às linhas de lista ainda. */
+.linha > * { min-width:0; }
 [data-densidade="compacta"] .linha { min-height:auto; padding:6px 12px;
                                      font-size:12.5px; }
 [data-densidade="compacta"] .kpi { padding:9px 13px; }
@@ -994,6 +1002,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
          padding-bottom:6px; border-bottom:1px solid var(--border); }
 .wk .d { display:grid; grid-template-columns:44px 1fr; gap:10px;
          padding:5px 0; }
+/* mesmo achado de `.linha > *` acima — a coluna de eventos (1fr) é uma
+   célula de grid, min-width:0 pra ela poder encolher abaixo do evento
+   mais comprido; sem isso o `.wk .ev .o` logo abaixo nunca chegava a
+   cortar (achado do usuário, print real, 2026-09-10). */
+.wk .d > div { min-width:0; }
 .wk .d + .d { border-top:1px solid var(--border); }
 .wk .d .dt { font-size:12px; color:var(--muted); text-transform:uppercase;
              letter-spacing:.04em; padding-top:2px; }
