@@ -1162,6 +1162,12 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
     if (!dl) return "";  // sem campo nenhum: sem coluna (PCA não tem "onde")
     return `<div class="grupo-det"><h4>${titulo}</h4>${dl}</div>`;
   };
+  // det-pncp/det-imprimir são movidos (não clonados) pra dentro de
+  // #det-acoes a cada render; resgata pro <body> ANTES de sobrescrever
+  // det-meta.innerHTML, senão o innerHTML= destrói os botões junto com o
+  // #det-acoes da renderização anterior (2ª vez os botões já não existem
+  // mais, $() volta null e o próximo render quebra em .classList).
+  document.body.append($("det-pncp"), $("det-imprimir"));
   $("det-meta").innerHTML =
     grupoHtml("oque", "O que é") +
     grupoHtml("quanto", "Quanto e quando", linhaDesagioDetalhe(d)) +

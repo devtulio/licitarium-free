@@ -18,6 +18,15 @@
   das contratações reais nunca precisou entrar nele). Acima de 100% a
   manchete troca o percentual por uma frase que não finge precisão que
   não existe.
+- **Modal de detalhe (Contratação/Contrato/Ata/PCA/Preço) parava de
+  abrir depois de 2 aberturas na mesma sessão**, exigindo reiniciar o
+  app. Causa: os botões "Ver no PNCP"/"Imprimir" eram *movidos* (não
+  clonados) pra dentro de `#det-acoes` a cada abertura; na 2ª abertura
+  o `innerHTML` que recria `#det-meta` destruía o `#det-acoes` anterior
+  — e os botões junto, já que viviam dentro dele. Na 3ª abertura os
+  botões já não existiam mais, e o código quebrava tentando ler
+  `classList` de `null`. Corrigido resgatando os botões pro `<body>`
+  antes de sobrescrever `#det-meta`.
 
 ## 1.60.0 — 2026-09-10
 
