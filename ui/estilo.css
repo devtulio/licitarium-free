@@ -259,9 +259,31 @@ main { max-width:max(50vw, 1000px); margin:0 auto; padding:18px 22px 30px; }
    mínimo de 44px é critério AAA, e o programa é de mouse, não de toque),
    mas incomoda quem usa trackpad ou tem menos precisão de mira. O padding
    engorda a área sem mudar o layout — o label já propaga o clique ao input */
+/* Filtros em chips (redesenho 2026-09-10, Fase 7) — mesma barra
+   (#filtros-lista, #filtros-precos) reusada em Contratações/
+   Contratos/Atas/PCA/Preços, tratada uma vez só. Puramente CSS: toda
+   opção "sem filtro" do sistema já é `<option value="">`, então
+   `:has()` (`:checked` também vale pra <option>) detecta filtro ativo
+   sem JS nenhum — os controles continuam <select>/<input> nativos,
+   teclado e leitor de tela de graça. Cor de "ativo" é a mesma mistura
+   de `--accent` já usada em #cx-corrigir/#cx-conteudo logo abaixo. */
+.filtros select, .filtros input[type=search] {
+  border-radius:var(--pill); padding:7px 14px; font-size:12.5px;
+}
+.filtros select:not(:has(option:checked[value=""])),
+.filtros input[type=search]:not(:placeholder-shown) {
+  border-color:color-mix(in srgb, var(--accent) 45%, transparent);
+  background:color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
 .check-filtro { display:flex; align-items:center; gap:6px; font-size:13px;
                 color:var(--muted); white-space:nowrap;
-                padding:4px 2px; margin:-4px -2px; }
+                padding:4px 10px; margin:-4px -2px;
+                border:1px solid var(--border); border-radius:var(--pill); }
+.check-filtro:has(input:checked) {
+  border-color:color-mix(in srgb, var(--accent) 45%, transparent);
+  background:color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color:var(--text);
+}
 /* achado da auditoria (m3, 2026-08-08): "Corrigir pelo IPCA" e "Comparar
    por conteúdo" mudam o cálculo do resumo inteiro; os demais filtros da
    barra só recortam a lista. Um leve fundo nos dois avisa a diferença sem

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.59.0 — 2026-09-10
+
+**Redesenho de UI — Fase 7 (filtros em chips)**
+
+- **Filtros viram pílula** em todas as listas (Contratações,
+  Contratos, Atas, PCA, Preços) — mesma barra reusada nos 5 lugares,
+  tratada uma vez só. Filtro com valor escolhido ganha borda e fundo
+  na cor de acento; sem valor, fica neutro.
+- Implementado só em CSS (`:has()`, `:placeholder-shown`) — os
+  `<select>`/`<input>` continuam nativos, sem trocar por componente
+  customizado; teclado e leitor de tela não mudam nada.
+- Avaliado e descartado: transformar os filtros em multi-seleção de
+  verdade (chip por valor escolhido, "Modalidade: Pregão, Dispensa ×")
+  — nenhum filtro do sistema suporta múltiplos valores hoje; seria
+  mudança de comportamento, não de desenho.
+
+Com esta fase, o redesenho do artefato (10 seções + o item
+cross-cutting de filtros) está completo.
+
 ## 1.58.0 — 2026-09-10
 
 **Redesenho de UI — Fase 6 (manchete do PCA) — fecha o redesenho**

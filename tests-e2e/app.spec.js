@@ -94,6 +94,36 @@ test("fileira de filtros tem folga vertical maior que a horizontal",
   expect(gap.linha).toBeGreaterThan(gap.coluna);
 });
 
+test("filtro com valor escolhido ganha aparência de chip ativo (redesenho 2026-09-10)",
+    async ({ page }) => {
+  // puramente CSS (:has(option:checked[value=""]), :placeholder-shown,
+  // :has(input:checked)) — toda opção "sem filtro" do sistema já é
+  // <option value="">, então dá pra saber se o filtro está ativo sem
+  // JS nenhum. Testado nas 5 listas que reusam a mesma barra.
+  const corDeFundo = async (loc) =>
+    loc.evaluate(el => getComputedStyle(el).backgroundColor);
+
+  await abrirLista(page, "contratacoes");
+  const selectAno = page.locator("#f-ano");
+  const antes = await corDeFundo(selectAno);
+  await selectAno.selectOption("2026");
+  const depois = await corDeFundo(selectAno);
+  expect(depois).not.toBe(antes);
+
+  const checkParada = page.locator(".check-filtro").filter({ hasText: "Sem resultado" });
+  const corCheckAntes = await corDeFundo(checkParada);
+  await page.locator("#f-parada").check();
+  expect(await corDeFundo(checkParada)).not.toBe(corCheckAntes);
+
+  // Preços: mesma barra, componente diferente (#filtros-precos)
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  const busca = page.locator("#pr-busca");
+  const corBuscaAntes = await corDeFundo(busca);
+  await busca.fill("papel");
+  await page.locator("#pr-ano").focus();  // sai do campo, sem foco atrapalhar a leitura
+  expect(await corDeFundo(busca)).not.toBe(corBuscaAntes);
+});
+
 test("checkbox de filtro tem alvo de clique maior que a linha de texto",
     async ({ page }) => {
   // achado da auditoria de design (2026-08-08): a área clicável seguia a
