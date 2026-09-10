@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.60.2 — 2026-09-10
+
+**Correção — achado com prints reais do usuário (pós-redesenho)**
+
+- **Manchetes com só 2 apoios (Preços · Situação do banco, PCA) ficavam
+  com números desalinhados/encolhidos à esquerda**, deixando uma
+  coluna vazia — `.card.apoios` tinha grid fixo de 3 colunas
+  (`1fr 1fr 1fr`), pensado pra Execução/Economia (3 apoios), mas
+  Preços e PCA só têm 2. Trocado pra `repeat(auto-fit, minmax(0,1fr))`:
+  divide a largura pela quantidade real de apoios, sem sobra.
+
 ## 1.60.1 — 2026-09-10
 
 **Correção — 2 bugs achados com prints reais do usuário (redesenho)**

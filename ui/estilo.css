@@ -856,7 +856,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    real (nunca "quase cabe"): empilha sempre — mesma faixa, sem cards
    soltos (regra do artefato), só em coluna em vez de em linha. */
 .f-4 { grid-template-columns:1.7fr 1fr; container-type:inline-size; }
-.card.apoios { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; }
+/* auto-fit, não 3 colunas fixas: PCA/Preços têm 2 .ap (não 3) — com
+   coluna fixa a 3ª ficava vazia e os números encolhiam pra esquerda
+   em vez de dividir a largura toda (achado do usuário, print real). */
+.card.apoios { display:grid;
+               grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:0; }
 .card.apoios .ap { min-width:0; padding:0 16px;
                    border-left:1px solid var(--border); }
 .card.apoios .ap:first-child { padding-left:0; border-left:none; }
