@@ -1000,26 +1000,46 @@ $("pag-prox").addEventListener("click", () => {
   estado.pagina++; carregarLista(); });
 
 // ── detalhe ───────────────────────────────────────────────────────────────
+// Serve os 5 tipos que abrem este modal (contratações, contratos, atas,
+// pca e os itens da pesquisa de preços) — cada campo só aparece se existir
+// no registro (`d[campo] != null`). Redesenho 2026-09-10 (regra "três
+// colunas, três perguntas"): cada campo carrega também o GRUPO que
+// responde — "o que é" (identifica o processo), "quanto e quando" (dinheiro
+// e datas) ou "onde conferir" (quem procurar/onde bater o olho de novo).
+// Um grupo sem nenhum campo presente no registro não imprime cabeçalho —
+// PCA, por exemplo, nunca tem nada de "onde conferir" hoje.
 const ROTULOS = {
-  unidade:"Unidade", material_servico:"Tipo",
-  valor_unitario_estimado:"Valor unitário estimado",
-  valor_unitario_homologado:"Valor unitário homologado",
-  valor_total_homologado:"Valor total homologado",
-  quantidade_homologada:"Quantidade homologada",
-  fornecedor_porte:"Porte do fornecedor", data_resultado:"Data do resultado",
-  numero_ata:"Ata nº", ano_ata:"Ano da ata",
-  numero_contrato:"Contrato nº", ano_contrato:"Ano do contrato",
-  numero_item:"Item nº", categoria:"Categoria", grupo:"Grupo de contratação",
-  quantidade:"Quantidade estimada", valor_total:"Valor total",
-  id_pca:"Plano (id PNCP)", ano:"Ano",
-  modalidade_nome:"Modalidade", situacao:"Situação", orgao_nome:"Órgão",
-  valor_estimado:"Valor estimado",
-  valor_homologado:"Valor homologado", valor_global:"Valor global",
-  fornecedor_nome:"Fornecedor", fornecedor_ni:"CNPJ/CPF fornecedor",
-  data_publicacao:"Publicação", data_atualizacao:"Última atualização",
-  vigencia_inicio:"Início da vigência", vigencia_fim:"Fim da vigência",
-  contratacao_controle:"Contratação de origem", orgao_cnpj:"CNPJ do órgão",
+  unidade: ["Unidade", "oque"], material_servico: ["Tipo", "oque"],
+  valor_unitario_estimado: ["Valor unitário estimado", "quanto"],
+  valor_unitario_homologado: ["Valor unitário homologado", "quanto"],
+  valor_total_homologado: ["Valor total homologado", "quanto"],
+  quantidade_homologada: ["Quantidade homologada", "quanto"],
+  fornecedor_porte: ["Porte do fornecedor", "oque"],
+  data_resultado: ["Data do resultado", "quanto"],
+  numero_ata: ["Ata nº", "oque"], ano_ata: ["Ano da ata", "oque"],
+  numero_contrato: ["Contrato nº", "oque"],
+  ano_contrato: ["Ano do contrato", "oque"],
+  numero_item: ["Item nº", "oque"], categoria: ["Categoria", "oque"],
+  grupo: ["Grupo de contratação", "oque"],
+  quantidade: ["Quantidade estimada", "quanto"],
+  valor_total: ["Valor total", "quanto"],
+  id_pca: ["Plano (id PNCP)", "oque"], ano: ["Ano", "oque"],
+  modalidade_nome: ["Modalidade", "oque"], situacao: ["Situação", "oque"],
+  orgao_nome: ["Órgão", "oque"],
+  valor_estimado: ["Valor estimado", "quanto"],
+  valor_homologado: ["Valor homologado", "quanto"],
+  valor_global: ["Valor global", "quanto"],
+  fornecedor_nome: ["Fornecedor", "onde"],
+  fornecedor_ni: ["CNPJ/CPF fornecedor", "onde"],
+  data_publicacao: ["Publicação", "quanto"],
+  data_atualizacao: ["Última atualização", "quanto"],
+  vigencia_inicio: ["Início da vigência", "quanto"],
+  vigencia_fim: ["Fim da vigência", "quanto"],
+  contratacao_controle: ["Contratação de origem", "oque"],
+  orgao_cnpj: ["CNPJ do órgão", "onde"],
 };
+const GRUPOS_DET = [["oque", "O que é"], ["quanto", "Quanto e quando"],
+                    ["onde", "Onde conferir"]];
 function jsonColorido(obj) {
   // escapa só &, < e > (aspas precisam sobreviver para o tokenizador)
   const json = JSON.stringify(obj, null, 2)
@@ -1063,6 +1083,18 @@ let detalheTipo = null;
 // aba (`estado.tipo`), mas a aba "precos" guarda os registros na tabela
 // "itens" (mesma usada pelo acervo de contratações), então quem chama
 // pela pesquisa de preços passa "itens" explícito
+// deságio calculado no próprio modal (regra do artefato: "a conta que o
+// servidor faria de cabeça") — mesma fórmula usada nos cards do Painel
+// (Fase 2), aqui em cima do par que o registro já traz
+function linhaDesagioDetalhe(d) {
+  if (!(d.valor_estimado > 0) || d.valor_homologado == null) return "";
+  const pctv = (1 - d.valor_homologado / d.valor_estimado) * 100;
+  return `<div><div class="k">Deságio</div><div class="v num">`
+    + `<span style="color:${pctv >= 0 ? "var(--ok)" : "var(--erro)"};`
+    + `font-weight:600">${pct(Math.abs(pctv))}</span> · ${
+      dinheiro(Math.abs(d.valor_estimado - d.valor_homologado))}</div></div>`;
+}
+
 async function abrirDetalhe(nc, tipo = estado.tipo) {
   const d = await api.detalhe(tipo, nc);
   if (!d) return;
@@ -1070,22 +1102,53 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
   detalheDados = d;
   detalheTipo = tipo;
   $("det-titulo").textContent = d.objeto || d.descricao || d.numero_controle || d.id;
-  $("det-sub").textContent = d.numero_controle || d.id_pca || "";
+  // overline: o que identifica o registro, sem precisar do título pra
+  // isso — nº em mono (o que se copia/busca), modalidade, situação
+  $("det-sub").innerHTML = [
+    (d.numero_controle || d.id_pca) &&
+      `<span class="num">${esc(d.numero_controle || d.id_pca)}</span>`,
+    d.modalidade_nome && esc(d.modalidade_nome),
+    d.situacao && badgeSituacao(d.situacao),
+  ].filter(Boolean).join(" · ");
   $("det-pncp").classList.toggle("oculto", tipo === "pca");
-  $("det-meta").innerHTML = Object.entries(ROTULOS)
-    .filter(([campo]) => d[campo] != null && d[campo] !== "")
-    .map(([campo, rotulo]) => {
-      let v = d[campo];
-      if (campo.startsWith("valor")) v = dinheiro(v);
-      else if (campo === "numero_contrato") v = numContrato(d);
-      else if (/^(data|vigencia)/.test(campo)) v = dataBr(v);
-      else if (campo === "fornecedor_ni" || campo === "orgao_cnpj")
+  const linhas = campo => Object.entries(ROTULOS)
+    .filter(([c, [, g]]) => g === campo && d[c] != null && d[c] !== "")
+    .map(([c, [rotulo]]) => {
+      let v = d[c];
+      if (c.startsWith("valor")) v = dinheiro(v);
+      else if (c === "numero_contrato") v = numContrato(d);
+      else if (/^(data|vigencia)/.test(c)) v = dataBr(v);
+      else if (c === "fornecedor_ni" || c === "orgao_cnpj")
         v = mascararDocumento(v);
       return `<div><div class="k">${rotulo}</div><div class="v">${esc(v)}</div></div>`;
     }).join("");
+  const grupoHtml = (chave, titulo, extra = "") => {
+    const dl = linhas(chave) + extra;
+    if (!dl) return "";  // sem campo nenhum: sem coluna (PCA não tem "onde")
+    return `<div class="grupo-det"><h4>${titulo}</h4>${dl}</div>`;
+  };
+  $("det-meta").innerHTML =
+    grupoHtml("oque", "O que é") +
+    grupoHtml("quanto", "Quanto e quando", linhaDesagioDetalhe(d)) +
+    // "onde" sempre aparece: mesmo sem CNPJ/fornecedor (PCA), as ações
+    // de conferência (PNCP/Imprimir) moram aqui — nunca soltas embaixo
+    `<div class="grupo-det">${
+      linhas("onde") ? `<h4>Onde conferir</h4>${linhas("onde")}` : "<h4>Onde conferir</h4>"
+    }<div class="det-acoes" id="det-acoes"></div></div>`;
+  $("det-acoes").append($("det-pncp"), $("det-imprimir"));
   $("det-raw").innerHTML = jsonColorido(d.raw);
+  const tamanho = new Blob([JSON.stringify(d.raw)]).size;
+  $("det-raw-tam").textContent = tamanho > 1024
+    ? `${(tamanho / 1024).toFixed(1)} KB` : `${tamanho} B`;
   abrirModal("veu-detalhe");
 }
+$("det-raw-copiar").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(JSON.stringify(detalheDados?.raw, null, 2));
+  const btn = $("det-raw-copiar");
+  const original = btn.textContent;
+  btn.textContent = "copiado!";
+  setTimeout(() => { btn.textContent = original; }, 1500);
+});
 $("det-pncp").addEventListener("click", () =>
   api.abrir_pncp(detalheTipo, detalheAtual));
 // pedido do usuário (2026-08-12): na ficha impressa, "Contratação de

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.55.0 — 2026-09-10
+
+**Redesenho de UI — Fase 3 (modal de detalhe)**
+
+- **Modal de detalhe ganha 3 grupos nomeados**: "O que é" / "Quanto e
+  quando" / "Onde conferir", em vez de um grid de campos na ordem em
+  que o dicionário interno os declarava. Grupo sem nenhum campo no
+  registro (ex.: PCA não tem nada de "onde conferir" hoje) não aparece
+  vazio. Vale pros 5 tipos que abrem este modal: Contratações,
+  Contratos, Atas, PCA e os itens da pesquisa de Preços.
+- **Deságio calculado na hora**, dentro de "Quanto e quando", quando
+  estimado e homologado existem os dois — a conta que o servidor faria
+  de cabeça.
+- **Título sai da caixa alta e do texto justificado** (decisão do
+  usuário — a tabela continua maiúscula, fora do escopo desta fase):
+  peso médio, entrelinha 1,4, largura máxima de 60 caracteres. Ganhou
+  uma linha "overline" acima com o número do processo em fonte
+  monoespaçada, modalidade e situação — identifica o registro antes
+  mesmo de ler o título.
+- **"Ver no PNCP" e "Imprimir" migram** pra dentro do grupo "Onde
+  conferir", perto do CNPJ, em vez de soltos numa faixa embaixo.
+- **JSON completo ganha tamanho** (KB) e botão "copiar" no cabeçalho
+  do `<details>` — continua colapsado por padrão.
+
 ## 1.54.0 — 2026-09-10
 
 **Redesenho de UI — Fase 2 (manchete e tabela de Contratações)**

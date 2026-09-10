@@ -408,8 +408,9 @@ nav.abas button.on { color:var(--accent); font-weight:600;
 .cab .alca:hover::after, body.redimensionando .cab .alca::after {
                     background:var(--accent); }
 body.redimensionando { cursor:col-resize; user-select:none; }
-.obj, #det-titulo { text-transform:uppercase; }
-#det-titulo { text-align:justify; hyphens:auto; }
+.obj { text-transform:uppercase; }
+/* #det-titulo saiu daqui (redesenho 2026-09-10) — regras próprias
+   junto de `.mhead h1` acima: caixa normal, sem justificar. */
 /* tamanho da fonte (zoom escala a UI inteira, preservando o layout) */
 [data-fonte="pequena"] body { zoom:0.9; }
 [data-fonte="grande"]  body { zoom:1.12; }
@@ -499,19 +500,47 @@ body.travado { overflow:hidden; }
 .modal.largo { width:min(1600px, 96vw); }
 .mhead { padding:18px 20px; display:flex; justify-content:space-between;
          gap:14px; align-items:flex-start; }
-.mhead h1 { font-size:16px; line-height:1.4; font-weight:600; }
+/* caixa alta saiu do título (decisão do usuário, 2026-09-10 — a tabela
+   continua maiúscula, `.obj`, fora do escopo desta fase): texto longo
+   (4 linhas) em CAIXA ALTA + justificado lia pior que em caixa normal
+   com entrelinha folgada e medida máxima — regra do artefato. */
+.mhead h1 { font-size:17px; line-height:1.4; font-weight:500;
+            max-width:60ch; text-wrap:pretty; }
 .mhead .dim { margin-top:4px; }
+/* overline: nº do processo (mono — é o que se copia/busca) + modalidade
+   + situação, acima do título — identifica o registro sem precisar do
+   título pra isso (o "O que é" abaixo repete os mesmos campos, por
+   consistência com os outros 2 grupos, não por necessidade de achar) */
+.mhead .overline { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+                   font-size:12px; color:var(--muted); margin-bottom:6px; }
+.mhead .overline .num { font-family:var(--font-mono); color:var(--text);
+                        font-weight:500; }
 .fechar { background:none; border:none; color:var(--muted); font-size:20px;
           line-height:1; padding:2px 6px; }
+/* 3 colunas, 3 perguntas (redesenho 2026-09-10) — cada `.grupo-det` é
+   uma pergunta ("O que é" / "Quanto e quando" / "Onde conferir"); grupo
+   sem nenhum campo no registro nem chega a existir (PCA não tem "onde"
+   além dos botões, ver abrirDetalhe em ui/app.js). O hairline de 1px
+   entre colunas é o mesmo truque de sempre (fundo da borda por baixo,
+   gap de 1px, cada célula com a cor da superfície por cima). */
 .meta { display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
         background:var(--border); border-top:1px solid var(--border); }
-.meta > div { background:var(--surface); padding:11px 18px; }
-.meta .k { font-size:11px; letter-spacing:.07em; text-transform:uppercase;
+.grupo-det { background:var(--surface); padding:14px 18px;
+             display:flex; flex-direction:column; gap:10px; }
+.grupo-det h4 { font:600 10.5px var(--font-ui); letter-spacing:.08em;
+               text-transform:uppercase; color:var(--muted); margin:0; }
+.grupo-det .k { font-size:11px; letter-spacing:.07em; text-transform:uppercase;
            color:var(--muted); }
-.meta .v { font-size:13.5px; margin-top:3px; font-variant-numeric:tabular-nums;
+.grupo-det .v { font-size:13.5px; margin-top:3px; font-variant-numeric:tabular-nums;
            overflow-wrap:break-word; }
-.macoes { display:flex; gap:10px; padding:16px 20px; flex-wrap:wrap; }
+.det-acoes { display:flex; flex-direction:column; gap:8px; margin-top:auto;
+             padding-top:4px; }
+.det-acoes .btn { justify-content:center; }
 details.raw { margin:0 20px 18px; font-size:12px; }
+details.raw summary { display:flex; align-items:center; gap:8px; cursor:pointer; }
+details.raw summary .dim { margin-left:auto; font-size:11px; }
+.link { background:none; border:none; padding:0; color:var(--accent);
+        font-size:inherit; text-decoration:underline; cursor:pointer; }
 details.raw pre { background:var(--surface2); border-radius:var(--radius);
   padding:12px; margin-top:8px; overflow-x:auto; max-height:320px; font-size:11.5px; }
 .j-chave { color:var(--accent); }

@@ -252,15 +252,21 @@
      aria-labelledby="det-titulo">
   <div class="card modal">
     <div class="mhead">
-      <div><h1 id="det-titulo"></h1><div class="dim" id="det-sub"></div></div>
+      <div><div class="overline" id="det-sub"></div><h1 id="det-titulo"></h1></div>
       <button class="fechar" data-fecha="veu-detalhe" aria-label="Fechar">×</button>
     </div>
     <div class="meta" id="det-meta"></div>
-    <div class="macoes">
-      <button class="btn" id="det-pncp">Ver no PNCP ↗</button>
-      <button class="btn ghost" id="det-imprimir"><span data-icone="imprimir"></span> Imprimir</button>
-    </div>
-    <details class="raw"><summary>Dados completos (JSON do PNCP)</summary>
+    <!-- os dois botões abaixo moram aqui só no carregamento inicial da
+         página: abrirDetalhe() (ui/app.js) os move pra dentro do grupo
+         "Onde conferir" a cada abertura do modal (redesenho 2026-09-10,
+         regra "três colunas, três perguntas") — appendChild não perde o
+         listener, então isso não precisa reatar clique nenhum. -->
+    <button class="btn" id="det-pncp">Ver no PNCP ↗</button>
+    <button class="btn ghost" id="det-imprimir">
+      <span data-icone="imprimir"></span> Imprimir</button>
+    <details class="raw"><summary>Dados completos (JSON do PNCP)
+        <span class="dim" id="det-raw-tam"></span>
+        <button class="link" id="det-raw-copiar" type="button">copiar</button></summary>
       <pre id="det-raw"></pre></details>
   </div>
 </div>
