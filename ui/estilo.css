@@ -631,6 +631,10 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    evoluir sem colidir com as outras. */
 .fp-manchete { grid-template-columns:1.7fr 1fr; container-type:inline-size;
                margin-bottom:0; }
+/* PCA (Fase 6): só manchete, sem .card.apoios — não tem uma 2ª métrica
+   honesta pra pôr ao lado (ver achado no plano da fase: pca_itens não
+   tem vínculo item a item com contratações, a comparação é agregada). */
+.fpca-manchete { grid-template-columns:1fr; margin-bottom:14px; }
 .topo-painel { display:flex; justify-content:space-between; align-items:center; }
 .grade-painel { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .tit-painel { font-size:12.5px; color:var(--muted); font-weight:600;

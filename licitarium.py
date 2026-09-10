@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.57.0"
+VERSAO = "1.58.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -827,6 +827,31 @@ class Api:
                 "vencendo_60_contratos": vencendo_contratos,
                 "vencendo_60_atas": vencendo_atas,
                 "propostas_abertas": propostas_abertas}
+
+    def dados_pca(self, ano=None):
+        """Manchete da aba PCA (redesenho 2026-09-10): planejado × já
+        homologado no MESMO exercício — dois SUM independentes, sem
+        cruzar item nenhum. `pca_itens` não tem chave que ligue um item
+        do plano a uma contratação real (sem numero_controle), então
+        "quanto do plano já virou contrato" não é rastreável item a
+        item — a comparação honesta é agregada, como qualquer
+        orçamento público faz sem depender de rastreio linha a linha.
+        """
+        db = abrir_db()
+        try:
+            ano = int(ano) if ano else date.today().year
+            n_itens, planejado = db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(valor_total),0)"
+                " FROM pca_itens WHERE ano=?", (ano,)).fetchone()
+            homologado = db.execute(
+                "SELECT COALESCE(SUM(valor_homologado),0) FROM contratacoes"
+                " WHERE referencia=0 AND ano=?", (ano,)).fetchone()[0]
+            return {"ano": ano, "n_itens": n_itens, "planejado": planejado,
+                    "homologado": homologado,
+                    "pct": round(homologado / planejado * 100, 1)
+                           if planejado else None}
+        finally:
+            db.close()
 
     def set_titulo(self, texto):
         if self._janela:

@@ -389,6 +389,16 @@ function scriptPonte(temaBanco = "portal") {
         return { ok: true };
       },
       anos_com_itens: async () => [2025, 2026],
+      // manchete do PCA (Fase 6, 2026-09-10) — planejado × já homologado
+      // no exercício, agregado (nunca por item — ver Api.dados_pca)
+      dados_pca: async (ano) => {
+        window.__chamadas.push({ metodo: "dados_pca", ano });
+        const a = ano ? +ano : 2026;
+        if (a !== 2026)
+          return { ano: a, n_itens: 0, planejado: 0, homologado: 0, pct: null };
+        return { ano: a, n_itens: 3, planejado: 5142900, homologado: 3826410.55,
+          pct: 74.4 };
+      },
       gerar_minuta_pca: async (ano, params) => {
         window.__chamadas.push({ metodo: "gerar_minuta_pca", ano, params });
         window.__minuta = [

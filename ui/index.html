@@ -91,6 +91,17 @@
         <div class="n" id="kpi-vigentes">–</div>
         <div class="l">contratos vigentes</div></button>
     </div>
+    <!-- manchete do PCA (redesenho 2026-09-10): #kpis-topo é genérico
+         pras outras 3 abas de lista — o PCA tem uma pergunta própria
+         (planejado × já homologado no exercício), então ganha a faixa
+         dele, alternada por mudarAba() em ui/app.js -->
+    <div class="faixa fpca-manchete oculto" id="pca-manchete">
+      <div class="card hero">
+        <h3>Plano de Contratações Anual</h3>
+        <div class="n" id="pca-planejado">–</div>
+        <div class="r" id="pca-comparacao"></div>
+      </div>
+    </div>
     <div class="alertas oculto" id="alertas"></div>
     <nav class="abas" role="tablist">
       <button data-tipo="painel" class="on" role="tab" aria-selected="true">Painel</button>

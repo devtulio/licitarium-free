@@ -499,6 +499,30 @@ test("parâmetros do PCA chegam ao motor", async ({ page }) => {
                              corrigir_ipca: true });
 });
 
+test("aba PCA mostra manchete própria em vez do kpis-topo genérico",
+    async ({ page }) => {
+  // redesenho 2026-09-10: pca_itens não tem vínculo item a item com
+  // contratações — a manchete compara planejado × homologado agregado
+  // no MESMO exercício (Api.dados_pca), nunca por item
+  await page.locator('nav.abas button[data-tipo="pca"]').click();
+  await expect(page.locator("#kpis-topo")).toBeHidden();
+  const manchete = page.locator("#pca-manchete");
+  await expect(manchete).toBeVisible();
+  await expect(page.locator("#pca-planejado")).toContainText("3 itens");
+  await expect(page.locator("#pca-comparacao")).toContainText("74%");
+  const chamada = await page.evaluate(() =>
+    window.__chamadas.find(c => c.metodo === "dados_pca"));
+  expect(chamada).toBeTruthy();
+});
+
+test("manchete do PCA some quando o ano não tem nada planejado",
+    async ({ page }) => {
+  await page.locator('nav.abas button[data-tipo="pca"]').click();
+  await expect(page.locator("#pca-manchete")).toBeVisible();
+  await page.locator("#f-ano").selectOption("2025");
+  await expect(page.locator("#pca-manchete")).toBeHidden();
+});
+
 test("estimado e homologado aparecem em colunas separadas (redesenho 2026-09-10)",
     async ({ page }) => {
   // "Valor" virou "Estimado"/"Homologado" lado a lado — deságio visível

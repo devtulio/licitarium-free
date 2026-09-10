@@ -796,7 +796,26 @@ function restaurarLarguras() {
   if (api) api.set_config("colunas", "{}");
 }
 
+// manchete do PCA (redesenho 2026-09-10) — planejado × já homologado
+// no mesmo exercício, agregado (Api.dados_pca não cruza item nenhum,
+// ver comentário lá). Só mostra a faixa se houver item de PCA no ano —
+// sem isso, a tela vazia da tabela já explica a ausência sozinha.
+async function carregarManchetePca(ano) {
+  if (!api.dados_pca) { $("pca-manchete").classList.add("oculto"); return; }
+  const d = await api.dados_pca(ano);
+  if (!d.n_itens) { $("pca-manchete").classList.add("oculto"); return; }
+  $("pca-manchete").classList.remove("oculto");
+  $("pca-planejado").textContent =
+    `${dinheiro(d.planejado)} planejado em ${d.n_itens} ${
+      d.n_itens === 1 ? "item" : "itens"}`;
+  $("pca-comparacao").textContent = d.pct == null
+    ? `${dinheiro(d.homologado)} já homologado em ${d.ano}`
+    : `${dinheiro(d.homologado)} já homologado em ${d.ano} — ${
+        pct(d.pct, 0)} do plano`;
+}
+
 async function carregarLista() {
+  if (estado.tipo === "pca") carregarManchetePca(filtrosAtuais().ano);
   const r = await api.listar(estado.tipo, filtrosAtuais(), estado.pagina);
   const g = `g-${estado.tipo}`;
   const cab = `<div class="linha cab ${g}">` +
@@ -863,11 +882,16 @@ function mudarAba(tipo) {
   // em vez das colunas, e esconde o rodapé/filtros/KPIs da lista.
   const ehPainel = tipo === "painel";
   const ehPrecos = tipo === "precos";
+  const ehPca = tipo === "pca";
   const semLista = ehPainel || ehPrecos;
   $("painel").classList.toggle("oculto", !ehPainel);
   $("tela-precos").classList.toggle("oculto", !ehPrecos);
   for (const id of ["filtros-lista", "lista", "rodape-lista", "kpis-topo"])
     $(id)?.classList.toggle("oculto", semLista);
+  // PCA tem manchete própria (redesenho 2026-09-10) — #kpis-topo é
+  // genérico das outras 3 abas de lista, não faz sentido pra plano
+  $("kpis-topo").classList.toggle("oculto", semLista || ehPca);
+  $("pca-manchete").classList.toggle("oculto", semLista || !ehPca);
   // os alertas do topo pertencem às listas: fora delas ficam escondidos
   if (semLista) $("alertas").classList.add("oculto");
   else if ($("alertas").innerHTML.trim()) $("alertas").classList.remove("oculto");

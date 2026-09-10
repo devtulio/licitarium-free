@@ -518,6 +518,32 @@ def test_busca_global_termo_curto_nao_busca(api_busca):
     assert api_busca.buscar_global(None) == []
 
 
+def test_dados_pca_compara_planejado_x_homologado_sem_cruzar_item(api):
+    # planejado: soma de pca_itens do ano (100+900); homologado: soma de
+    # contratacoes.valor_homologado do MESMO ano (só B, 25 — A é None e C
+    # é de 2025) — dois SUM independentes, nunca um JOIN por item
+    d = api.dados_pca(2026)
+    assert d == {"ano": 2026, "n_itens": 2, "planejado": 1000.0,
+                 "homologado": 25.0, "pct": 2.5}
+
+
+def test_dados_pca_sem_planejado_nao_divide_por_zero(api):
+    d = api.dados_pca(2025)
+    assert d["n_itens"] == 0
+    assert d["planejado"] == 0.0
+    assert d["pct"] is None
+
+
+def test_dados_pca_usa_ano_corrente_por_padrao(api, monkeypatch):
+    class DataFixa(licitarium.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 5, 1)
+    monkeypatch.setattr(licitarium, "date", DataFixa)
+    d = api.dados_pca()
+    assert d["ano"] == 2026
+
+
 def test_importar_acervo_recusa_com_sync_em_andamento(api, monkeypatch):
     chamou = []
     monkeypatch.setattr(api, "_importar_acervo", lambda: chamou.append(1))

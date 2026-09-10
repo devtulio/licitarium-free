@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.58.0 — 2026-09-10
+
+**Redesenho de UI — Fase 6 (manchete do PCA) — fecha o redesenho**
+
+- **Aba PCA ganha manchete própria**: "R$ X planejado em N itens" com
+  "R$ Y já homologado no exercício — Z% do plano" — troca o
+  `#kpis-topo` genérico (contratações/homologado/vigentes, que nunca
+  fez sentido pra plano) por uma pergunta própria do PCA.
+- Achado que mudou o desenho original do artefato: `pca_itens` não tem
+  nenhum vínculo (nº de controle, id) com `contratacoes` — não dá pra
+  dizer "este item do plano virou aquele contrato". A manchete compara
+  **agregados do mesmo exercício** (soma planejada × soma homologada),
+  não rastreamento item a item — mesmo tipo de comparação que qualquer
+  orçamento público faz. Sem PCA sincronizado no ano, a faixa nem
+  aparece — a tabela vazia já explica sozinha.
+- Com esta fase, as 10 seções do artefato de redesenho estão cobertas
+  (algumas com ajuste de escopo registrado fase a fase — paleta fixa,
+  calendário como lista, manchete honesta do PCA). Consolidação final
+  (chips de filtro em todas as listas, fluxo de passos de Preços)
+  ficam como trabalho futuro, sem fase fixada.
+
 ## 1.57.0 — 2026-09-10
 
 **Redesenho de UI — Fase 5 (manchete de Preços + destaque do próprio
