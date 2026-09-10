@@ -575,7 +575,12 @@ body.travado { overflow:hidden; }
            color:var(--muted); }
 .grupo-det .v { font-size:13.5px; margin-top:3px; font-variant-numeric:tabular-nums;
            overflow-wrap:break-word; }
-.det-acoes { display:flex; flex-direction:column; gap:8px; margin-top:auto;
+/* sem margin-top:auto (redesenho 2026-09-10 tinha empurrado pro fundo da
+   coluna): sem nenhum campo "onde" (comum — só CNPJ/fornecedor preenchem),
+   os botões ficavam pendurados no fundo com um vão vazio em cima, só nessa
+   coluna — as outras 2 nascem densas do topo (achado do usuário, print
+   real). Fluir logo após o conteúdo alinha as 3 sempre. */
+.det-acoes { display:flex; flex-direction:column; gap:8px; margin-top:14px;
              padding-top:4px; }
 .det-acoes .btn { justify-content:center; }
 details.raw { margin:0 20px 18px; font-size:12px; }
@@ -928,8 +933,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    objeto e o objeto era cortado no meio da palavra, sem sinal nenhum */
 .painel table { border-collapse:collapse; width:100%; font-size:12.5px;
                 table-layout:fixed; }
-.painel td, .painel th { overflow:hidden; text-overflow:ellipsis;
-                         white-space:nowrap; }
+/* ellipsis só na célula de dado — cabeçalho é texto fixo e curto, cortar
+   ele também ("FORNECEDOR / ..." de "Fornecedor / ata", achado do
+   usuário) é pior que deixar quebrar em 2 linhas quando precisar. */
+.painel td { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.painel th { white-space:normal; }
 .painel td:first-child, .painel th:first-child { width:34%; padding-right:14px; }
 .painel td.num, .painel th.num { width:84px; }
 .painel td, .painel th { padding:5px 6px; text-align:left;
@@ -1016,13 +1024,21 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
              letter-spacing:.04em; padding-top:2px; }
 .wk .d .dt small { display:block; font-size:16px; font-weight:700;
                     color:var(--text); letter-spacing:0; margin-top:1px; }
+/* 1 chip por DIA, não por linha — achado do usuário, print real: um dia
+   com 12 vencimentos repetia "8 d" 12 vezes, coluna inteira redundante
+   (mesmo prazo, mesma vigencia_fim). Vive no topo da coluna de eventos,
+   não na coluna de data (44px, estreita demais pro chip). */
+/* .chip é display:flex — sozinho num <div> de bloco ele estica pra 100%
+   da largura (nada limitava antes: vivia dentro de `.wk .ev` com
+   flex:none). Um wrapper flex faz o filho encolher pro conteúdo de novo. */
+.wk .dia-prazo { display:flex; margin-bottom:4px; }
 .wk .ev { display:flex; align-items:center; gap:10px; justify-content:space-between;
           padding:3px 0; font-size:12.5px; }
 .wk .ev .o { min-width:0; overflow:hidden; text-overflow:ellipsis;
              white-space:nowrap; }
 .wk .ev .o small { display:block; color:var(--muted); font-size:11px;
                     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.wk .ev .chip { flex:none; padding:2px 9px; font-size:11px; }
+.wk .dia-prazo .chip { padding:2px 9px; font-size:11px; }
 .painel .val { font-size:11px; fill:var(--text);
                font-variant-numeric:tabular-nums; }
 .painel .eixo { stroke:var(--border); stroke-width:1; }

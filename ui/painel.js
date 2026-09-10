@@ -164,6 +164,27 @@ function _larguraTexto(txt, px) {
   return ctx.measureText(txt).width;
 }
 
+// corta no fim de uma PALAVRA inteira, nunca no meio ("Dispensa de l…" —
+// achado do usuário, print real): o overflow:"truncate" do ECharts corta
+// por caractere, sem olhar pra onde a palavra termina. Cai pra corte por
+// caractere só se nem a 1ª palavra couber.
+function _truncarPalavra(txt, larguraMax, px) {
+  if (_larguraTexto(txt, px) <= larguraMax) return txt;
+  const partes = txt.split(" ");
+  let corte = "";
+  for (const p of partes) {
+    const tentativa = corte ? `${corte} ${p}` : p;
+    if (_larguraTexto(tentativa + "…", px) > larguraMax) break;
+    corte = tentativa;
+  }
+  if (!corte) { // nem a 1ª palavra coube: corta por caractere mesmo
+    while (txt.length > 1 && _larguraTexto(txt + "…", px) > larguraMax)
+      txt = txt.slice(0, -1);
+    return txt + "…";
+  }
+  return corte + "…";
+}
+
 // x/y do evento nativo do ECharts — mesma assinatura que mostrarTt já espera
 // (clientX, clientY), pra reusar o tooltip único sem reescrevê-lo.
 function _ptEvento(params) {
@@ -289,13 +310,18 @@ function grafBarras(el, itens, {valor, rotulo, sub, cor = "var(--s1)"}, larg = 3
     // max no dado, não no "número redondo": o eixo é invisível, então o
     // arredondamento só encurtava a barra mais longa sem informar nada
     xAxis: { type: "value", show: false, max: "dataMax" },
-    yAxis: { type: "category", inverse: true, data: itens.map(it => rotulo(it) ?? "–"),
+    yAxis: { type: "category", inverse: true,
+      // corte por PALAVRA inteira (achado do usuário: overflow:"truncate"
+      // do ECharts corta por caractere, "Dispensa de l…" no meio da
+      // palavra) — pré-cortado aqui, eixo só mostra o texto já pronto.
+      data: itens.map(it =>
+        _truncarPalavra(rotulo(it) ?? "–", larguraRotulo, ROT_TXT.fontSize)),
       axisLine: { show: false }, axisTick: { show: false },
       // Teto no rótulo do eixo: "Serviços de Terceiros - Pessoa Jurídica"
       // sozinho comia 201 px de um cartão de 294 e não sobrava área de
       // plotagem nenhuma — as barras sumiam e os valores caíam fora do
       // cartão. O texto inteiro continua no tooltip do hover.
-      axisLabel: { ...ROT_TXT, width: larguraRotulo, overflow: "truncate" } },
+      axisLabel: { ...ROT_TXT, width: larguraRotulo } },
     series: [{ type: "bar", barWidth: 17,
       data: itens.map((it, i) => ({ value: valor(it) || 0,
         _rotuloValor: rotulosValor[i],
@@ -468,9 +494,10 @@ function grafDesagio(el, desagios, larg = 500) {
     xAxis: { type: "value", min: menor, max: maior, axisLabel: { show: false },
       axisLine: { show: false }, splitLine: { show: false } },
     yAxis: { type: "category", inverse: true,
-      data: desagios.map(d => d.modalidade ?? "–"),
+      data: desagios.map(d =>
+        _truncarPalavra(d.modalidade ?? "–", larguraRotulo, ROT_TXT.fontSize)),
       axisLine: { show: false }, axisTick: { show: false },
-      axisLabel: { ...ROT_TXT, width: larguraRotulo, overflow: "truncate" } },
+      axisLabel: { ...ROT_TXT, width: larguraRotulo } },
     series: [
       { name: "economia", type: "bar", barWidth: 17,
         data: desagios.map(d => d.pct >= 0 ? d.pct : null),
@@ -780,21 +807,25 @@ function grafAgenda(el, itens) {
     const diasHtml = diasSemana.map(k => {
       const [a, m, d] = k.split("-").map(Number);
       const dt = new Date(a, m - 1, d);
-      const eventos = porDia.get(k).map(it => {
-        const prazo = it.dias ?? 0;
-        const faixa = prazo <= 15 ? "u" : prazo <= 60 ? "a" : "t";
-        // mesmas classes/cores do resto do sistema: .chip.grave = --erro,
-        // .chip.aviso = --warn, sem classe = neutro (--s3 seria dado, não
-        // estado — aqui é só "sem urgência", por isso cinza do chip base)
-        const cls = faixa === "u" ? "grave" : faixa === "a" ? "aviso" : "";
+      // "Xd" é o mesmo prazo pra todo item do dia (mesma vigencia_fim) —
+      // um chip por LINHA repetia o número 12 vezes num dia cheio (achado
+      // do usuário, print real). Um só, junto da data, no cabeçalho do dia.
+      const eventosDoDia = porDia.get(k);
+      const prazo = eventosDoDia[0]?.dias ?? 0;
+      const faixa = prazo <= 15 ? "u" : prazo <= 60 ? "a" : "t";
+      // mesmas classes/cores do resto do sistema: .chip.grave = --erro,
+      // .chip.aviso = --warn, sem classe = neutro (--s3 seria dado, não
+      // estado — aqui é só "sem urgência", por isso cinza do chip base)
+      const cls = faixa === "u" ? "grave" : faixa === "a" ? "aviso" : "";
+      const eventos = eventosDoDia.map(it => {
         const quem = [it.tipo, it.nome].filter(Boolean).join(": ");
         return `<div class="ev">
           <span class="o" title="${esc(it.objeto || "")}">${esc(quem)}${
-            it.objeto ? `<small>${esc(it.objeto)}</small>` : ""}</span>
-          <span class="chip ${cls}">${prazo} d</span></div>`;
+            it.objeto ? `<small>${esc(it.objeto)}</small>` : ""}</span></div>`;
       }).join("");
       return `<div class="d"><div class="dt">${SEMANA[dt.getDay()]}<small>${
-        d}</small></div><div>${eventos}</div></div>`;
+        d}</small></div><div><div class="dia-prazo"><span class="chip ${
+        cls}">${prazo} d</span></div>${eventos}</div></div>`;
     }).join("");
     return `<div class="wk"><h5>${titulo}</h5>${diasHtml}</div>`;
   }).join("");

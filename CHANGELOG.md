@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.60.3 — 2026-09-10
+
+**Correção — 4 achados de auditoria de UI/UX (prints reais, dados de teste)**
+
+- **Modal de detalhe**: quando o registro não tinha nenhum campo "onde"
+  (comum — só CNPJ/fornecedor preenchem essa coluna), os botões Ver no
+  PNCP/Imprimir ficavam pendurados no fundo da coluna com um vão vazio
+  em cima (`margin-top:auto` empurrava pro fundo). Agora fluem logo
+  após o conteúdo, como as outras 2 colunas.
+- **Gráficos de barra horizontal** (Economia por modalidade/família/
+  categoria, Deságio por modalidade): rótulo do eixo cortava no MEIO da
+  palavra ("Dispensa de l…" em vez de "Dispensa de…") — o
+  `overflow:"truncate"` do ECharts corta por caractere. Corte agora é
+  por palavra inteira.
+- **Agenda dos próximos 90 dias**: um dia com vários vencimentos
+  repetia o mesmo badge "X d" em toda linha (mesma vigência, mesmo
+  prazo) — 12 vencimentos num dia mostravam "8 d" 12 vezes. Agora é 1
+  badge só, junto da data.
+- **Tabela "Vence nos próximos 90 dias"**: o cabeçalho da coluna
+  ("Fornecedor / ata") também cortava com reticências. Cabeçalho agora
+  quebra em 2 linhas em vez de truncar — é texto fixo e curto, não
+  precisa de elipse.
+
 ## 1.60.2 — 2026-09-10
 
 **Correção — achado com prints reais do usuário (pós-redesenho)**

@@ -951,6 +951,9 @@ def test_toda_classe_do_painel_tem_estilo_no_documento_impresso():
         # existem só na tela e são escondidas ou irrelevantes no papel
         "graf", "graf-echart", "graf-tt", "so-tela", "chips", "chip",
         "subabas", "painel-topo", "cresce", "carregando",
+        # wrapper só pra impedir o .chip (display:flex) de esticar 100% da
+        # largura na tela — no papel o chip já está dispensado acima
+        "dia-prazo",
         "ctr", "ajuda",
         # botão de dispensar a faixa de Atenção: só existe na tela
         "dispensar",
