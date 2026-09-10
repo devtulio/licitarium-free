@@ -824,6 +824,12 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .f-21 { grid-template-columns:1.6fr 1fr; }
 .f-11 { grid-template-columns:1fr 1fr; }
 .f-3 { grid-template-columns:1fr 1fr 1fr; }
+/* faixa própria pro hero da Economia (redesenho 2026-09-10, mesma régua
+   da Fase 2 pro Painel · Execução) — NÃO é `.f-3` porque essa classe
+   também serve fileira de 3 gráficos iguais lado a lado (ui/painel.js,
+   "Economia por modalidade/família/categoria" logo abaixo), que continua
+   precisando de 3 colunas do mesmo tamanho. */
+.fe-manchete { grid-template-columns:1.7fr 1fr; container-type:inline-size; }
 .painel .card { padding:14px 16px; }
 .painel h3 { font-size:11.5px; color:var(--muted); font-weight:600;
              letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; }
@@ -939,39 +945,27 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    deixa os meses dividirem o espaço; a célula acompanha e a grade se ajusta
    sozinha na largura Compacta. O piso vem da própria célula (min 34 px),
    não da coluna, para o quadrado não achatar quando o cartão aperta. */
-.cal { display:grid; grid-template-columns:repeat(3, 1fr); gap:24px; }
-.cal-dia { min-width:34px; }
-.cal-mes h4 { font-size:11px; letter-spacing:.09em; text-transform:uppercase;
-              color:var(--muted); font-weight:600; margin-bottom:7px; }
-.cal-sem, .cal-grade { display:grid; grid-template-columns:repeat(7, 1fr);
-                       gap:3px; }
-.cal-sem { margin-bottom:3px; }
-.cal-sem span { font-size:11px; color:var(--muted); text-align:center;
-                letter-spacing:.03em; }
-.cal-dia { aspect-ratio:1; border-radius:4px; background:var(--surface2);
-           display:grid; place-items:center; font-size:11px;
-           color:var(--muted); position:relative; }
-.cal-dia.fora { background:none; }
-/* Dia com vencimento usa a receita do selo (.badge): fundo em mistura e
-   tinta escurecida por --badge-tom. Cor cheia sob número de 11px não
-   alcança 4,5:1 nos temas claros — o mesmo motivo de lá. */
-.cal-dia.venc { font-weight:700; }
-.cal-dia.venc.u { background:color-mix(in srgb, var(--erro) 16%, var(--surface));
-  color:color-mix(in srgb, var(--erro) var(--badge-tom), black); }
-.cal-dia.venc.a { background:color-mix(in srgb, var(--warn) 16%, var(--surface));
-  color:color-mix(in srgb, var(--warn) var(--badge-tom), black); }
-.cal-dia.venc.t { background:color-mix(in srgb, var(--s3) 16%, var(--surface));
-  color:color-mix(in srgb, var(--s3) var(--badge-tom), black); }
-/* selo da contagem: o dia continua sendo o número do meio, e a quantidade
-   não disputa o mesmo lugar com ele */
-.cal-dia b { position:absolute; top:-5px; right:-5px; min-width:17px;
-             height:17px; padding:0 4px; border-radius:99px; font-size:11px;
-             line-height:17px; text-align:center; font-weight:700;
-             color:var(--surface); border:1.5px solid var(--surface); }
-.cal-dia.venc.u b { background:var(--erro); }
-.cal-dia.venc.a b { background:var(--warn); }
-.cal-dia.venc.t b { background:var(--s3); }
-.cal-dia.hoje { outline:2px solid var(--accent); outline-offset:1px; }
+/* Agenda em lista por semana (redesenho 2026-09-10 — era grade de 3 meses,
+   ver histórico em ui/painel.js). Só semana com vencimento aparece; dentro
+   dela, só o dia que tem, com os vencimentos daquele dia empilhados. */
+.agenda-sem { display:flex; flex-direction:column; gap:18px; }
+.wk h5 { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+         color:var(--muted); font-weight:600; margin:0 0 8px;
+         padding-bottom:6px; border-bottom:1px solid var(--border); }
+.wk .d { display:grid; grid-template-columns:44px 1fr; gap:10px;
+         padding:5px 0; }
+.wk .d + .d { border-top:1px solid var(--border); }
+.wk .d .dt { font-size:12px; color:var(--muted); text-transform:uppercase;
+             letter-spacing:.04em; padding-top:2px; }
+.wk .d .dt small { display:block; font-size:16px; font-weight:700;
+                    color:var(--text); letter-spacing:0; margin-top:1px; }
+.wk .ev { display:flex; align-items:center; gap:10px; justify-content:space-between;
+          padding:3px 0; font-size:12.5px; }
+.wk .ev .o { min-width:0; overflow:hidden; text-overflow:ellipsis;
+             white-space:nowrap; }
+.wk .ev .o small { display:block; color:var(--muted); font-size:11px;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wk .ev .chip { flex:none; padding:2px 9px; font-size:11px; }
 .painel .val { font-size:11px; fill:var(--text);
                font-variant-numeric:tabular-nums; }
 .painel .eixo { stroke:var(--border); stroke-width:1; }

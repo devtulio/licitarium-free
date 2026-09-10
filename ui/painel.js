@@ -734,69 +734,71 @@ const _chaveDia = (d) => `${d.getFullYear()}-${
   String(d.getMonth() + 1).padStart(2, "0")}-${
   String(d.getDate()).padStart(2, "0")}`;
 
-// ── agenda: calendário de três meses ──────────────────────────────────────
-// Era uma linha do tempo de 90 dias com um ponto por vencimento, e não
-// funcionava porque vencimento não se espalha: ele se amontoa em cinco ou
-// seis datas. Quarenta registros disputavam o primeiro terço da linha, os
-// rótulos colidiam (havia lógica de corte por caractere só para isso) e dois
-// terços do cartão ficavam vazios. No calendário o amontoado cai onde ele
-// pertence — na data — e vira informação em vez de estorvo.
-// Escolha do usuário entre quatro desenhos propostos, 2026-08-14.
-//
-// O dia fica SEMPRE visível e a contagem vai num selo à parte: no protótipo
-// a célula acesa mostrava só a quantidade, e "3" tanto podia ser o dia 3
-// quanto três vencimentos.
+// ── agenda: lista por semana ───────────────────────────────────────────────
+// Era um calendário de 3 meses (escolha do usuário entre 4 desenhos,
+// 2026-08-14) — funcionava, mas a maioria das células é dia sem vencimento
+// nenhum: 3 meses inteiros pra mostrar meia dúzia de datas com evento.
+// Auditoria de redesenho (2026-09-10): lista por semana, só a semana que
+// TEM vencimento aparece, e dentro dela só o dia que tem. Vencimento ainda
+// se amontoa (por isso o item é o DIA, não a linha solta — dois contratos
+// no mesmo dia empilham no mesmo bloco, não repetem o cabeçalho do dia).
+const DIA_MS = 86400000;
 function grafAgenda(el, itens) {
   if (!itens.length) {
     el.innerHTML = `<div class="vazio">Nada vence nos próximos 90 dias.</div>`;
     return;
   }
-  const porData = new Map();
+  const porDia = new Map();
   itens.forEach(it => {
     const k = (it.vigencia_fim || "").slice(0, 10);
     if (!k) return;
-    (porData.get(k) ?? porData.set(k, []).get(k)).push(it);
+    (porDia.get(k) ?? porDia.set(k, []).get(k)).push(it);
   });
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const kHoje = _chaveDia(hoje);
-
-  const meses = [0, 1, 2].map(salto => {
-    const base = new Date(hoje.getFullYear(), hoje.getMonth() + salto, 1);
-    const ultimo = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
-    const celulas = [];
-    for (let i = 0; i < base.getDay(); i++)
-      celulas.push(`<div class="cal-dia fora" aria-hidden="true"></div>`);
-    for (let d = 1; d <= ultimo; d++) {
-      const k = _chaveDia(new Date(base.getFullYear(), base.getMonth(), d));
-      const grupo = porData.get(k);
-      const marca = k === kHoje ? " hoje" : "";
-      if (!grupo) {
-        celulas.push(`<div class="cal-dia${marca}">${d}</div>`);
-        continue;
-      }
-      const prazo = grupo[0].dias ?? 0;
-      const faixa = prazo <= 15 ? "u" : prazo <= 60 ? "a" : "t";
-      const quem = grupo.map(i => `${i.tipo}: ${i.nome ?? "–"}`).join(" · ");
-      const quantos = `${grupo.length} vencimento${grupo.length > 1 ? "s" : ""}`;
-      // `aria-label` e não `title`: o title desenha o balão preto nativo do
-      // navegador em cima do tooltip próprio, com atraso — dois balões
-      // dizendo a mesma coisa. O aria-label só fala, não desenha.
-      celulas.push(`<div class="cal-dia venc ${faixa}${marca}" role="img"
-        aria-label="${esc(quantos)} em ${esc(dataBr(k))}: ${esc(quem)}"
-        data-tip-v="${esc(quantos)} em ${esc(dataBr(k))}"
-        data-tip-l="${esc(quem)}"
-        >${d}<b>${grupo.length}</b></div>`);
-    }
-    // o ano só aparece quando a janela de 90 dias vira o calendário
-    const ano = base.getFullYear() !== hoje.getFullYear()
-      ? ` de ${base.getFullYear()}` : "";
-    return `<div class="cal-mes"><h4>${MES_EXT[base.getMonth()]}${ano}</h4>
-      <div class="cal-sem" aria-hidden="true">${
-        SEMANA.map(s => `<span>${s}</span>`).join("")}</div>
-      <div class="cal-grade">${celulas.join("")}</div></div>`;
-  });
-  el.innerHTML = `<div class="cal">${meses.join("")}</div>
+  const dias = [...porDia.keys()].sort();
+  // semana civil (domingo-sábado, mesma ordem de `SEMANA`) — a chave da
+  // semana é o domingo que a contém, pra agrupar datas próximas juntas
+  // mesmo que a lista de dias não seja contígua
+  const domingoDaSemana = (iso) => {
+    const [a, m, d] = iso.split("-").map(Number);
+    const dt = new Date(a, m - 1, d);
+    dt.setDate(dt.getDate() - dt.getDay());
+    return dt;
+  };
+  const porSemana = new Map();
+  for (const k of dias) {
+    const dom = domingoDaSemana(k);
+    const chave = _chaveDia(dom);
+    (porSemana.get(chave) ?? porSemana.set(chave, {inicio: dom, dias: []})
+      .get(chave)).dias.push(k);
+  }
+  const fmtCurto = (dt) => `${dt.getDate()} de ${MES_EXT[dt.getMonth()]}`;
+  const semanasHtml = [...porSemana.values()].map(({inicio, dias: diasSemana}) => {
+    const fim = new Date(inicio); fim.setDate(fim.getDate() + 6);
+    const titulo = inicio.getMonth() === fim.getMonth()
+      ? `Semana de ${inicio.getDate()} a ${fmtCurto(fim)}`
+      : `Semana de ${fmtCurto(inicio)} a ${fmtCurto(fim)}`;
+    const diasHtml = diasSemana.map(k => {
+      const [a, m, d] = k.split("-").map(Number);
+      const dt = new Date(a, m - 1, d);
+      const eventos = porDia.get(k).map(it => {
+        const prazo = it.dias ?? 0;
+        const faixa = prazo <= 15 ? "u" : prazo <= 60 ? "a" : "t";
+        // mesmas classes/cores do resto do sistema: .chip.grave = --erro,
+        // .chip.aviso = --warn, sem classe = neutro (--s3 seria dado, não
+        // estado — aqui é só "sem urgência", por isso cinza do chip base)
+        const cls = faixa === "u" ? "grave" : faixa === "a" ? "aviso" : "";
+        const quem = [it.tipo, it.nome].filter(Boolean).join(": ");
+        return `<div class="ev">
+          <span class="o" title="${esc(it.objeto || "")}">${esc(quem)}${
+            it.objeto ? `<small>${esc(it.objeto)}</small>` : ""}</span>
+          <span class="chip ${cls}">${prazo} d</span></div>`;
+      }).join("");
+      return `<div class="d"><div class="dt">${SEMANA[dt.getDay()]}<small>${
+        d}</small></div><div>${eventos}</div></div>`;
+    }).join("");
+    return `<div class="wk"><h5>${titulo}</h5>${diasHtml}</div>`;
+  }).join("");
+  el.innerHTML = `<div class="agenda-sem">${semanasHtml}</div>
     <div class="leg">
       <span><i style="background:var(--erro)"></i>vence em até 15 dias</span>
       <span><i style="background:var(--warn)"></i>16 a 60 dias</span>
@@ -1031,10 +1033,8 @@ function vistaVigilancia(d) {
   </div>
   ${cartaoAtrasoPublicidade(v)}
   ${cartaoGraf("Agenda dos próximos 90 dias", "agenda",
-           `O número no canto do dia é quantos contratos ou atas vencem nele
-            — passe o mouse para ver quais. Vencimento se concentra em
-            poucas datas, e é isso que o calendário mostra melhor que uma
-            linha do tempo.`)}`;
+           `Só aparece a semana que tem vencimento; vários contratos ou
+            atas no mesmo dia ficam empilhados no mesmo bloco.`)}`;
 }
 
 function vistaEconomia(d) {
@@ -1047,7 +1047,7 @@ function vistaEconomia(d) {
   const varHom = e.homologado_anterior
     ? (e.homologado / e.homologado_anterior - 1) * 100 : null;
   return `
-  <div class="faixa f-3">
+  <div class="faixa fe-manchete">
     <div class="card hero">
       <h3>Economizado em ${ano}</h3>
       <div class="n">${dinheiro(e.economizado)}</div>
@@ -1056,16 +1056,18 @@ function vistaEconomia(d) {
             varEcon >= 0 ? "▲" : "▼"} ${pct(Math.abs(varEcon), 0)}</span>
            sobre ${ano - 1}${d.comparacao_parcial ? " no mesmo período" : ""}`}</div>
     </div>
-    <div class="card kpiv"><div class="v">${pct(e.pct)}</div>
-      <div class="r">deságio médio</div>
-      <div class="r" style="margin-top:8px">${dinheiro(e.estimado)} estimados</div>
+    <div class="card apoios">
+      <div class="ap"><div class="v">${pct(e.pct)}</div>
+        <div class="r">deságio médio</div>
+        <div class="r" style="margin-top:8px">${dinheiro(e.estimado)} estimados</div>
+      </div>
+      <div class="ap"><div class="v">${dinheiro(e.homologado)}</div>
+        <div class="r">homologado no ano</div>
+        <div class="r" style="margin-top:8px">${
+          varHom == null ? `sem ${ano - 1} para comparar`
+            : `<span class="dir">${varHom >= 0 ? "▲" : "▼"} ${
+                pct(Math.abs(varHom), 0)}</span> sobre ${ano - 1}`}</div></div>
     </div>
-    <div class="card kpiv"><div class="v">${dinheiro(e.homologado)}</div>
-      <div class="r">homologado no ano</div>
-      <div class="r" style="margin-top:8px">${
-        varHom == null ? `sem ${ano - 1} para comparar`
-          : `<span class="dir">${varHom >= 0 ? "▲" : "▼"} ${
-              pct(Math.abs(varHom), 0)}</span> sobre ${ano - 1}`}</div></div>
   </div>
   ${cartaoGraf(`Economia acumulada — ${ano - 2} a ${ano}`, "economia_series",
            `O ano corrente em destaque; os anteriores ficam como contexto —

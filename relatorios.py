@@ -2929,12 +2929,26 @@ _CSS_PAINEL_RESTO = """
   /* espelha estilo.css (2026-09-10): 2 filhos agora (hero + card .apoios
      de 3 colunas internas), não 4 — mesma régua da tela. */
   .f-4 { grid-template-columns:1.7fr 1fr; }
+  /* Economia (Fase 4, 2026-09-10) usa a mesma receita de manchete que
+     Execução — `.card.apoios` abaixo já serve os dois, só a faixa que
+     tem nome próprio (`.f-3` continua 3 colunas iguais, pros gráficos
+     "por modalidade/família/categoria" logo abaixo dela). */
+  .fe-manchete { grid-template-columns:1.7fr 1fr; }
   .card.apoios { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; }
   .card.apoios .ap { padding:0 12px; border-left:1px solid var(--borda); }
   .card.apoios .ap:first-child { padding-left:0; border-left:none; }
   .card.apoios .ap .v { font-size:16pt; font-weight:700; }
   .card.apoios .ap .r { font-size:8pt; text-transform:uppercase;
                         letter-spacing:.05em; }
+  /* agenda em lista por semana (Fase 4, 2026-09-10) */
+  .agenda-sem { display:flex; flex-direction:column; gap:10pt; }
+  .wk h5 { font-size:8pt; letter-spacing:.06em; text-transform:uppercase;
+           color:var(--suave); font-weight:600; margin:0 0 5pt;
+           padding-bottom:3pt; border-bottom:1px solid var(--borda); }
+  .wk .d { display:grid; grid-template-columns:26pt 1fr; gap:6pt; padding:2pt 0; }
+  .wk .d .dt { font-size:7pt; color:var(--suave); text-transform:uppercase; }
+  .wk .d .dt small { display:block; font-size:11pt; font-weight:700; color:inherit; }
+  .wk .ev { display:flex; justify-content:space-between; gap:6pt; font-size:8.5pt; }
   .f-21 { grid-template-columns:1.6fr 1fr; }
   .f-11 { grid-template-columns:1fr 1fr; }
   .f-3 { grid-template-columns:1fr 1fr 1fr; }

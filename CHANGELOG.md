@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.56.0 — 2026-09-10
+
+**Redesenho de UI — Fase 4 (manchete de Economia + agenda em lista)**
+
+- **Painel · Economia ganha manchete de verdade**, mesma régua da
+  Execução (Fase 2): o card de economia do exercício passa a valer
+  1,7fr da faixa, e os 2 apoios (deságio médio, homologado no ano)
+  saem de cards soltos e viram um único card dividido.
+- **Agenda dos próximos 90 dias vira lista por semana** — era um
+  calendário de 3 meses (escolha do usuário entre 4 desenhos,
+  2026-08-14; decisão revista agora a pedido do usuário). Só a semana
+  que tem vencimento aparece; dentro dela, só o dia que tem, com os
+  vencimentos daquele dia empilhados no mesmo bloco em vez de
+  disputar espaço numa célula de calendário. Mesmas 3 faixas de cor
+  de antes (vermelho ≤15 dias, âmbar 16-60, neutro 61-90).
+
 ## 1.55.0 — 2026-09-10
 
 **Redesenho de UI — Fase 3 (modal de detalhe)**

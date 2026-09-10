@@ -695,39 +695,42 @@ test("chip.aviso não herda margin-top da classe .aviso genérica",
   expect(ys[1]).toBe(ys[0]);
 });
 
-test("a agenda é um calendário de três meses, com os dias da semana",
+test("a agenda é uma lista por semana, só as semanas com vencimento",
     async ({ page }) => {
-  // Substituiu a linha do tempo de 90 dias (escolha do usuário entre quatro
-  // desenhos, 2026-08-14). O teste antigo aqui media colisão de rótulo —
-  // problema que só existia porque 40 vencimentos disputavam o primeiro
-  // terço de uma linha. No calendário eles caem em datas distintas.
+  // Substituiu o calendário de 3 meses (escolha do usuário entre quatro
+  // desenhos, 2026-08-14) — a grade inteira era, na maioria, dia vazio;
+  // decisão nova do usuário (2026-09-10): virar lista, só semana que TEM
+  // vencimento aparece.
   await page.locator('.subabas button[data-vista="vigilancia"]').click();
-  const cal = page.locator('[data-graf="agenda"]');
-  await expect(cal.locator(".cal-mes")).toHaveCount(3);
-  for (const mes of await cal.locator(".cal-sem").all())
-    await expect(mes).toHaveText("DomSegTerQuaQuiSexSáb");
+  const agenda = page.locator('[data-graf="agenda"]');
+  const semanas = agenda.locator(".wk");
+  await expect(semanas.first()).toBeVisible();
+  const n = await semanas.count();
+  expect(n).toBeGreaterThan(0);
+  for (const wk of await semanas.all())
+    await expect(wk.locator("h5")).toContainText("Semana de");
+  // toda semana renderizada tem pelo menos um dia com vencimento — não
+  // existe "semana vazia" só de passagem
+  for (const wk of await semanas.all())
+    expect(await wk.locator(".d").count()).toBeGreaterThan(0);
 });
 
-test("o dia e a quantidade de vencimentos não disputam o mesmo lugar",
+test("dois vencimentos no mesmo dia empilham no mesmo bloco, não repetem o dia",
     async ({ page }) => {
-  // No protótipo a célula acesa mostrava só a contagem, e "3" tanto podia
-  // ser o dia 3 quanto três vencimentos. O dia fica no corpo da célula; a
-  // contagem, num selo à parte.
+  // o acervo de exemplo tem um dia com 11 vencimentos e outro com 3 (mesmo
+  // "dias": 8 e 14 no fixture) — é o amontoado que derrubava o desenho
+  // antigo (linha do tempo); aqui cada dia aparece uma vez só, com os
+  // vencimentos daquele dia um embaixo do outro dentro do MESMO bloco
   await page.locator('.subabas button[data-vista="vigilancia"]').click();
-  const celulas = await page.locator('[data-graf="agenda"] .cal-dia.venc')
+  const dias = await page.locator('[data-graf="agenda"] .wk .d')
     .evaluateAll(cs => cs.map(c => ({
-      dia: c.firstChild.textContent.trim(),
-      selo: c.querySelector("b")?.textContent.trim() ?? null })));
-  expect(celulas.length).toBeGreaterThan(2);
-  for (const c of celulas) {
-    expect(+c.dia, "dia do mês").toBeGreaterThanOrEqual(1);
-    expect(+c.dia).toBeLessThanOrEqual(31);
-    expect(+c.selo, "selo de contagem").toBeGreaterThanOrEqual(1);
-  }
-  // o acervo de exemplo tem um dia com 11 e outro com 12 vencimentos: é o
-  // amontoado que derrubava a linha do tempo, e que aqui vira número
-  const selos = celulas.map(c => +c.selo);
-  expect(Math.max(...selos)).toBeGreaterThanOrEqual(10);
+      rotulo: c.querySelector(".dt")?.textContent.trim(),
+      eventos: c.querySelectorAll(".ev").length })));
+  expect(dias.length).toBeGreaterThan(0);
+  // nenhum bloco de dia repetido (rótulo "dia da semana + número" único)
+  expect(new Set(dias.map(d => d.rotulo)).size).toBe(dias.length);
+  // pelo menos um dia amontoa vários vencimentos no mesmo bloco
+  expect(Math.max(...dias.map(d => d.eventos))).toBeGreaterThanOrEqual(10);
 });
 
 test("trocar de subaba não vai ao banco de novo", async ({ page }) => {

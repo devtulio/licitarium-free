@@ -228,13 +228,12 @@ test("os cards de uma fileira têm a mesma anatomia", async ({ page }) => {
   // um card com duas linhas ao lado de irmãos com três quebrava a linha de
   // base da fileira, e a diferença não queria dizer nada
   //
-  // Execução (redesenho 2026-09-10, regra "manchete única"): os 3 apoios
-  // deixaram de ser 3 `.card.kpiv` soltos e viram `.ap` dentro de um único
-  // `.card.apoios` — mesma checagem de anatomia, seletor novo. Economia
-  // ainda não passou por essa fase e continua com `.card.kpiv`.
+  // Execução (Fase 2) e Economia (Fase 4) — mesma regra "manchete única":
+  // os apoios soltos (`.card.kpiv`) viraram `.ap` dentro de um único
+  // `.card.apoios` nas duas vistas.
   for (const [vista, sel, seletorApoio] of [
       ["execucao", "#p-execucao", ".card.apoios .ap"],
-      ["economia", "#p-economia", ".faixa .card.kpiv"]]) {
+      ["economia", "#p-economia", ".card.apoios .ap"]]) {
     if (vista !== "execucao")
       await page.locator(`.subabas button[data-vista="${vista}"]`).click();
     // conta linha VISÍVEL, não nó no DOM: o que quebra a fileira é o que a
