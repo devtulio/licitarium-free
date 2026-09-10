@@ -171,6 +171,9 @@ test("o corte vertical da concentração segue o cursor pela curva",
   const padrao = cartao.locator("svg [data-serie-padrao]").first();
 
   await expect(ponto).toHaveAttribute("opacity", "0");
+  // o cartão fica abaixo da dobra (viewport padrão 720px); sem isso o
+  // alvo do mouse.move cai fora da tela e o evento não chega no SVG
+  await hit.scrollIntoViewIfNeeded();
   const box = await hit.boundingBox();
   await page.mouse.move(box.x + box.width * 0.15, box.y + box.height / 2);
 
