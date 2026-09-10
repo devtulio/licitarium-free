@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.60.5 — 2026-09-10
+
+**Correção — achado com prints reais do usuário (tema Observatório)**
+
+- **Cartões de Preços · Situação do banco e do PCA sem padding
+  nenhum** — texto e números colados na borda, diferente de todo
+  outro cartão do sistema. Mesma causa do título fora do padrão da
+  v1.60.4: `.painel .card` só dá padding a cartão dentro de `.painel`,
+  e `#pca-manchete`/`#precos-kpis` vivem fora dele. Nova regra
+  `.faixa .card` cobre o buraco.
+
 ## 1.60.4 — 2026-09-10
 
 **Correção — achado com prints reais do usuário (comparando as duas telas)**

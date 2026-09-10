@@ -888,6 +888,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    precisando de 3 colunas do mesmo tamanho. */
 .fe-manchete { grid-template-columns:1.7fr 1fr; container-type:inline-size; }
 .painel .card { padding:14px 16px; }
+/* mesmo buraco do `.faixa h3` acima: `.painel .card` só cobre cartão
+   dentro de `.painel` — #pca-manchete/#precos-kpis vivem fora, cartão
+   nascia SEM padding nenhum (base `.card` não tem, texto colado na
+   borda). Achado do usuário, print real comparando as duas telas. */
+.faixa .card { padding:14px 16px; }
 .painel h3 { font-size:11.5px; color:var(--muted); font-weight:600;
              letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; }
 /* mesmo rótulo pequeno das manchetes de dentro de `.painel`, mas pras que
