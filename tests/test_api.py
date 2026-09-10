@@ -40,8 +40,13 @@ def api(tmp_path, monkeypatch):
 def test_ordenacao_por_coluna(api):
     r = api.listar("contratacoes", {"ord": "objeto", "dir": "asc"})
     assert [i["objeto"] for i in r["itens"]] == ["Arroz", "Milho", "Zebra"]
-    r = api.listar("contratacoes", {"ord": "valor", "dir": "desc"})
-    # valor = COALESCE(homologado, estimado): B=25, C=15, A=10
+    # "Valor" virou "Estimado"/"Homologado" (2026-09-10) — cada um ordena
+    # pelo próprio campo, não mais um COALESCE dos dois
+    r = api.listar("contratacoes", {"ord": "homologado", "dir": "desc"})
+    # homologado: B=25, C=15, A=None (NULL vai por último em DESC)
+    assert [i["numero_controle"] for i in r["itens"]] == ["B", "C", "A"]
+    r = api.listar("contratacoes", {"ord": "estimado", "dir": "desc"})
+    # estimado: B=30, C=20, A=10
     assert [i["numero_controle"] for i in r["itens"]] == ["B", "C", "A"]
     r = api.listar("contratacoes", {"ord": "numero", "dir": "asc"})
     # cronológico: 1/2025, 1/2026, 2/2026 (fixture: C=1/2025? A e B são 2026)

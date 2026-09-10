@@ -227,16 +227,22 @@ test("nenhuma marca de gráfico soma o balão nativo ao tooltip próprio",
 test("os cards de uma fileira têm a mesma anatomia", async ({ page }) => {
   // um card com duas linhas ao lado de irmãos com três quebrava a linha de
   // base da fileira, e a diferença não queria dizer nada
-  for (const [vista, sel] of [["execucao", "#p-execucao"],
-                              ["economia", "#p-economia"]]) {
+  //
+  // Execução (redesenho 2026-09-10, regra "manchete única"): os 3 apoios
+  // deixaram de ser 3 `.card.kpiv` soltos e viram `.ap` dentro de um único
+  // `.card.apoios` — mesma checagem de anatomia, seletor novo. Economia
+  // ainda não passou por essa fase e continua com `.card.kpiv`.
+  for (const [vista, sel, seletorApoio] of [
+      ["execucao", "#p-execucao", ".card.apoios .ap"],
+      ["economia", "#p-economia", ".faixa .card.kpiv"]]) {
     if (vista !== "execucao")
       await page.locator(`.subabas button[data-vista="${vista}"]`).click();
     // conta linha VISÍVEL, não nó no DOM: o que quebra a fileira é o que a
     // pessoa vê, e um `.r` escondido continuaria contando
-    const linhas = await page.locator(`${sel} .faixa .card.kpiv`)
+    const linhas = await page.locator(`${sel} ${seletorApoio}`)
       .evaluateAll(cs => cs.map(c => [...c.querySelectorAll(".r")]
         .filter(r => r.getBoundingClientRect().height > 0).length));
-    expect(linhas.length, `${vista} sem cards kpiv`).toBeGreaterThan(1);
+    expect(linhas.length, `${vista} sem cards de apoio`).toBeGreaterThan(1);
     expect(new Set(linhas).size, `${vista}: ${linhas.join("/")} linhas`)
       .toBe(1);
   }

@@ -311,10 +311,16 @@ nav.abas button.on { color:var(--accent); font-weight:600;
    a lista não precisa mais de teto próprio, só segue o <main>. O vão
    depois do texto do Objeto que o m2 apontou volta a existir em monitor
    muito largo; a decisão agora é do usuário, não escondida num número. */
-.linha { display:grid; gap:12px; padding:11px 16px; align-items:center;
-         font-size:13px; cursor:pointer; border:none; background:none;
-         width:100%; text-align:left; color:var(--text); }
-[data-densidade="compacta"] .linha { padding:6px 12px; font-size:12.5px; }
+/* altura fixa (redesenho 2026-09-10, regra "linha de tabela com altura
+   fixa"): objeto corta em 1 linha com reticências (.obj) em vez de
+   quebrar em 2-3 — o que sumir está a um clique, no detalhe que já
+   existe. min-height (não height) porque .obj-cel empilha um subtexto
+   opcional (.sub) — 40px cabe as duas linhas com folga. */
+.linha { display:grid; gap:12px; min-height:40px; padding:0 16px;
+         align-items:center; font-size:13px; cursor:pointer; border:none;
+         background:none; width:100%; text-align:left; color:var(--text); }
+[data-densidade="compacta"] .linha { min-height:auto; padding:6px 12px;
+                                     font-size:12.5px; }
 [data-densidade="compacta"] .kpi { padding:9px 13px; }
 [data-densidade="compacta"] .kpi .n { font-size:19px; }
 .linha:not(.cab):nth-child(even) {
@@ -325,7 +331,9 @@ nav.abas button.on { color:var(--accent); font-weight:600;
        color:var(--muted); cursor:default; background:var(--surface2); }
 .cab:hover { background:var(--surface2); }
 /* larguras padrão; o usuário pode ajustar arrastando (var --cols) */
-.g-contratacoes { grid-template-columns:var(--cols, 80px 135px 1fr 120px 120px); }
+/* 6 colunas desde 2026-09-10 (era 5: "Valor" virou "Estimado"/
+   "Homologado" lado a lado — deságio visível sem conta de cabeça) */
+.g-contratacoes { grid-template-columns:var(--cols, 80px 135px 1fr 110px 110px 100px); }
 .g-contratos    { grid-template-columns:var(--cols, 110px 1fr 100px 100px 110px 110px); }
 .g-atas         { grid-template-columns:var(--cols, 90px 210px 1fr 100px 100px 110px); }
 .g-pca          { grid-template-columns:var(--cols, 60px 1fr 150px 80px 110px); }
@@ -443,7 +451,14 @@ body.redimensionando { cursor:col-resize; user-select:none; }
 .descartado .num { white-space:nowrap; font-variant-numeric:tabular-nums; }
 .descartado select { max-width:280px; }
 .descartado input[type="text"] { width:220px; }
-.linha .obj { display:block; text-align:justify; hyphens:auto; }
+/* célula do objeto: 1 linha com reticências + subtexto opcional (órgão/
+   unidade) numa 2ª linha menor — redesenho 2026-09-10. min-width:0 é o
+   de sempre pra permitir a filha encolher dentro do grid. */
+.obj-cel { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.linha .obj { display:block; overflow:hidden; text-overflow:ellipsis;
+              white-space:nowrap; }
+.obj-cel .sub { display:block; overflow:hidden; text-overflow:ellipsis;
+                white-space:nowrap; font-size:11.5px; color:var(--muted); }
 /* preço vindo de município de referência: discreto, mas sempre visível —
    o usuário não pode confundir a própria série com a de fora */
 .de-fora { color:var(--warn); font-size:11px; }
@@ -747,7 +762,36 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    `min-width:0` devolve ao grid o direito de apertar; a partir daí o
    observer dispara e o desenho refaz na medida nova. */
 .faixa > *, .card, .graf, .graf-par, .graf-echart { min-width:0; }
-.f-4 { grid-template-columns:1.15fr 1fr 1fr 1fr; }
+/* 2 filhos agora (hero + 1 card .apoios), não 4 (redesenho 2026-09-10,
+   regra "uma manchete por tela") — a manchete pesa quase o dobro dos
+   apoios, que viraram 3 colunas DENTRO de um card só, sem borda própria
+   cada. Nome da classe ficou (`.f-4`) pra não duplicar toda a faixa de
+   CSS só por causa do nome — o "4" já não descreve filhos diretos. */
+/* `.main` tem teto de largura (Compacta/Expandida) — `.f-4` nunca passa
+   de ~786px de largura real (medido nas 4 larguras que painel.spec.js
+   cobre, 900 a 1440px de janela) e os 3 apoios, dentro dele, nunca
+   passam de ~290px: estreito demais pra 3 colunas com 2 linhas de
+   detalhe cada sem sobrepor texto, em QUALQUER largura de janela real
+   deste app — não é só a mínima. `container-type` fica no `.f-4` (o
+   PAI) porque um elemento não consegue se consultar pela própria
+   largura de contenção, só um descendente pode — `.card.apoios` é
+   quem lê o `@container` abaixo. Limiar de 800px cobre toda a faixa
+   real (nunca "quase cabe"): empilha sempre — mesma faixa, sem cards
+   soltos (regra do artefato), só em coluna em vez de em linha. */
+.f-4 { grid-template-columns:1.7fr 1fr; container-type:inline-size; }
+.card.apoios { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; }
+.card.apoios .ap { min-width:0; padding:0 16px;
+                   border-left:1px solid var(--border); }
+.card.apoios .ap:first-child { padding-left:0; border-left:none; }
+.card.apoios .ap .v { font-size:22px; font-weight:700; }
+.card.apoios .ap .r { font-size:11px; text-transform:uppercase;
+                      letter-spacing:.05em; }
+@container (max-width:800px) {
+  .card.apoios { grid-template-columns:1fr; gap:10px; }
+  .card.apoios .ap { padding:10px 0 0; border-left:none;
+                     border-top:1px solid var(--border); }
+  .card.apoios .ap:first-child { padding-top:0; border-top:none; }
+}
 .f-21 { grid-template-columns:1.6fr 1fr; }
 .f-11 { grid-template-columns:1fr 1fr; }
 .f-3 { grid-template-columns:1fr 1fr 1fr; }
@@ -767,10 +811,14 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    ("R$ 19.609.957,57", 17) — o teto de 40px nunca tinha sido calibrado
    pra essa largura. */
 .card.hero { container-type:inline-size; }
-/* piso baixou de 20px pra 18px em 2026-09-10: a coluna lateral de
-   sub-vistas (170px com o gap) tirou espaço do card na largura mínima
-   da janela (900px) — o mesmo texto completo não cabia mais em 20px. */
-.hero .n { font-size:clamp(18px, 11cqw, 27px); font-weight:700;
+/* piso baixou de 20px pra 18px em 2026-09-10 (coluna de sub-vistas
+   tirou espaço do card na largura mínima, 900px). Teto subiu de 27px
+   pra 34px no mesmo commit: a manchete deixou de dividir a faixa em 4
+   partes iguais (1.15fr) e passou a valer 1.7fr de 2.7 — em tela larga
+   sobra espaço de verdade pra ela realmente PARECER a resposta
+   principal da tela, não só o primeiro de quatro cards do mesmo
+   tamanho (regra "uma manchete por tela"). */
+.hero .n { font-size:clamp(18px, 11cqw, 34px); font-weight:700;
            line-height:1.05; white-space:nowrap; }
 .hero .r, .kpiv .r { font-size:12px; color:var(--muted); margin-top:2px; }
 .kpiv .v { font-size:22px; font-weight:700; }

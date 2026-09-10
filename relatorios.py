@@ -2926,7 +2926,15 @@ _CSS_PAINEL_RESTO = """
   .card .graf-par { padding-bottom:14px; }
   .vista { display:grid; gap:12px; }
   .faixa { display:grid; gap:12px; }
-  .f-4 { grid-template-columns:1.15fr 1fr 1fr 1fr; }
+  /* espelha estilo.css (2026-09-10): 2 filhos agora (hero + card .apoios
+     de 3 colunas internas), não 4 — mesma régua da tela. */
+  .f-4 { grid-template-columns:1.7fr 1fr; }
+  .card.apoios { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; }
+  .card.apoios .ap { padding:0 12px; border-left:1px solid var(--borda); }
+  .card.apoios .ap:first-child { padding-left:0; border-left:none; }
+  .card.apoios .ap .v { font-size:16pt; font-weight:700; }
+  .card.apoios .ap .r { font-size:8pt; text-transform:uppercase;
+                        letter-spacing:.05em; }
   .f-21 { grid-template-columns:1.6fr 1fr; }
   .f-11 { grid-template-columns:1fr 1fr; }
   .f-3 { grid-template-columns:1fr 1fr 1fr; }

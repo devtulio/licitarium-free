@@ -499,14 +499,21 @@ test("parâmetros do PCA chegam ao motor", async ({ page }) => {
                              corrigir_ipca: true });
 });
 
-test("valor sem homologação é marcado como estimado", async ({ page }) => {
+test("estimado e homologado aparecem em colunas separadas (redesenho 2026-09-10)",
+    async ({ page }) => {
+  // "Valor" virou "Estimado"/"Homologado" lado a lado — deságio visível
+  // sem conta de cabeça, e "–" no lugar do valor que ainda não existe em
+  // vez do antigo rótulo "est." (a coluna já diz o que cada número é).
   await abrirLista(page);   // a tela inicial agora é o Painel
   const linhas = page.locator(".linha:not(.cab)");
-  // X-1 tem homologado: valor limpo, sem marca
-  await expect(linhas.nth(0).locator(".est")).toHaveCount(0);
-  // X-2 só tem estimado: itálico + "est."
-  await expect(linhas.nth(1).locator(".est")).toContainText("est.");
-  await expect(linhas.nth(1).locator(".est")).toContainText("200.000,00");
+  const numCols = linhas.nth(0).locator(".num");
+  // X-1: estimado 52.000,00, homologado 48.230,00 — os dois presentes
+  await expect(numCols.nth(0)).toContainText("52.000,00");
+  await expect(numCols.nth(1)).toContainText("48.230,00");
+  // X-2: só estimado (200.000,00); homologado é "–", não "est."
+  const numCols2 = linhas.nth(1).locator(".num");
+  await expect(numCols2.nth(0)).toContainText("200.000,00");
+  await expect(numCols2.nth(1)).toHaveText("–");
 });
 
 test("badge de situação encurtada mantém o texto completo no title",
@@ -731,10 +738,15 @@ test("selos de situação atingem o contraste AA nos quatro temas",
   }
 });
 
-test("selo de vigência: coluna própria, centralizada mesmo em linha alta",
+test("selo de vigência: coluna própria, centralizada mesmo com objeto longo",
     async ({ page }) => {
   // achado 2026-08-12: vigência inicial/final e status viraram colunas
-  // separadas (antes eram datas + selo espremidos numa célula só)
+  // separadas (antes eram datas + selo espremidos numa célula só). O bug
+  // original só aparecia quando o objeto comprido fazia a linha crescer
+  // (quebra de texto); desde o redesenho 2026-09-10 (regra "linha de
+  // tabela com altura fixa") o objeto corta com reticências numa linha
+  // só e a fileira não cresce mais — o teste passa a confirmar que a
+  // centralização se mantém na altura fixa, não mais numa alta.
   await page.setViewportSize({ width: 1300, height: 900 });
   for (const aba of ["contratos", "atas"]) {
     await page.locator(`nav.abas button[data-tipo="${aba}"]`).click();
@@ -751,8 +763,10 @@ test("selo de vigência: coluna própria, centralizada mesmo em linha alta",
         };
       }));
     expect(m.length).toBe(3);
-    // uma das linhas tem objeto longo: é onde o alinhamento aparecia errado
-    expect(Math.max(...m.map(x => x.alturaLinha))).toBeGreaterThan(90);
+    // altura fixa em todas as linhas agora — nenhuma cresce mais que a
+    // outra (a régua de 40px é exatamente pra isso)
+    const alturas = new Set(m.map(x => Math.round(x.alturaLinha)));
+    expect(alturas.size, `alturas diferentes: ${[...alturas]}`).toBe(1);
     for (const x of m)
       expect(x.desvioCentro).toBeLessThanOrEqual(2);   // centralizado
   }

@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.53.0"
+VERSAO = "1.54.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -216,7 +216,11 @@ STATUS_VIGENCIA_ORDEM = (
 ORDENAVEIS = {
     "contratacoes": {"numero": "(ano*100000+COALESCE(sequencial,0))",
                      "modalidade": "modalidade_nome", "objeto": "objeto",
-                     "valor": "COALESCE(valor_homologado, valor_estimado)",
+                     # "valor" virou "Estimado"/"Homologado" (2026-09-10,
+                     # colunas separadas) — cada chave ordena pelo seu
+                     # próprio campo, não mais um COALESCE dos dois
+                     "estimado": "valor_estimado",
+                     "homologado": "valor_homologado",
                      "situacao": "situacao"},
     "contratos": {"numero":
                   "(COALESCE(ano_contrato,0)*100000+COALESCE(sequencial_contrato,0))",

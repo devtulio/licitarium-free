@@ -909,20 +909,22 @@ function vistaExecucao(d) {
       ${spark.length > 1 ? svg(240, 44, `<polyline fill="none" stroke="var(--s1)"
         stroke-width="2" stroke-linejoin="round" points="${linha}"/>`) : ""}
     </div>
-    <div class="card kpiv"><div class="v">${c.n}</div>
-      <div class="r">contratações</div>
-      <div class="r" style="margin-top:8px">${varN >= 0 ? "▲" : "▼"} ${
-        Math.abs(varN)} vs. ${ano - 1}${
-        d.comparacao_parcial ? " até hoje" : ""}</div></div>
-    <div class="card kpiv"><div class="v">${
-        c.desagio == null ? "–" : pct(c.desagio)}</div>
-      <div class="r">deságio médio</div>
-      <div class="r" style="margin-top:8px">${
-        c.estimado && c.homologado
-          ? `${dinheiro(c.estimado - c.homologado)} economizados` : ""}</div></div>
-    <div class="card kpiv"><div class="v">${c.contratos_vigentes}</div>
-      <div class="r">contratos vigentes</div>
-      <div class="r" style="margin-top:8px">${c.atas_vigentes} atas vigentes</div>
+    <div class="card apoios">
+      <div class="ap"><div class="v">${c.n}</div>
+        <div class="r">contratações</div>
+        <div class="r" style="margin-top:8px">${varN >= 0 ? "▲" : "▼"} ${
+          Math.abs(varN)} vs. ${ano - 1}${
+          d.comparacao_parcial ? " até hoje" : ""}</div></div>
+      <div class="ap"><div class="v">${
+          c.desagio == null ? "–" : pct(c.desagio)}</div>
+        <div class="r">deságio médio</div>
+        <div class="r" style="margin-top:8px">${
+          c.estimado && c.homologado
+            ? `${dinheiro(c.estimado - c.homologado)} economizados` : ""}</div></div>
+      <div class="ap"><div class="v">${c.contratos_vigentes}</div>
+        <div class="r">contratos vigentes</div>
+        <div class="r" style="margin-top:8px">${c.atas_vigentes} atas vigentes</div>
+      </div>
     </div>
   </div>
   <div class="faixa f-21">

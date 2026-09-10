@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.54.0 — 2026-09-10
+
+**Redesenho de UI — Fase 2 (manchete e tabela de Contratações)**
+
+- **Painel · Execução ganha manchete de verdade**: o card de homologado
+  do exercício passa de 1,15fr pra 1,7fr da faixa (era quase do mesmo
+  tamanho que os 3 apoios) e a fonte sobe de até 27px pra até 34px. Os
+  3 apoios (contratações, deságio, contratos vigentes) saem de 3 cards
+  soltos e viram um único card dividido — em coluna, não lado a lado,
+  porque a largura real do Painel (teto do `main`) nunca dá espaço pra
+  3 colunas de 2 linhas sem sobrepor texto em nenhuma largura de
+  janela.
+- **Contratações: "Valor" vira "Estimado"/"Homologado" lado a lado** —
+  o deságio fica visível sem conta de cabeça, e falta de homologação
+  mostra "–" em vez do antigo rótulo "est.". O dado já vinha do banco;
+  só a lista não separava.
+- **Linha da tabela ganha altura fixa** (40px): o objeto corta com
+  reticências numa linha só em vez de quebrar em 2-3 — nenhuma linha
+  mais alta que a vizinha. Número do processo em fonte monoespaçada
+  (é o que se copia e se busca). Válido pra Contratações, Contratos,
+  Atas e PCA (mesma classe CSS de sempre).
+
 ## 1.53.0 — 2026-09-10
 
 **Redesenho de UI — Fase 1 (fundação)**

@@ -438,9 +438,14 @@ function limparFiltros() {
 $("btn-limpar").addEventListener("click", limparFiltros);
 
 const COLUNAS = {
+  // Estimado/Homologado lado a lado (redesenho 2026-09-10, regra "linha de
+  // tabela com altura fixa"): o deságio fica visível sem conta de cabeça,
+  // e "–" cinza no lugar de zero é mais honesto que um valor que ainda
+  // não existe. O dado já vinha (SELECT * em Api.listar) — só não tinha
+  // as duas colunas.
   contratacoes: [["Número","numero"], ["Modalidade","modalidade"],
-                 ["Objeto","objeto"], ["Valor","valor"],
-                 ["Situação","situacao"]],
+                 ["Objeto","objeto"], ["Estimado","estimado"],
+                 ["Homologado","homologado"], ["Situação","situacao"]],
   contratos:    [["Contrato","numero"], ["Objeto / Fornecedor","objeto"],
                  ["Vigência inicial","vigencia_inicio"],
                  ["Vigência final","vigencia_fim"], ["Status","status"],
@@ -520,23 +525,23 @@ function celulaStatusVigencia(d) {
     + `${dataBr(d.vigencia_fim)}">${s.txt}</span>`;
 }
 
-// valor da contratação: homologado é definitivo, estimado é estimativa —
-// exibir os dois igual faria um processo em andamento parecer fechado
-function valorContratacao(d) {
-  if (d.valor_homologado != null) return dinheiro(d.valor_homologado);
-  if (d.valor_estimado != null)
-    return `<span class="est" title="Valor estimado — sem homologação
-      registrada no PNCP">${dinheiro(d.valor_estimado)} <small>est.</small></span>`;
-  return "–";
-}
-
 function renderLinha(tipo, d) {
-  if (tipo === "contratacoes")
-    return `<span class="dim">${d.sequencial ?? "–"}/${d.ano ?? ""}</span>
+  if (tipo === "contratacoes") {
+    // subtexto: órgão + unidade (já vêm em `d`, Api.listar faz SELECT *) —
+    // mesmo par que identifica o processo pra quem conhece a prefeitura
+    const sub = [d.orgao_nome, d.unidade].filter(Boolean).join(" · ");
+    return `<span class="dim" style="font-family:var(--font-mono)">${
+        d.sequencial ?? "–"}/${d.ano ?? ""}</span>
       <span class="dim">${esc(d.modalidade_nome ?? "–")}</span>
-      <span class="obj">${esc(d.objeto ?? "–")}</span>
-      <span class="num">${valorContratacao(d)}</span>
+      <span class="obj-cel"><span class="obj" title="${esc(d.objeto ?? "")}">${
+        esc(d.objeto ?? "–")}</span>${sub
+        ? `<span class="sub" title="${esc(sub)}">${esc(sub)}</span>` : ""}</span>
+      <span class="num">${d.valor_estimado != null
+        ? dinheiro(d.valor_estimado) : `<span class="dim">–</span>`}</span>
+      <span class="num">${d.valor_homologado != null
+        ? dinheiro(d.valor_homologado) : `<span class="dim">–</span>`}</span>
       <span style="justify-self:center">${badgeSituacao(d.situacao)}</span>`;
+  }
   if (tipo === "contratos")
     return `<span class="dim">${esc(numContrato(d))}</span>
       <span><span class="obj" title="${esc(d.objeto ?? "")}">${
