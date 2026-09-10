@@ -890,6 +890,13 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .painel .card { padding:14px 16px; }
 .painel h3 { font-size:11.5px; color:var(--muted); font-weight:600;
              letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; }
+/* mesmo rótulo pequeno das manchetes de dentro de `.painel`, mas pras que
+   vivem fora dele (#pca-manchete, #precos-kpis) — sem isso o <h3> caía no
+   padrão do navegador (negrito grande, minúsculo normal), bem diferente
+   da manchete de Execução/Economia ao lado (achado do usuário, prints
+   reais comparando as duas telas). */
+.faixa h3 { font-size:11.5px; color:var(--muted); font-weight:600;
+            letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; }
 /* achado da auditoria de design (2026-08-08): "R$ 19,6 mi" quebrava com o
    "mi" sozinho numa linha na largura mínima da janela (900px) — o número
    mais importante da tela virava o com pior tipografia bem onde sobra

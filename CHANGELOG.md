@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.60.4 — 2026-09-10
+
+**Correção — achado com prints reais do usuário (comparando as duas telas)**
+
+- **Título da manchete de Preços · Situação do banco e do PCA saía
+  fora do padrão** ("Itens no banco de preços" em negrito grande,
+  minúsculo normal, em vez do rótulo pequeno/maiúsculo das outras
+  manchetes) — `.painel h3`/`.precos h3` só estilizam `<h3>` dentro
+  desses containers, e as duas manchetes vivem fora dos dois
+  (`#pca-manchete`, `#precos-kpis`), caindo no `<h3>` padrão do
+  navegador. Nova regra `.faixa h3` cobre as duas.
+
 ## 1.60.3 — 2026-09-10
 
 **Correção — 4 achados de auditoria de UI/UX (prints reais, dados de teste)**
