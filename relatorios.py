@@ -832,6 +832,14 @@ def dados_executivo(db, ano, orgao=None):
            FROM contratos WHERE substr(data_publicacao,1,4)=?{og}
            GROUP BY fornecedor_ni ORDER BY total DESC LIMIT 10""",
         [str(ano)] + og_args)]
+    # total de TODOS os fornecedores do exercício, não só o LIMIT 10 acima —
+    # sem isso, um gráfico de Pareto (% acumulado) só chegaria à soma dos 10
+    # primeiros, nunca aos 100% reais do exercício (Fase 4, pesquisa de
+    # dashboard 2026-09-10)
+    fornecedores_total = db.execute(
+        f"""SELECT SUM(COALESCE(valor_global,0))
+           FROM contratos WHERE substr(data_publicacao,1,4)=?{og}""",
+        [str(ano)] + og_args).fetchone()[0] or 0
     vencendo = [dict(r) for r in db.execute(
         f"""SELECT 'Contrato' tipo, fornecedor_nome nome, objeto, vigencia_fim,
                   CAST(julianday(vigencia_fim) - julianday('now','localtime')
@@ -857,7 +865,8 @@ def dados_executivo(db, ano, orgao=None):
         f"SELECT COUNT(*) FROM atas WHERE date(vigencia_fim)"
         f">=date('now','localtime'){og}", og_args).fetchone()[0]
     return {"ano": ano, "cards": cards, "modalidades": modalidades,
-            "meses": meses, "fornecedores": fornecedores, "vencendo": vencendo}
+            "meses": meses, "fornecedores": fornecedores,
+            "fornecedores_valor_total": fornecedores_total, "vencendo": vencendo}
 
 
 def dados_fracionamento(db, ano, orgao=None, limites=None, janela=None):
@@ -1269,6 +1278,7 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
         "execucao": {"cards": executivo["cards"], "meses": meses,
                      "modalidades": executivo["modalidades"],
                      "fornecedores": executivo["fornecedores"],
+                     "fornecedores_valor_total": executivo["fornecedores_valor_total"],
                      "vencendo": executivo["vencendo"],
                      "homologado_anterior": anterior["homologado"],
                      "n_anterior": anterior["n"]},

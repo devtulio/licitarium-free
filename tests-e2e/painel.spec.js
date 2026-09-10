@@ -209,19 +209,22 @@ test("execução mostra hero, colunas mensais e modalidades",
   await expect(v).toContainText("Por modalidade");
 });
 
-test("fornecedor truncado carrega o nome completo no title",
+test("fornecedor truncado carrega o nome completo no title/balão",
     async ({ page }) => {
-  // achado da auditoria de design (2026-08-08): as duas tabelas cortam o
-  // nome com CSS ellipsis, mas sem title o nome completo não aparecia nem
-  // passando o mouse — a aba Preços já fazia certo, faltava aqui.
+  // achado da auditoria de design (2026-08-08): a tabela corta o nome com
+  // CSS ellipsis, mas sem title o nome completo não aparecia nem passando
+  // o mouse — a aba Preços já fazia certo, faltava aqui.
   const v = page.locator("#p-execucao");
   const linhaVencendo = v.locator("table").first().locator("td").first();
   await expect(linhaVencendo).toHaveAttribute("title",
     /RHC PRODUTOS E SERVIÇO LTDA/);
-  const linhaFornecedor = v.locator('table:has-text("Contratos")')
-    .locator("td").first();
-  await expect(linhaFornecedor).toHaveAttribute("title",
-    /RHC PRODUTOS E SERVIÇO LTDA/);
+  // "Onde o dinheiro foi" virou gráfico (Pareto, Fase 4 da pesquisa de
+  // dashboard) — o rótulo do eixo é o nome CURTO (só cabe isso), o nome
+  // inteiro mora no balão que a faixa toda da barra dispara
+  const pareto = v.locator('[data-graf="pareto"]');
+  const box = await pareto.boundingBox();
+  await pareto.hover({ position: { x: box.width * 0.15, y: box.height * 0.5 } });
+  await expect(page.locator(".graf-tt")).toContainText("RHC PRODUTOS E SERVIÇO LTDA");
 });
 
 test("análise traz as três séries e o mapa de calor", async ({ page }) => {

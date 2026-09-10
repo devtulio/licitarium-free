@@ -983,6 +983,8 @@ const DESENHO = {
   economia_categoria: (el, l) => grafBarras(el, P.dados.economia.por_categoria, {
     valor: c => c.economizado || 0, rotulo: c => c.nome ?? "–",
     sub: c => `${c.n} ${c.n === 1 ? "item" : "itens"}`}, l),
+  pareto: (el, l) => grafPareto(el, P.dados.execucao.fornecedores,
+    P.dados.execucao.fornecedores_valor_total, l),
   economia_waterfall: (el, l) => grafWaterfall(el,
     P.dados.economia.estimado, P.dados.economia.homologado, l),
   economia_series: (el, l) => grafSeries(el, P.dados.economia.series, P.dados.ano),
@@ -1073,8 +1075,7 @@ function vistaExecucao(d) {
   <div class="faixa f-11">
     ${cartao("Vence nos próximos 90 dias", tabelaVencendo(d.execucao.vencendo),
              `<span class="so-tela">Clicar leva à aba correspondente.</span>`)}
-    ${cartao(`Onde o dinheiro foi — fornecedores de ${ano}`,
-             tabelaFornecedores(d.execucao.fornecedores))}
+    ${cartaoGraf(`Onde o dinheiro foi — fornecedores de ${ano}`, "pareto")}
   </div>`;
 }
 
@@ -1092,17 +1093,63 @@ function tabelaVencendo(itens) {
     }).join("") + `</table>`;
 }
 
-function tabelaFornecedores(itens) {
-  if (!itens.length) return `<div class="vazio">Sem contratos no exercício.</div>`;
-  const total = itens.reduce((s, f) => s + (f.total || 0), 0);
-  const topo4 = itens.slice(0, 4).reduce((s, f) => s + (f.total || 0), 0);
-  return `<table><tr><th>Fornecedor</th><th class="num">Contratos</th>
-    <th class="num">Total</th></tr>` + itens.slice(0, 5).map(f =>
-    `<tr><td title="${esc(f.fornecedor_nome ?? "")}">${
-      esc(fornecedorCurto(f.fornecedor_nome) ?? "–")}</td>
-      <td class="num">${f.n}</td><td class="num">${compacto(f.total)}</td></tr>`
-  ).join("") + `</table>` + (total ? `<div class="nota">Os quatro primeiros
-    somam ${pct(topo4 / total * 100, 0)} do valor contratado.</div>` : "");
+// ── pareto: % do total por fornecedor + linha acumulada ────────────────────
+// Substitui a tabela "Onde o dinheiro foi" — a nota "os quatro primeiros
+// somam X%" que morava embaixo da tabela vira o próprio gráfico: eixo único
+// (%), sem dual-axis — a barra também é % do total, não R$ (pesquisa de
+// dashboard, 2026-09-10). `totalGeral` é o total do EXERCÍCIO inteiro, não
+// só a soma dos itens mostrados (a query já limita a 10) — senão o
+// acumulado nunca chegaria aos 100% reais.
+function grafPareto(el, itens, totalGeral, larg = 400) {
+  if (!itens.length || !totalGeral) {
+    el.innerHTML = `<div class="vazio">Sem contratos no exercício.</div>`;
+    return;
+  }
+  const linhas = itens.slice(0, 8);
+  let acumulado = 0;
+  const pcts = linhas.map(f => f.total / totalGeral * 100);
+  const acumulados = pcts.map(p => (acumulado += p));
+  // rótulo rotacionado (28°) escapava do cartão mesmo com containLabel:true
+  // — o cálculo do ECharts erra pra texto girado (achado ao testar, teste
+  // "nenhum rótulo de gráfico escapa do cartão"). Corta com a mesma
+  // ferramenta dos outros gráficos (`_truncarPalavra`), por palavra
+  // inteira; o nome INTEIRO continua no balão do hover.
+  const orcamento = larg / linhas.length * 1.3;
+  const nomes = linhas.map(f =>
+    _truncarPalavra(fornecedorCurto(f.fornecedor_nome) ?? "–",
+                     orcamento, ROT_TXT.fontSize));
+  el.style.height = "260px";
+  const chart = _iniciarEchart(el);
+  chart.setOption({
+    animation: false,
+    grid: { left: 8, right: 20, top: 10, bottom: 62, containLabel: true },
+    xAxis: { type: "category", data: nomes,
+      axisLine: { lineStyle: { color: "var(--border)" } }, axisTick: { show: false },
+      axisLabel: { ...ROT_TXT, interval: 0, rotate: 28 } },
+    yAxis: { type: "value", max: 100,
+      axisLabel: { ...ROT_TXT, formatter: "{value}%" },
+      splitLine: { lineStyle: { color: "var(--border)" } } },
+    series: [
+      { type: "bar", barWidth: 20, data: pcts.map(p => p.toFixed(1)),
+        itemStyle: { color: "var(--s1)", borderRadius: [3, 3, 0, 0] } },
+      { type: "line", data: acumulados.map(p => p.toFixed(1)),
+        itemStyle: { color: "var(--erro)" }, lineStyle: { width: 2 }, symbolSize: 7,
+        label: { show: true, position: "top", distance: 8, ...VAL_TXT,
+          color: "var(--erro)", formatter: p => p.value + "%" },
+        markLine: { silent: true, symbol: "none",
+          lineStyle: { color: "var(--muted)", type: "dashed" },
+          label: { formatter: "80%", color: "var(--muted)", fontSize: 10,
+                   position: "insideStartTop" },
+          data: [{ yAxis: 80 }] } },
+    ],
+  });
+  // nome INTEIRO no balão (não o fornecedorCurto do rótulo do eixo, que só
+  // cabe cortado) — mesmo achado da auditoria de 2026-08-08 que pôs title=
+  // nas tabelas: sem isso, o nome truncado não tinha onde aparecer inteiro.
+  ligarBaloEixo(chart, el, (i) => linhas[i] ? [
+    { v: dinheiro(linhas[i].total), l: linhas[i].fornecedor_nome ?? "–" },
+    { v: `${acumulados[i].toFixed(0)}% acumulado`, l: "" },
+  ] : null, 0);
 }
 
 function vistaAnalise(d) {

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.60.9 — 2026-09-10
+
+**Novo — Fase 4 de 6: gráfico de Pareto em "Onde o dinheiro foi" (pesquisa de dashboard)**
+
+- **"Onde o dinheiro foi — fornecedores" (Painel · Execução) virou
+  gráfico de Pareto** — barra (% do total, não R$, eixo único sem
+  dual-axis) + linha de % acumulado cruzando os 80%. A nota "os
+  quatro primeiros somam X%" que morava embaixo da tabela virou o
+  próprio gráfico. `Api.dados_executivo` ganhou o total geral de TODOS
+  os fornecedores do exercício (antes só vinha o total dos 10
+  primeiros) — sem isso o acumulado nunca chegaria aos 100% reais.
+  Nome completo do fornecedor continua no balão do hover (rótulo do
+  eixo é o nome curto, cortado por palavra inteira quando precisa).
+
 ## 1.60.8 — 2026-09-10
 
 **Novo — Fase 3 de 6: waterfall na manchete de Economia (pesquisa de dashboard)**

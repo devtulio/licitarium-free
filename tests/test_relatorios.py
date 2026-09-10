@@ -88,6 +88,10 @@ def test_dados_executivo(db):
     # contrato e ata com fim em 2099 não entram nos 90 dias
     assert d["vencendo"] == []
     assert d["meses"]["03"]["n"] == 1
+    # total geral (não só o LIMIT 10 de "fornecedores") — usado pelo Pareto
+    # (Fase 4, pesquisa de dashboard 2026-09-10) pro acumulado chegar a 100%
+    assert d["fornecedores_valor_total"] == sum(
+        f["total"] for f in d["fornecedores"])
 
 
 def test_gerar_html_e_xlsx(db, tmp_path):
