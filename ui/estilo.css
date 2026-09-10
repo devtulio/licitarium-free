@@ -626,9 +626,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .bolinha-status.status-verde { background:var(--ok); }
 /* Situação do banco de preços (portado do Pretiarium Free, 2026-09-07) */
 #precos-situacao { display:flex; flex-direction:column; gap:16px; }
-#precos-kpis { grid-template-columns:repeat(4,1fr); margin-bottom:0; }
-#precos-kpis .kpi { cursor:default; }
-#precos-kpis .kpi:hover { border-color:var(--border); }
+/* manchete (redesenho 2026-09-10) — mesma régua de .f-4/.fe-manchete,
+   classe própria pelo mesmo motivo da Fase 4: cada manchete livre pra
+   evoluir sem colidir com as outras. */
+.fp-manchete { grid-template-columns:1.7fr 1fr; container-type:inline-size;
+               margin-bottom:0; }
 .topo-painel { display:flex; justify-content:space-between; align-items:center; }
 .grade-painel { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .tit-painel { font-size:12.5px; color:var(--muted); font-weight:600;

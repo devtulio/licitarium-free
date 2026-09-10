@@ -2265,7 +2265,9 @@ function desenharGraficoMunicipio(el, s) {
   if (!window.echarts || !el || !s.por_municipio?.length) return;
   const val = s.por_conteudo ? dinheiroFino : dinheiro;
   const s1 = _corTemaEchart("--s1", "#2a78d6");
+  const s2 = _corTemaEchart("--s2", "#eb6834");
   const muted = _corTemaEchart("--muted", "#5b6066");
+  const temProprio = s.por_municipio.some(m => !m.referencia);
   el.style.height = `${40 + s.por_municipio.length * 34}px`;
   if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
   const chart = echarts.init(el, null, { renderer: "svg" });
@@ -2282,11 +2284,28 @@ function desenharGraficoMunicipio(el, s) {
     tooltip: { formatter: p =>
       `${p.name}<br/>mediana ${val(p.value)} · ${dados[p.dataIndex].n}
        ${dados[p.dataIndex].n === 1 ? "preço" : "preços"}` },
+    // próprio município em destaque (--s2), municípios de referência em
+    // --s1 — o campo já vinha (licitarium.py, resumo["por_municipio"]),
+    // só não distinguia cor (redesenho 2026-09-10)
     series: [{ type: "bar", data: dados.map(m => m.mediana),
-      barMaxWidth: 20, itemStyle: { color: s1, borderRadius: [0, 3, 3, 0] },
+      barMaxWidth: 20,
+      itemStyle: { color: p => dados[p.dataIndex].referencia ? s1 : s2,
+        borderRadius: [0, 3, 3, 0] },
       label: { show: true, position: "right", color: muted, fontSize: 11,
         formatter: p => val(p.value) }}],
   });
+  // legenda em HTML puro, não no ECharts: a legenda nativa dele espera
+  // toggle por série/fatia (funciona na pizza de material×serviço, que
+  // tem uma "série" por nome) — aqui é 1 série só de barras com cor por
+  // item, sem correspondência 1:1 de série×legenda pro componente nativo
+  const legendaAntiga = el.nextElementSibling;
+  if (legendaAntiga?.dataset.legendaMunicipio) legendaAntiga.remove();
+  if (temProprio) {
+    el.insertAdjacentHTML("afterend", `<div class="legend"
+      data-legenda-municipio><span><i style="background:${s1}"></i>
+      Referência</span><span><i style="background:${s2}"></i>
+      Seu município</span></div>`);
+  }
 }
 
 // ── seleção em lote: por fornecedor, faixa de valor ou texto na descrição

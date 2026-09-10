@@ -133,15 +133,24 @@
           aria-selected="false">Situação do banco</button>
       </div>
       <div id="precos-situacao" class="vista oculto">
-        <div class="kpis" id="precos-kpis">
-          <div class="card kpi"><div class="n" id="pk-itens">–</div>
-            <div class="l">itens no banco</div></div>
-          <div class="card kpi"><div class="n" id="pk-homologado">–</div>
-            <div class="l">com preço fechado</div></div>
-          <div class="card kpi"><div class="n" id="pk-municipios">–</div>
-            <div class="l">municípios no banco</div></div>
-          <div class="card kpi"><div class="n" id="pk-fornecedores">–</div>
-            <div class="l">fornecedores distintos</div></div>
+        <!-- manchete (redesenho 2026-09-10, regra "uma manchete por
+             tela"): tamanho do banco + confiança (preço fechado) juntos
+             na manchete, o resto vira apoio — mesma receita de
+             vistaExecucao/vistaEconomia em ui/painel.js. IDs mantidos
+             (pk-itens etc.) — quem lê é carregarSituacaoBanco() em
+             ui/app.js, sem mudança de lógica, só de onde os nós vivem. -->
+        <div class="faixa fp-manchete" id="precos-kpis">
+          <div class="card hero">
+            <h3>Itens no banco de preços</h3>
+            <div class="n" id="pk-itens">–</div>
+            <div class="r"><span id="pk-homologado">–</span> com preço fechado</div>
+          </div>
+          <div class="card apoios">
+            <div class="ap"><div class="v" id="pk-municipios">–</div>
+              <div class="r">municípios no banco</div></div>
+            <div class="ap"><div class="v" id="pk-fornecedores">–</div>
+              <div class="r">fornecedores distintos</div></div>
+          </div>
         </div>
         <div class="grade-painel">
           <div class="card" style="padding:16px">

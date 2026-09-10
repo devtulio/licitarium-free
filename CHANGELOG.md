@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.57.0 — 2026-09-10
+
+**Redesenho de UI — Fase 5 (manchete de Preços + destaque do próprio
+município)**
+
+- **Preços · Situação do banco ganha manchete**: "itens no banco" +
+  "% com preço fechado" numa faixa maior, municípios e fornecedores
+  viram apoio — mesma régua de Execução/Economia.
+- **O próprio município se destaca** nos gráficos "por município"
+  (resumo da pesquisa e comparação com vizinhos): antes todas as
+  barras saíam na mesma cor; agora o seu município fica na cor
+  secundária da paleta, os de referência na principal, com legenda.
+- Avaliado e confirmado: a paleta categórica dos gráficos de Preços
+  (material×serviço, itens por ano) e a curva de concentração de
+  fornecedores já seguiam a régua certa — nada a mudar ali.
+
 ## 1.56.0 — 2026-09-10
 
 **Redesenho de UI — Fase 4 (manchete de Economia + agenda em lista)**
