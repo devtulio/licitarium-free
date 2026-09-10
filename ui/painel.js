@@ -873,6 +873,67 @@ const _chaveDia = (d) => `${d.getFullYear()}-${
 // TEM vencimento aparece, e dentro dela só o dia que tem. Vencimento ainda
 // se amontoa (por isso o item é o DIA, não a linha solta — dois contratos
 // no mesmo dia empilham no mesmo bloco, não repetem o cabeçalho do dia).
+// ── agenda: calendário de calor (visão geral) ──────────────────────────────
+// Complemento da lista abaixo (decisão do usuário, pesquisa de dashboard
+// 2026-09-10) — mostra QUANDO os vencimentos se concentram, num piscar de
+// olho, sem rolar a lista inteira. Não mostra QUEM/O QUÊ (a lista continua
+// fazendo isso); mesma rampa `--seq1..5` do mapa "Quando o município
+// compra" (grafCalor acima), pro mesmo "mais escuro = mais item" valer em
+// qualquer heatmap do sistema.
+function grafAgendaCalor(el, itens) {
+  if (!itens.length) {
+    el.innerHTML = `<div class="vazio">Nada vence nos próximos 90 dias.</div>`;
+    return;
+  }
+  const porDia = new Map();
+  itens.forEach(it => {
+    const k = (it.vigencia_fim || "").slice(0, 10);
+    if (k) porDia.set(k, (porDia.get(k) || 0) + 1);
+  });
+  const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${
+    String(d.getDate()).padStart(2, "0")}`;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const fim = new Date(hoje); fim.setDate(fim.getDate() + 90);
+  const max = Math.max(...porDia.values(), 1);
+  const nivel = v => Math.min(5, 1 + Math.ceil((v / max) * 4));
+  const dados = [];
+  for (let d = new Date(hoje); d <= fim; d.setDate(d.getDate() + 1)) {
+    const iso = isoLocal(d);
+    const v = porDia.get(iso) || 0;
+    dados.push({ value: [iso, v],
+      itemStyle: { color: v ? `var(--seq${nivel(v)})` : "var(--surface2)" } });
+  }
+  el.style.height = "170px";
+  const chart = _iniciarEchart(el);
+  chart.setOption({
+    animation: false,
+    calendar: { range: [isoLocal(hoje), isoLocal(fim)], cellSize: [16, 16],
+      left: 24, right: 4, top: 20, bottom: 4,
+      itemStyle: { borderWidth: 2, borderColor: "var(--surface)" },
+      dayLabel: { color: "var(--muted)", fontSize: 10,
+        nameMap: ["D", "S", "T", "Q", "Q", "S", "S"] },
+      monthLabel: { color: "var(--muted)", fontSize: 11,
+        nameMap: MES.map(m => m[0].toUpperCase() + m.slice(1)) },
+      yearLabel: { show: false },
+      splitLine: { lineStyle: { color: "var(--border)" } } },
+    series: [{ type: "heatmap", coordinateSystem: "calendar", data: dados,
+      emphasis: { disabled: true } }],
+  });
+  el.addEventListener("mousemove", (e) => {
+    const r = el.getBoundingClientRect();
+    // `convertFromPixel` de coordinateSystem "calendar" devolve o timestamp
+    // (ms) do dia sob o cursor, não `[iso, valor]` como o heatmap comum
+    // (`grafCalor` acima) — achado testando, não documentado com clareza.
+    const ms = chart.convertFromPixel({ seriesIndex: 0 }, [e.clientX - r.left, e.clientY - r.top]);
+    const iso = ms != null ? isoLocal(new Date(ms)) : null;
+    const v = iso ? (porDia.get(iso) || 0) : 0;
+    if (!iso || !v) return esconderTt();
+    mostrarTt(e.clientX, e.clientY,
+      [{ v: `${v} vencimento${v === 1 ? "" : "s"}`, l: iso }]);
+  });
+  el.addEventListener("mouseleave", esconderTt);
+}
+
 const DIA_MS = 86400000;
 function grafAgenda(el, itens) {
   if (!itens.length) {
@@ -973,6 +1034,7 @@ const DESENHO = {
   limites: (el, l) => grafLimites(el, P.dados.vigilancia.limites,
                               P.dados.vigilancia.limite_compras),
   funil: (el, l) => grafFunil(el, P.dados.vigilancia.funil, l),
+  agenda_calor: (el, l) => grafAgendaCalor(el, P.dados.vigilancia.agenda),
   agenda: (el, l) => grafAgenda(el, P.dados.vigilancia.agenda),
   economia_modalidade: (el, l) => grafBarras(el, P.dados.economia.por_modalidade, {
     valor: m => m.economizado || 0, rotulo: m => m.modalidade ?? "–",
@@ -1216,6 +1278,7 @@ function vistaVigilancia(d) {
               resultado registrado no PNCP.`)}
   </div>
   ${cartaoAtrasoPublicidade(v)}
+  ${cartaoGraf("Quando os vencimentos se concentram", "agenda_calor")}
   ${cartaoGraf("Agenda dos próximos 90 dias", "agenda",
            `Só aparece a semana que tem vencimento; vários contratos ou
             atas no mesmo dia ficam empilhados no mesmo bloco.`)}`;

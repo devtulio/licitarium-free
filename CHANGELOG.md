@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.60.10 — 2026-09-10
+
+**Novo — Fase 5 de 6: calendário de calor na Agenda (pesquisa de dashboard)**
+
+- **Agenda dos próximos 90 dias (Painel · Vigilância) ganha um
+  calendário de calor** acima da lista por semana — 90 quadrados, 1
+  por dia, cor mais forte onde os vencimentos se concentram. Enxerga
+  padrão num piscar de olho; a lista continua logo abaixo mostrando
+  quem/o quê vence (o calendário só responde "quando"). Cap da agenda
+  no backend subiu de 40 pra 200 itens — sem isso, um dia cheio de
+  vencimentos que caísse depois do 40º item ficava subcontado no
+  calendário mesmo a query já filtrando pra 90 dias.
+
 ## 1.60.9 — 2026-09-10
 
 **Novo — Fase 4 de 6: gráfico de Pareto em "Onde o dinheiro foi" (pesquisa de dashboard)**

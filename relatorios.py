@@ -1288,7 +1288,14 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
                     "calor": calor, "meses_calor": list(range(1, 13))},
         "vigilancia": {"funil": funil, "limites": objetos[:6],
                        "limite_compras": fracionamento["limite_compras"],
-                       "agenda": executivo["vencendo"][:40],
+                       # cap subiu de 40 pra 200 (Fase 5, pesquisa de
+                       # dashboard 2026-09-10): o calendário de calor cobre
+                       # os 90 dias inteiros, senão subcontava o dia mais
+                       # cheio quando a lista já tinha passado de 40 itens
+                       # antes dele — a query já filtra pra janela de 90
+                       # dias, então o teto real é o tamanho de uma
+                       # prefeitura bem grande, não um número redondo
+                       "agenda": executivo["vencendo"][:200],
                        "atraso_publicidade": atraso_publicidade["fora_do_prazo"],
                        "atraso_publicidade_indisponivel":
                            atraso_publicidade.get("indisponivel")},

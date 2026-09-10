@@ -763,6 +763,23 @@ test("falha na consulta explica em vez de deixar a tela muda",
   await expect(page.locator("#painel")).not.toHaveClass(/carregando/);
 });
 
+test("calendário de calor da agenda mostra a contagem do dia no balão",
+    async ({ page }) => {
+  // achado ao implementar (Fase 5, pesquisa de dashboard 2026-09-10):
+  // convertFromPixel de coordinateSystem "calendar" devolve o timestamp
+  // (ms) do dia, não [iso, valor] como o heatmap comum — sem converter
+  // certo, o balão nunca aparecia em dia nenhum
+  await page.locator('.subabas button[data-vista="vigilancia"]').click();
+  const cal = page.locator('[data-graf="agenda_calor"]');
+  await expect(cal.locator("svg")).toBeVisible();
+  const pt = await page.evaluate(() => {
+    const el = document.querySelector('[data-graf="agenda_calor"]');
+    return echarts.getInstanceByDom(el).convertToPixel({ seriesIndex: 0 }, "2026-09-18");
+  });
+  await cal.hover({ position: { x: pt[0], y: pt[1] } });
+  await expect(page.locator(".graf-tt")).toContainText("11 vencimentos");
+});
+
 test("nenhum rótulo de gráfico escapa do cartão, nas quatro vistas",
     async ({ page }) => {
   // O ECharts reserva espaço medindo o texto; sem `fontFamily` declarado ele
