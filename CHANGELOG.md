@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.53.0 — 2026-09-10
+
+**Redesenho de UI — Fase 1 (fundação)**
+
+Primeira fatia de um redesenho baseado numa auditoria visual completa
+do app (4 temas, todas as telas) proposta por um agente e aprovada pelo
+usuário. Esta fase cobre tokens, cabeçalho e a navegação do Painel;
+tabelas densas, modal de detalhe, PCA, Economia, Preços e o calendário
+de 90 dias ficam para fases seguintes.
+
+- **Paleta de dado volta a ser fixa** (azul/laranja/verde-água), a
+  mesma em qualquer tema — reverte o `--s1:var(--accent)` de
+  2026-09-08. Motivo: quando o dado usa a cor da marca, duas séries do
+  mesmo gráfico (estimado × homologado) só se distinguiam por 2 tons
+  do mesmo matiz — falha pra daltonismo e não escala pra 3ª série.
+  Acento fica reservado pra botão primário e aba ativa. Valores
+  validados nos 6 checks da skill `dataviz` contra a superfície de
+  cada tema (o Observatório, único escuro, pisa um degrau mais escuro
+  do MESMO matiz pra continuar passando no validador).
+- **Faixa de "Atenção" não estica mais pra banner de largura igual** —
+  cada alerta tem o tamanho do próprio texto, quebra linha, o mais
+  grave (limite do art. 75) sempre primeiro e em vermelho. Ganhou
+  "ocultar até mudar", que só reaparece se o número mudar.
+- **Cabeçalho agrupado por frequência de uso**: Sincronizar continua
+  o único botão colorido; Montar PCA e Relatórios entram num menu
+  "Mais"; Configurações vira ícone.
+- **Sub-vistas do Painel** (Execução/Análise/Vigilância/Economia)
+  saem da linha de pílulas horizontais — que competia com as abas
+  principais 40px acima — e viram uma coluna vertical à esquerda.
+  Vigilância ganha contagem ao lado (quantos objetos perto do limite).
+
 ## 1.52.27 — 2026-09-09
 
 **Qualidade e automação: pip-audit no CI, pre-commit local, fix de import**

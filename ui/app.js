@@ -974,6 +974,21 @@ document.addEventListener("click", e => {
   if (!e.target.closest(".busca-global"))
     $("busca-global-resultados").classList.add("oculto");
 });
+// menu "Mais" do cabeçalho (Montar PCA / Relatórios) — mesmo padrão de
+// abrir/fechar da busca global acima (redesenho 2026-09-10)
+$("btn-mais").addEventListener("click", e => {
+  e.stopPropagation();
+  const aberto = $("menu-mais-lista").classList.toggle("oculto");
+  $("btn-mais").setAttribute("aria-expanded", String(!aberto));
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".menu-mais")) {
+    $("menu-mais-lista").classList.add("oculto");
+    $("btn-mais").setAttribute("aria-expanded", "false");
+  }
+});
+$("menu-mais-lista").addEventListener("click", () =>
+  $("menu-mais-lista").classList.add("oculto"));
 $("pag-ant").addEventListener("click", () => {
   estado.pagina--; carregarLista(); });
 $("pag-prox").addEventListener("click", () => {

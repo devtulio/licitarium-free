@@ -59,14 +59,21 @@
       <div id="rodape-versao">PNCP · dados públicos</div>
     </div>
     <div style="display:flex; gap:8px">
-      <button class="btn ghost" id="btn-pca">Montar PCA</button>
-      <button class="btn ghost" id="btn-relatorios">Relatórios</button>
-      <button class="btn ghost" id="btn-config">Configurações</button>
       <div class="grupo-sync">
         <button class="btn" id="btn-sync">Sincronizar</button>
         <button class="btn btn-sync-opcoes" id="btn-sync-opcoes"
           title="Escolher o que sincronizar" aria-label="Opções de sincronização">▾</button>
       </div>
+      <div class="menu-mais">
+        <button class="btn ghost" id="btn-mais" aria-haspopup="true"
+          aria-expanded="false">Mais ▾</button>
+        <div class="menu-mais-lista oculto" id="menu-mais-lista" role="menu">
+          <button id="btn-pca" role="menuitem">Montar PCA</button>
+          <button id="btn-relatorios" role="menuitem">Relatórios</button>
+        </div>
+      </div>
+      <button class="btn ghost icon" id="btn-config" title="Configurações"
+        aria-label="Configurações"><span data-icone="config"></span></button>
     </div>
   </header>
   <main>
@@ -95,24 +102,28 @@
     </nav>
     <section id="painel" class="painel" aria-label="Painel">
       <div class="chips oculto" id="painel-chips"></div>
-      <div class="painel-topo">
-        <div class="subabas" role="tablist" aria-label="Visões do painel">
+      <div class="painel-corpo">
+        <div class="subabas subabas-v" role="tablist" aria-label="Visões do painel">
           <button data-vista="execucao" class="on" role="tab" aria-selected="true">Execução</button>
           <button data-vista="analise" role="tab">Análise</button>
-          <button data-vista="vigilancia" role="tab">Vigilância</button>
+          <button data-vista="vigilancia" role="tab">Vigilância<small id="p-vigilancia-n"></small></button>
           <button data-vista="economia" role="tab">Economia</button>
         </div>
-        <span class="cresce"></span>
-        <select id="p-ano" aria-label="Exercício do painel"></select>
-        <select id="p-orgao" aria-label="Órgão do painel">
-          <option value="">Todos os órgãos</option></select>
-        <button class="btn ghost" id="btn-imprimir-painel"
-          title="Gera o painel em A3 paisagem para impressão"><span data-icone="imprimir"></span> Imprimir</button>
+        <div class="painel-conteudo">
+          <div class="painel-topo">
+            <span class="cresce"></span>
+            <select id="p-ano" aria-label="Exercício do painel"></select>
+            <select id="p-orgao" aria-label="Órgão do painel">
+              <option value="">Todos os órgãos</option></select>
+            <button class="btn ghost" id="btn-imprimir-painel"
+              title="Gera o painel em A3 paisagem para impressão"><span data-icone="imprimir"></span> Imprimir</button>
+          </div>
+          <div id="p-execucao" class="vista"></div>
+          <div id="p-analise" class="vista oculto"></div>
+          <div id="p-vigilancia" class="vista oculto"></div>
+          <div id="p-economia" class="vista oculto"></div>
+        </div>
       </div>
-      <div id="p-execucao" class="vista"></div>
-      <div id="p-analise" class="vista oculto"></div>
-      <div id="p-vigilancia" class="vista oculto"></div>
-      <div id="p-economia" class="vista oculto"></div>
     </section>
     <section id="tela-precos" class="oculto" aria-label="Pesquisa de preços">
       <div class="subabas" role="tablist" aria-label="Visões da pesquisa de preços">

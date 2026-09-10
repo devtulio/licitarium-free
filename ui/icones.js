@@ -43,4 +43,16 @@ const ICONE = {
   imprimir: _SVG(`<path d="M7 9.2V3.8h10v5.4"/>
                   <path d="M7 17.5H5.2A2.2 2.2 0 0 1 3 15.3v-3.9a2.2 2.2 0 0 1 2.2-2.2h13.6A2.2 2.2 0 0 1 21 11.4v3.9a2.2 2.2 0 0 1-2.2 2.2H17"/>
                   <path d="M7 14.6h10v5.6H7z"/>`, 1.6),
+
+  // configurações: engrenagem, botão-só-ícone no cabeçalho (redesenho
+  // 2026-09-10 — ajuste vira ícone, navegação sai da linha de frente)
+  config: _SVG(`<circle cx="12" cy="12" r="3"/>
+                <path d="M12 3v2.4M12 18.6V21M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7
+                          M3 12h2.4M18.6 12H21M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/>`),
+
+  // "mais" opções (Montar PCA, Relatórios) agrupadas fora da linha de
+  // frente: três pontos, o padrão universal de menu secundário
+  mais: _SVG(`<circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+              <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+              <circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/>`),
 };

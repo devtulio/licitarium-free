@@ -1171,13 +1171,29 @@ function mostrarChips(a) {
     a.paradas === 1 ? "processo sem resultado há mais de 90 dias"
                     : "processos sem resultado há mais de 90 dias",
     () => irPara("contratacoes", {ano: P.dados.ano, orgao, parada: true})]);
+  // contagem ao lado de "Vigilância" na coluna lateral: diz que há
+  // pendência sem precisar abrir a vista (redesenho 2026-09-10) — só o
+  // limite anual de dispensa, que é o que a vista de Vigilância audita
+  // primeiro; os outros alertas já apontam pra Contratos/Atas
+  $("p-vigilancia-n").textContent = a.perto_do_limite || "";
   const caixa = $("painel-chips");
-  caixa.classList.toggle("oculto", !chips.length);
+  // dispensável até o número mudar: a chave é o próprio conteúdo dos
+  // chips (classe+quantidade), não um id fixo — se algo mudar, a chave
+  // muda e a faixa some de novo sozinha, sem precisar expirar por tempo
+  const chave = chips.map(([cls, , n]) => `${cls}:${n}`).join("|");
+  const dispensada = chave && localStorage.getItem("atencao-dispensada") === chave;
+  caixa.classList.toggle("oculto", !chips.length || dispensada);
+  if (!chips.length) { caixa.innerHTML = ""; return; }
   caixa.innerHTML = chips.map(([cls, icone, n, texto], i) =>
     `<button class="chip ${cls}" data-chip="${i}">${icone} <b>${n}</b> ${texto}</button>`
-  ).join("");
+  ).join("") +
+    `<button class="dispensar" data-dispensar>ocultar até mudar ×</button>`;
   caixa.querySelectorAll("[data-chip]").forEach(b =>
     b.addEventListener("click", () => chips[+b.dataset.chip][4]()));
+  caixa.querySelector("[data-dispensar]").addEventListener("click", () => {
+    localStorage.setItem("atencao-dispensada", chave);
+    caixa.classList.add("oculto");
+  });
 }
 
 

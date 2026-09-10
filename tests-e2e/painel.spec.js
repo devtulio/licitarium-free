@@ -600,14 +600,17 @@ test("chips ficam com a mesma altura mesmo quando o texto quebra linha",
   for (const h of alturas) expect(h).toBeCloseTo(primeira, 0);
 });
 
-test("os 5 alertas possíveis cabem numa linha só até a largura mínima da janela",
+test("os 5 alertas possíveis não esticam pra largura igual (quebram do tamanho próprio)",
     async ({ page }) => {
-  // achado real (usuário, 2026-08-08): com os 5 alertas ativos ao mesmo
-  // tempo (limite + contratos + atas + propostas + parado) e o piso de
-  // 200px por coluna, o 5º chip não cabia e quebrava sozinho pra uma
-  // segunda linha — 3 células vazias ao lado dele. 900px é o min_size da
-  // janela no pywebview (licitarium.py); abaixo disso o usuário não
-  // consegue redimensionar de qualquer forma.
+  // até a v1.52.x, a faixa de alertas era um grid que esticava cada chip
+  // pra mesma largura — um "4 objetos acima do limite" virava banner do
+  // mesmo tamanho que "1 ata vence em 60 dias". Auditoria de redesenho
+  // (2026-09-10, regra "gravidade antes de quantidade"): flex que quebra
+  // linha, cada chip do tamanho do próprio conteúdo. Na largura mínima da
+  // janela (900px, min_size do pywebview em licitarium.py) os 5 alertas
+  // possíveis não cabem numa linha só — e não precisam mais caber: o que
+  // importa é que NÃO esticam artificialmente e o mais grave (chip.grave)
+  // continua sempre primeiro.
   await page.evaluate(() => {
     window.__painel = { ...window.PAINEL_DADOS,
       alertas: { perto_do_limite: 5, acima_do_limite: 5,
@@ -618,12 +621,12 @@ test("os 5 alertas possíveis cabem numa linha só até a largura mínima da jan
   await page.setViewportSize({ width: 900, height: 700 });
   const chips = page.locator("#painel-chips .chip");
   await expect(chips).toHaveCount(5);
-  const ys = await chips.evaluateAll(
-    els => els.map(el => Math.round(el.getBoundingClientRect().y)));
-  // mesma linha: <10 aceita ruído de sub-pixel, mas NÃO os 8px do bug de
-  // .chip.aviso abaixo (esse limiar frouxo já deixou o bug passar batido
-  // uma vez — se voltar, este teste tem de morder de novo)
-  for (const y of ys) expect(Math.abs(y - ys[0])).toBeLessThan(10);
+  const larguras = await chips.evaluateAll(
+    els => els.map(el => el.getBoundingClientRect().width));
+  // não esticam: larguras bem diferentes entre si (texto de tamanho
+  // bem diferente), não a mesma largura de coluna de grid
+  expect(Math.max(...larguras) - Math.min(...larguras)).toBeGreaterThan(20);
+  await expect(chips.first()).toHaveClass(/grave/);
 });
 
 test("número do hero cabe numa linha, em qualquer largura de janela",
@@ -669,19 +672,27 @@ test("chip.aviso não herda margin-top da classe .aviso genérica",
   // class="chip aviso" e herdavam essa margem por colisão de nome — 8px
   // mais baixos que os irmãos "grave"/plano, com a MESMA altura (por
   // isso o teste de altura, sozinho, não pegava isto).
+  // os rótulos são frases longas ("1 objeto perto do limite anual de
+  // dispensa"...) — com a faixa em flex-wrap (regra de redesenho
+  // 2026-09-10), 4 alertas + "ocultar até mudar" de frase inteira não
+  // cabem numa linha só em nenhuma largura razoável, e não precisam mais
+  // caber. O que este teste sempre caçou é mais específico: o 1º chip
+  // (sem classe extra) e o 2º (".chip.aviso", que colidia com a classe
+  // .aviso genérica de formulário) são sempre vizinhos na MESMA linha —
+  // o início da faixa nunca quebra sozinho — então continuam o bom par
+  // pra flagrar a folga de 8px se ela voltar.
   await page.evaluate(() => {
     window.__painel = { ...window.PAINEL_DADOS,
       alertas: { perto_do_limite: 1, acima_do_limite: 0,
-                 vencendo_contratos: 1, vencendo_atas: 1,
-                 propostas: 1, paradas: 0 } };
+                 vencendo_contratos: 1, vencendo_atas: 0,
+                 propostas: 0, paradas: 0 } };
   });
   await page.locator("#p-ano").selectOption({ index: 0 });
   const chips = page.locator("#painel-chips .chip");
-  await expect(chips).toHaveCount(4);
+  await expect(chips).toHaveCount(2);
   const ys = await chips.evaluateAll(
     els => els.map(el => Math.round(el.getBoundingClientRect().y)));
-  // todos exatamente na mesma linha — sem a folga de 10px do teste acima
-  for (const y of ys) expect(y).toBe(ys[0]);
+  expect(ys[1]).toBe(ys[0]);
 });
 
 test("a agenda é um calendário de três meses, com os dias da semana",

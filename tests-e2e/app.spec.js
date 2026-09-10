@@ -249,12 +249,22 @@ test("tema troca via configurações e persiste via set_config",
   expect(salvo.v).toBe("observatorio");
 });
 
-test("--s1 (série principal dos gráficos) é sempre --accent, nos 4 temas",
+test("--s1 (série principal dos gráficos) é fixo, independente do --accent do tema",
     async ({ page }) => {
-  // pedido do usuário (2026-09-08): antes cada tema tinha um tom próprio
-  // pra --s1, pensado só pra daltonismo/contraste — no Observatório isso
-  // divergia visualmente do resto da interface (série azul, destaque em
-  // âmbar). Unificado: --s1 é sempre var(--accent).
+  // auditoria de redesenho (2026-09-10): reverte o pedido de 2026-09-08
+  // que fazia --s1 = --accent. Motivo: a cor de marca também pinta botão
+  // primário e aba ativa — quando o dado usa a MESMA cor, duas séries do
+  // mesmo gráfico só se distinguem por 2 tons do mesmo matiz (falha pra
+  // daltonismo, não escala pra 3ª série). --s1/--s2/--s3 agora são fixos
+  // (mesmo papel azul/laranja/verde-água) em qualquer tema — só o
+  // Observatório pisa um degrau mais escuro do MESMO azul/laranja/verde
+  // pra continuar passando no validador de contraste contra fundo escuro
+  // (ver comentário em ui/estilo.css); ainda assim, os 3 nunca colidem
+  // com --accent, que muda por tema.
+  const esperado = {
+    portal: "#2a78d6", pergaminho: "#2a78d6", civil: "#2a78d6",
+    observatorio: "#2571c9",
+  };
   for (const tema of ["portal", "pergaminho", "observatorio", "civil"]) {
     await page.evaluate(t => {
       document.documentElement.dataset.theme = t;
@@ -264,7 +274,8 @@ test("--s1 (série principal dos gráficos) é sempre --accent, nos 4 temas",
       return [cs.getPropertyValue("--s1").trim(),
               cs.getPropertyValue("--accent").trim()];
     });
-    expect(s1, `tema ${tema}`).toBe(accent);
+    expect(s1, `tema ${tema}`).toBe(esperado[tema]);
+    expect(s1, `tema ${tema} não pode colidir com o acento`).not.toBe(accent);
   }
 });
 
@@ -324,6 +335,7 @@ test("restaurar larguras volta ao padrão", async ({ page }) => {
 
 test("relatório executivo manda os gráficos do Painel já desenhados pro papel",
     async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await expect(page.locator("#veu-relatorios")).toBeVisible();
   await page.locator("#rel-tipo").selectOption("executivo");
@@ -344,6 +356,7 @@ test("relatório executivo manda os gráficos do Painel já desenhados pro papel
 
 test("relatório de economia manda os quatro gráficos já desenhados pro papel",
     async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await page.locator("#rel-tipo").selectOption("economia");
   await page.locator("#rel-gerar").click();
@@ -364,6 +377,7 @@ test("relatório de economia manda os quatro gráficos já desenhados pro papel"
 // isso — checam conteúdo, não geometria).
 test("barras dos gráficos capturados vêm no tamanho final, não no frame zerado da animação",
     async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await page.locator("#rel-tipo").selectOption("executivo");
   await page.locator("#rel-gerar").click();
@@ -378,6 +392,7 @@ test("barras dos gráficos capturados vêm no tamanho final, não no frame zerad
 });
 
 test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await expect(page.locator("#veu-pca")).toBeVisible();
   // exercício sugerido é o ano seguinte ao último com itens (2026 -> 2027)
@@ -405,6 +420,7 @@ test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {
 
 test("PCA: famílias filtram, ABC classifica e mesclagem funde itens",
     async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-gerar").click();
   const linhas = page.locator("#pca-lista .linha:not(.cab)");
@@ -436,6 +452,7 @@ test("PCA: famílias filtram, ABC classifica e mesclagem funde itens",
 
 test("PCA: mostra correção do IPCA, delta vs ano anterior e ata vigente",
     async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-gerar").click();
   // resumo do topo diz até quando os preços foram trazidos e quantos
@@ -451,6 +468,7 @@ test("PCA: mostra correção do IPCA, delta vs ano anterior e ata vigente",
 
 test("modal do PCA ocupa a janela e a descrição tem espaço", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-gerar").click();
   await expect(page.locator("#pca-lista .linha:not(.cab)")).toHaveCount(3);
@@ -466,6 +484,7 @@ test("modal do PCA ocupa a janela e a descrição tem espaço", async ({ page })
 });
 
 test("parâmetros do PCA chegam ao motor", async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-base").selectOption("ultimo");
   await page.locator("#pca-estatistica").selectOption("recente");
@@ -540,6 +559,7 @@ test("densidade compacta aplica e persiste", async ({ page }) => {
 });
 
 test("modal trava o fundo, recebe foco e prende o Tab", async ({ page }) => {
+  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await expect(page.locator("body")).toHaveClass(/travado/);
   // foco entrou no diálogo

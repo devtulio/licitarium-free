@@ -952,6 +952,8 @@ def test_toda_classe_do_painel_tem_estilo_no_documento_impresso():
         "graf", "graf-echart", "graf-tt", "so-tela", "chips", "chip",
         "subabas", "painel-topo", "cresce", "carregando",
         "ctr", "ajuda",
+        # botão de dispensar a faixa de Atenção: só existe na tela
+        "dispensar",
         # modificadores sem geometria própria (herdam da classe base)
         "on", "oculto", "hoje", "venc", "fora", "u", "a", "t",
         "grave", "aviso", "info", "ok", "warn", "err", "up", "down", "dir",
