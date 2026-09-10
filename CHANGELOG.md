@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.60.8 — 2026-09-10
+
+**Novo — Fase 3 de 6: waterfall na manchete de Economia (pesquisa de dashboard)**
+
+- **Manchete de Economia ganha waterfall** (Estimado → Deságio →
+  Homologado) — mostra pra ONDE foi o dinheiro, não só o antes/depois
+  em 2 números separados. Mesmo dado de sempre (`Api.painel`), nenhuma
+  query nova.
+
 ## 1.60.7 — 2026-09-10
 
 **Novo — Fase 2 de 6: bullet graph na manchete do PCA (pesquisa de dashboard)**

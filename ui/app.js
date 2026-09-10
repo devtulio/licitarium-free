@@ -827,6 +827,11 @@ async function carregarManchetePca(ano) {
     bullet.classList.remove("oculto");
     grafBullet(bullet, [{ nome: "", real: d.homologado, alvo: d.planejado,
       max: Math.max(d.homologado, d.planejado) * 1.15 }]);
+    // nome acessível — aqui fora de #painel, então fora do ponto único que
+    // desenharGraficos já cobre pros outros gráficos (painel.js:1021-1024),
+    // mesmo motivo: sem isso o SVG entra sem nome nenhum pro leitor de tela.
+    const svg = bullet.querySelector("svg");
+    if (svg) svg.setAttribute("aria-label", bullet.dataset.titulo);
   } else {
     bullet.classList.add("oculto");
   }

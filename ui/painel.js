@@ -815,6 +815,40 @@ function grafBullet(el, linhas, larg = 500) {
   el.addEventListener("mouseleave", esconderTt);
 }
 
+// ── waterfall: estimado → deságio → homologado ─────────────────────────────
+// Substitui 2 KPIs soltos (estimado numa célula, homologado noutra) por uma
+// ponte visual — mostra PRA ONDE foi o dinheiro, não só o antes/depois
+// (pesquisa de dashboard, 2026-09-10). Truque de sempre pra empilhar sem
+// nascer do zero: uma barra invisível do tamanho do valor final por baixo.
+function grafWaterfall(el, estimado, homologado, larg = 400) {
+  const desagio = estimado - homologado;
+  const categorias = ["Estimado", "Deságio", "Homologado"];
+  const valores = [estimado, desagio, homologado];
+  const chart = _iniciarEchart(el);
+  chart.setOption({
+    animation: false,
+    grid: { left: 4, right: 4, top: 26, bottom: 4, containLabel: true },
+    xAxis: { type: "category", data: categorias,
+      axisLine: { lineStyle: { color: "var(--border)" } }, axisTick: { show: false },
+      axisLabel: ROT_TXT },
+    yAxis: { type: "value", show: false },
+    series: [
+      { type: "bar", stack: "w", silent: true, data: [0, homologado, 0],
+        itemStyle: { color: "transparent" } },
+      { type: "bar", stack: "w", barWidth: "55%",
+        label: { show: true, position: "top", ...VAL_TXT,
+          formatter: p => dinheiro(valores[p.dataIndex]) },
+        data: [
+          { value: estimado, itemStyle: { color: "var(--s1)" } },
+          { value: desagio, itemStyle: { color: "var(--erro)" } },
+          { value: homologado, itemStyle: { color: "var(--ok)" } },
+        ] },
+    ],
+  });
+  ligarBaloEixo(chart, el, (i) =>
+    [{ v: dinheiro(valores[i]), l: categorias[i] }], 0);
+}
+
 // ── agenda dos próximos 90 dias ───────────────────────────────────────────
 // Vencimentos se amontoam: numa prefeitura pequena, meia dúzia de contratos
 // termina no mesmo dia. Por isso a marca é o DIA, não o contrato — o tamanho
@@ -949,6 +983,8 @@ const DESENHO = {
   economia_categoria: (el, l) => grafBarras(el, P.dados.economia.por_categoria, {
     valor: c => c.economizado || 0, rotulo: c => c.nome ?? "–",
     sub: c => `${c.n} ${c.n === 1 ? "item" : "itens"}`}, l),
+  economia_waterfall: (el, l) => grafWaterfall(el,
+    P.dados.economia.estimado, P.dados.economia.homologado, l),
   economia_series: (el, l) => grafSeries(el, P.dados.economia.series, P.dados.ano),
   economia_fornecedor: (el, l) => grafBarras(el, P.dados.economia.por_fornecedor, {
     valor: f => f.economizado || 0,
@@ -1156,6 +1192,8 @@ function vistaEconomia(d) {
         : `<span class="${varEcon >= 0 ? "up" : "down"}">${
             varEcon >= 0 ? "▲" : "▼"} ${pct(Math.abs(varEcon), 0)}</span>
            sobre ${ano - 1}${d.comparacao_parcial ? " no mesmo período" : ""}`}</div>
+      <div class="graf" data-graf="economia_waterfall" style="height:110px"
+           data-titulo="Estimado, deságio e homologado"></div>
     </div>
     <div class="card apoios">
       <div class="ap"><div class="v">${pct(e.pct)}</div>
