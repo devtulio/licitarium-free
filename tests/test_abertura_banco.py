@@ -146,3 +146,32 @@ def test_recomeco_recusado_nao_toca_no_arquivo(acervo, monkeypatch):
         licitarium.abrir_db()
     assert not list(acervo.parent.glob("*.corrompido-*"))
     assert acervo.read_bytes().startswith(b"nao sou um banco")
+
+
+def test_backfill_de_municipio_nao_repete_a_cada_abertura(acervo):
+    """Migração que grava não pode rodar em toda conexão.
+
+    O preenchimento de `municipio_ibge` varria `itens` inteira e abria
+    transação de escrita a cada `abrir_db()` — ou seja, a cada chamada da
+    ponte JS. Era o "database is locked" ao abrir o app (achado do usuário,
+    v1.60.13). Depois de feito uma vez, uma linha zerada à mão tem de
+    continuar zerada.
+    """
+    db = licitarium.abrir_db()
+    db.execute("INSERT OR REPLACE INTO config (chave, valor)"
+               " VALUES ('municipio_ibge', '3550308')")
+    db.commit()
+    db.close()
+    db = licitarium.abrir_db()          # aqui o preenchimento acontece
+    assert db.execute("SELECT municipio_ibge FROM contratacoes"
+                      " WHERE numero_controle='A'").fetchone()[0] == "3550308"
+    db.execute("UPDATE contratacoes SET municipio_ibge=NULL")
+    db.commit()
+    db.close()
+
+    db = licitarium.abrir_db()
+    try:
+        assert db.execute("SELECT municipio_ibge FROM contratacoes"
+                          " WHERE numero_controle='A'").fetchone()[0] is None
+    finally:
+        db.close()

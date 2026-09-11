@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.60.14 — 2026-09-11
+
+**Correção — "database is locked" ao abrir o app (achado do usuário)**
+
+- **Migração de `municipio_ibge` rodava em toda conexão.** O
+  preenchimento retroativo da coluna Origem varria `itens` e
+  `contratacoes` inteiras e abria transação de ESCRITA a cada
+  `abrir_db()` — isto é, a cada chamada da ponte JS. Agora roda uma vez
+  só, marcada no `config`. Era a causa do Painel falhar com "Não
+  consegui montar o painel: database is locked" logo na abertura, sem
+  nenhuma sincronização em curso — e, pelo mesmo motivo, de "Montar
+  PCA" e "Relatórios" não abrirem (as duas telas consultam o banco
+  antes de aparecer; a consulta falhava e o modal nunca chegava).
+- **WAL e `busy_timeout` agora são ligados ANTES das migrações.**
+  Ficavam depois: enquanto as migrações gravavam, a conexão ainda
+  estava com a espera padrão do SQLite (zero) e desistia na hora em vez
+  de esperar os 30 segundos.
+
 ## 1.60.13 — 2026-09-11
 
 **Correção — auditoria de layout/espaçamento pedida pelo usuário (pós-remodelagem)**

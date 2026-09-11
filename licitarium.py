@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.60.13"
+VERSAO = "1.60.14"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -407,6 +407,21 @@ def abrir_db():
     DIR_DADOS.mkdir(parents=True, exist_ok=True)
     db = _conectar()
     db.row_factory = sqlite3.Row
+    # WAL e busy_timeout ANTES das migrações abaixo (achado do usuário,
+    # v1.60.13: "database is locked" ao ABRIR o app, sem sincronização
+    # nenhuma rodando). As migrações gravam, e até esta linha existir aqui
+    # elas rodavam com o padrão do SQLite — espera ZERO por lock. Bastavam
+    # duas aberturas simultâneas (a do `main` e a primeira chamada da ponte
+    # JS) para uma delas desistir na hora, em vez de esperar os 30s.
+    db.execute("PRAGMA journal_mode=WAL")
+    # 30s, não 10s (achado do usuário, v1.52.10): a migração pro
+    # auto_vacuum incremental reescreve o arquivo inteiro (VACUUM) uma
+    # única vez, na primeira abertura após o update — no Windows, o
+    # antivírus varre o arquivo grande recém-reescrito e trava o handle
+    # por alguns segundos, fora do controle do SQLite. 10s não cobria
+    # essa janela; a 1ª chamada da API (painel_precos) batia em
+    # "database is locked" logo após o boot.
+    db.execute("PRAGMA busy_timeout=30000")
     # migrações: atas e contratos ganharam o número humano como colunas
     # (0.2.x); bancos antigos são reprojetados do raw (fonte da verdade)
     colunas_atas = {r[1] for r in db.execute("PRAGMA table_info(atas)")}
@@ -427,13 +442,27 @@ def abrir_db():
             db.execute(f"ALTER TABLE {tabela} ADD COLUMN municipio_ibge TEXT")
             db.commit()
         # tudo o que já estava no banco é do município do usuário: sem isso a
-        # coluna Origem da aba Preços nasceria vazia no acervo inteiro
-        if cols:
-            db.execute(
-                f"UPDATE {tabela} SET municipio_ibge ="
-                " (SELECT valor FROM config WHERE chave='municipio_ibge')"
-                " WHERE municipio_ibge IS NULL AND referencia=0")
-            db.commit()
+        # coluna Origem da aba Preços nasceria vazia no acervo inteiro.
+        # Só uma vez, marcado no `config` (achado do usuário, v1.60.13):
+        # sem a marca, este UPDATE abria uma transação de ESCRITA e varria
+        # `itens` inteira (170 mil linhas) a CADA abertura de conexão —
+        # ou seja, a cada chamada da ponte JS. Era a origem do "database is
+        # locked" ao abrir o app, com ou sem sincronização. Só carimba
+        # depois que o município existe: antes do assistente, gravar NULL e
+        # dar por feito deixaria o acervo sem origem para sempre.
+        marca = f"backfill_municipio_ibge_{tabela}"
+        if cols and not db.execute("SELECT 1 FROM config WHERE chave=?",
+                                   (marca,)).fetchone():
+            ibge = db.execute("SELECT valor FROM config"
+                              " WHERE chave='municipio_ibge'").fetchone()
+            if ibge and ibge[0]:
+                db.execute(
+                    f"UPDATE {tabela} SET municipio_ibge=?"
+                    " WHERE municipio_ibge IS NULL AND referencia=0",
+                    (ibge[0],))
+                db.execute("INSERT OR REPLACE INTO config (chave, valor)"
+                           " VALUES (?, '1')", (marca,))
+                db.commit()
     colunas_m = {r[1] for r in db.execute("PRAGMA table_info(pca_minuta_itens)")}
     if colunas_m and "mesclado_de" not in colunas_m:
         db.execute("ALTER TABLE pca_minuta_itens ADD COLUMN mesclado_de TEXT")
@@ -526,21 +555,10 @@ def abrir_db():
                    " data_assinatura=json_extract(raw,'$.dataAssinatura'),"
                    " data_publicacao=json_extract(raw,'$.dataPublicacaoPncp')")
         db.commit()
-    # WAL + busy_timeout: a thread de sync grava enquanto a ponte JS lê/grava
-    # config — sem isso, "database is locked" na primeira concorrência
     # o filtro por unidade agrupa sinônimos, e o agrupamento é o mesmo em
     # Python e em SQL — daí a função viajar para dentro do banco
     db.create_function("unidade_canonica", 1, _unidade_canonica,
                        deterministic=True)
-    db.execute("PRAGMA journal_mode=WAL")
-    # 30s, não 10s (achado do usuário, v1.52.10): a migração pro
-    # auto_vacuum incremental reescreve o arquivo inteiro (VACUUM) uma
-    # única vez, na primeira abertura após o update — no Windows, o
-    # antivírus varre o arquivo grande recém-reescrito e trava o handle
-    # por alguns segundos, fora do controle do SQLite. 10s não cobria
-    # essa janela; a 1ª chamada da API (painel_precos) batia em
-    # "database is locked" logo após o boot.
-    db.execute("PRAGMA busy_timeout=30000")
     # NORMAL é seguro com WAL (só perde durabilidade em crash do SO, nunca
     # corrompe); cache/mmap maiores evitam releitura de disco em relatório
     # agregado sobre banco de preço grande; temp_store em memória tira
