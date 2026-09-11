@@ -98,6 +98,31 @@ def test_dados_executivo(db):
     assert all("homologado_anterior" in m for m in d["modalidades"])
 
 
+def test_dados_perfil_fornecedor(db):
+    # CT1/CT2 do fixture não têm fornecedor_ni (PNCP às vezes não traz) —
+    # um 3º contrato, ligado à contratação "A" (dispensa, 2026, estimado
+    # 100/homologado 80), é quem prova a ficha de verdade
+    db.execute(
+        "INSERT INTO contratos (numero_controle, contratacao_controle,"
+        " fornecedor_ni, fornecedor_nome, objeto, valor_global,"
+        " vigencia_inicio, vigencia_fim, data_publicacao, raw)"
+        " VALUES ('CT3','A','12345678000100','Fornecedor Z','Merenda',"
+        " 80.0,'2026-01-01','2099-01-01','2026-03-05',"
+        " '{\"numeroContratoEmpenho\":\"3/2026\",\"anoContrato\":2026}')")
+    db.commit()
+    d = relatorios.dados_perfil_fornecedor(db, "12345678000100", 2026)
+    assert d["fornecedor_nome"] == "Fornecedor Z"
+    assert d["no_acervo_desde"] == "2026"
+    assert d["n_contratos"] == 1
+    assert d["vigentes"] == 1
+    assert d["recebido_no_ano"] == 80.0
+    assert d["n_dispensas_ano"] == 1
+    # mesmo deságio da contratação "A" (100 → 80): 20%
+    assert round(d["desagio_fornecedor"], 1) == 20.0
+    assert d["por_ano"] == [{"ano": 2026, "valor": 80.0, "n": 1}]
+    assert relatorios.dados_perfil_fornecedor(db, "não-existe", 2026) is None
+
+
 def test_gerar_html_e_xlsx(db, tmp_path):
     r = relatorios.gerar(db, "contratacoes", {"ano": 2026},
                          "Testópolis", "SP", tmp_path)

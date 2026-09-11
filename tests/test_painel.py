@@ -957,6 +957,9 @@ def test_toda_classe_do_painel_tem_estilo_no_documento_impresso():
         "ctr", "ajuda",
         # botão de dispensar a faixa de Atenção: só existe na tela
         "dispensar",
+        # link pro perfil de fornecedor (handoff Claude Design, 2026-09-11):
+        # abre um modal — no papel não há o que clicar, sai como texto comum
+        "link",
         # modificadores sem geometria própria (herdam da classe base)
         "on", "oculto", "hoje", "venc", "fora", "u", "a", "t",
         "grave", "aviso", "info", "ok", "warn", "err", "up", "down", "dir",

@@ -730,19 +730,22 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .leg i { width:9px; height:9px; border-radius:2px; display:inline-block;
          margin-right:5px; }
 .nota { font-size:11.5px; color:var(--muted); margin-top:9px; line-height:1.5; }
+.link { color:var(--accent); cursor:pointer; }
+.link:hover { text-decoration:underline; }
 /* largura fixa + reticências: sem isso o nome do fornecedor encostava no
    objeto e o objeto era cortado no meio da palavra, sem sinal nenhum */
-.painel table { border-collapse:collapse; width:100%; font-size:12.5px;
+.painel table, .veu table { border-collapse:collapse; width:100%; font-size:12.5px;
                 table-layout:fixed; }
-.painel td, .painel th { overflow:hidden; text-overflow:ellipsis;
+.painel td, .painel th, .veu td, .veu th { overflow:hidden; text-overflow:ellipsis;
                          white-space:nowrap; }
-.painel td:first-child, .painel th:first-child { width:34%; padding-right:14px; }
-.painel td.num, .painel th.num { width:84px; }
-.painel td, .painel th { padding:5px 6px; text-align:left;
+.painel td:first-child, .painel th:first-child,
+.veu td:first-child, .veu th:first-child { width:34%; padding-right:14px; }
+.painel td.num, .painel th.num, .veu td.num, .veu th.num { width:84px; }
+.painel td, .painel th, .veu td, .veu th { padding:5px 6px; text-align:left;
                          border-bottom:1px solid var(--border); }
-.painel th { font-size:11px; color:var(--muted); text-transform:uppercase;
+.painel th, .veu th { font-size:11px; color:var(--muted); text-transform:uppercase;
              letter-spacing:.04em; font-weight:600; }
-.painel td.num, .painel th.num { text-align:right;
+.painel td.num, .painel th.num, .veu td.num, .veu th.num { text-align:right;
                                  font-variant-numeric:tabular-nums; }
 /* grid, não flex: cada coluna nasce com a mesma largura (minmax) e cada
    linha estica todo mundo pra mesma altura por padrão — flex com wrap

@@ -138,6 +138,19 @@ function ligarTooltips() {
   raiz.addEventListener("pointerleave", esconderTt);
 }
 
+// mesmo padrão de delegação acima: um listener só, sobrevive ao redesenho
+// dos cartões. `abrirPerfilFornecedor` mora em app.js (globalmente
+// acessível, os dois arquivos não são módulo) — handoff Claude Design
+// 2026-09-11, tela 1f.
+function ligarCliquesFornecedor() {
+  $("painel").addEventListener("click", (evt) => {
+    const marca = evt.target.closest("[data-fornecedor]");
+    if (!marca) return;
+    evt.preventDefault();
+    abrirPerfilFornecedor(marca.dataset.fornecedor, P.dados.ano);
+  });
+}
+
 // ── ECharts: estilos de texto compartilhados, mesmos valores das classes
 // .rot/.val/.eixo de estilo.css — o SVG do ECharts não carrega classe CSS
 // (sai com style="" inline), então o valor precisa ir explícito aqui.
@@ -663,6 +676,55 @@ function grafCurvaABC(el, itens, larg = 660) {
   return { nA, nB, nC, pctValorA: curva[fimA] };
 }
 
+// ── valor recebido por ano, 1 fornecedor — ênfase, não paleta categórica ──
+// Perfil de fornecedor (handoff Claude Design, 2026-09-11, tela 1f): anos
+// anteriores em --muted, ano corrente sozinho em --s1 — é ênfase de posição
+// (o último é sempre "agora"), não série categórica, então 1 cor só basta.
+function grafValorPorAno(el, porAno, anoAtual) {
+  if (!porAno.length) {
+    el.innerHTML = `<div class="vazio">Sem contratos em anos anteriores.</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="graf-echart" style="height:230px"></div>`;
+  const alvo = el.querySelector(".graf-echart");
+  const chart = _iniciarEchart(alvo);
+  chart.setOption({
+    animation: false,
+    grid: { left: 8, right: 12, top: 30, bottom: 8, containLabel: true },
+    xAxis: { type: "category", data: porAno.map(a => String(a.ano)),
+      axisLine: { lineStyle: { color: COR_EIXO } }, axisTick: { show: false },
+      axisLabel: { ...ROT_TXT, lineHeight: 16,
+        formatter: (v, i) => `{lin|${v}}\n{sub|${porAno[i].n} contrato${
+          porAno[i].n === 1 ? "" : "s"}}`,
+        rich: { lin: { color: "var(--text)", fontWeight: 600, fontSize: 12.5 },
+                sub: { color: "var(--muted)", fontSize: 10.5 } } } },
+    yAxis: { type: "value", min: 0, axisLabel: { ...ROT_TXT,
+        formatter: v => compacto(v).replace("R$ ", "") },
+      splitLine: { lineStyle: { color: COR_EIXO, opacity: .55 } } },
+    series: [{
+      type: "bar", data: porAno.map(a => a.valor),
+      itemStyle: {
+        color: p => porAno[p.dataIndex].ano === anoAtual
+          ? "var(--s1)" : "var(--muted)",
+        opacity: p => porAno[p.dataIndex].ano === anoAtual ? 1 : .45,
+        borderRadius: [4, 4, 0, 0],
+      },
+      emphasis: { disabled: true },
+      label: { show: true, position: "top", fontFamily: _fonteUI(),
+        formatter: p => porAno[p.dataIndex].ano === anoAtual
+          ? `{forte|${compacto(p.value)}}` : `{fraco|${compacto(p.value)}}`,
+        rich: { forte: { color: "var(--text)", fontWeight: 600, fontSize: 12.5 },
+                fraco: { color: "var(--muted)", fontSize: 12.5 } } },
+    }],
+  });
+  ligarBaloEixo(chart, alvo, (i) => {
+    const a = porAno[i];
+    if (!a) return null;
+    return [{ v: compacto(a.valor), cor: a.ano === anoAtual ? "var(--s1)" : "var(--muted)",
+      l: `${a.n} contrato${a.n === 1 ? "" : "s"}` }];
+  });
+}
+
 // ── calor: processos por mês e modalidade, rampa de uma cor só ────────────
 function grafCalor(el, calor, meses) {
   const linhas = Object.entries(calor);
@@ -1033,7 +1095,10 @@ function tabelaFornecedores(itens) {
   return `<table><tr><th>Fornecedor</th><th class="num">Contratos</th>
     <th class="num">Total</th></tr>` + itens.slice(0, 5).map(f =>
     `<tr><td title="${esc(f.fornecedor_nome ?? "")}">${
-      esc(fornecedorCurto(f.fornecedor_nome) ?? "–")}</td>
+      f.fornecedor_ni
+        ? `<a href="#" class="link" data-fornecedor="${esc(f.fornecedor_ni)}"
+            >${esc(fornecedorCurto(f.fornecedor_nome) ?? "–")}</a>`
+        : esc(fornecedorCurto(f.fornecedor_nome) ?? "–")}</td>
       <td class="num">${f.n}</td><td class="num">${compacto(f.total)}</td></tr>`
   ).join("") + `</table>` + (total ? `<div class="nota">Os quatro primeiros
     somam ${pct(topo4 / total * 100, 0)} do valor contratado.</div>` : "");
@@ -1258,6 +1323,7 @@ function mostrarChips(a) {
 
 // ── ligações da tela ──────────────────────────────────────────────────────
 ligarTooltips();
+ligarCliquesFornecedor();
 
 $("painel").querySelectorAll(".subabas button").forEach(b =>
   b.addEventListener("click", () => {

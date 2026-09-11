@@ -1315,6 +1315,73 @@ $("pca-relatorio").addEventListener("click", async () => {
                                      : (r.erro || "Falha ao gerar");
 });
 
+// ── perfil de fornecedor (handoff Claude Design, 2026-09-11, tela 1f) ──────
+// Sem endereço nem sanção do fornecedor: o PNCP sincronizado aqui não traz
+// nenhum dos dois — a ficha nunca afirma o que o acervo não tem como provar
+// (mesma regra do "Procedência do dado" na ficha de detalhe).
+async function abrirPerfilFornecedor(ni, ano) {
+  if (!api.perfil_fornecedor) return;
+  abrirModal("veu-fornecedor");
+  $("forn-nome").textContent = "Carregando…";
+  $("forn-kpis").innerHTML = "";
+  $("forn-meta").textContent = "";
+  $("forn-concentracao").innerHTML = "";
+  $("forn-por-ano").innerHTML = "";
+  $("forn-contratos").innerHTML = "";
+  const d = await api.perfil_fornecedor(ni, ano);
+  if (!d) {
+    $("forn-nome").textContent = "Fornecedor não encontrado no acervo";
+    return;
+  }
+  $("forn-nome").textContent = d.fornecedor_nome;
+  $("forn-meta").innerHTML = [
+    `CNPJ ${esc(d.fornecedor_ni)}`,
+    d.no_acervo_desde ? `no acervo desde ${d.no_acervo_desde}` : null,
+  ].filter(Boolean).join(" · ");
+  $("forn-kpis").innerHTML = `
+    <div class="card kpi"><div class="n">${compacto(d.recebido_no_ano)}</div>
+      <div class="l">Recebido em ${d.ano}</div>
+      <div class="r">${d.pct_do_municipio != null
+        ? `${pct(d.pct_do_municipio, 1)} do homologado do município` : "–"}</div></div>
+    <div class="card kpi"><div class="n">${d.n_contratos}</div>
+      <div class="l">Contratos</div>
+      <div class="r">${d.vigentes} vigente${d.vigentes === 1 ? "" : "s"}${
+        d.vence_60 ? ` · ${d.vence_60} vence${d.vence_60 === 1 ? "" : "m"} em 60 dias` : ""
+      }</div></div>
+    <div class="card kpi"><div class="n">${d.desagio_fornecedor != null
+        ? pct(d.desagio_fornecedor, 1) : "–"}</div>
+      <div class="l">Deságio médio ofertado</div>
+      <div class="r">${d.desagio_municipio != null
+        ? `média do município: ${pct(d.desagio_municipio, 1)}` : "sem base de comparação"}</div></div>
+    <div class="card kpi"><div class="n">${d.n_dispensas_ano}</div>
+      <div class="l">Dispensas em ${d.ano}</div>
+      <div class="r">com este fornecedor como vencedor</div></div>`;
+  // reusa a MESMA curva de concentração do Painel · Análise — é a pergunta
+  // "quanto do dinheiro está em quantas mãos" pro município inteiro, só
+  // trazida pra cá como contexto de onde este fornecedor está; P.dados já
+  // está carregado (o Painel é a tela inicial do programa)
+  if (P.dados?.analise?.curva?.length)
+    grafConcentracao($("forn-concentracao"), P.dados.analise.curva,
+                      P.dados.analise.fornecedores_total);
+  else
+    $("forn-concentracao").innerHTML = `<div class="vazio">Abra o Painel
+      pelo menos uma vez nesta sessão pra carregar a concentração.</div>`;
+  grafValorPorAno($("forn-por-ano"), d.por_ano, d.ano);
+  $("forn-contratos").innerHTML = !d.contratos.length
+    ? `<div class="vazio">Sem contratos no acervo.</div>`
+    : `<table><tr><th>Contrato</th><th>Objeto</th><th class="num">Valor</th>
+        <th>Vigência</th></tr>` + d.contratos.map(c => `<tr>
+        <td>${esc(c.numero ?? "–")}</td>
+        <td title="${esc(c.objeto ?? "")}">${esc((c.objeto ?? "–").slice(0, 60))}</td>
+        <td class="num">${dinheiro(c.valor_global)}</td>
+        <td>${c.vence_em != null
+          ? `<span class="badge ${c.vence_em <= 15 ? "err" : "warn"}"
+              >vence em ${c.vence_em} dias</span>`
+          : c.vigencia_fim
+            ? `até ${dataBr(c.vigencia_fim)}`
+            : "–"}</td></tr>`).join("") + `</table>`;
+}
+
 // ── relatórios ────────────────────────────────────────────────────────────
 async function montarOpcoesRelatorio() {
   const tipo = $("rel-tipo").value;

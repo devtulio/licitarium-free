@@ -810,6 +810,82 @@ def dados_atas(db, ano=None, vigentes=False, orgao=None):
     return {"linhas": linhas, "totais": {"n": total_atas}}
 
 
+def dados_perfil_fornecedor(db, fornecedor_ni, ano):
+    """Ficha de 1 fornecedor: quanto recebeu, quantos contratos, deságio
+    médio que ofereceu (contra a média do município), dispensas no ano e o
+    histórico completo — pra controle interno decidir se vale olhar mais de
+    perto (handoff Claude Design, 2026-09-11, tela 1f).
+
+    Sem dado de sanção ou de endereço do fornecedor: o PNCP sincronizado
+    aqui não traz nenhum dos dois — a ficha não afirma nada sobre isso
+    (nunca um "sem sanção vigente" que o acervo não tem como provar).
+    """
+    ano = int(ano)
+    linha_nome = db.execute(
+        "SELECT fornecedor_nome FROM contratos WHERE fornecedor_ni=?"
+        " ORDER BY data_publicacao DESC LIMIT 1", (fornecedor_ni,)).fetchone()
+    if not linha_nome:
+        return None
+    contratos = [dict(r) for r in db.execute(
+        """SELECT numero_controle, contratacao_controle,
+                  json_extract(raw,'$.numeroContratoEmpenho') numero,
+                  json_extract(raw,'$.anoContrato') ano_contrato,
+                  objeto, valor_global, vigencia_inicio, vigencia_fim,
+                  data_publicacao
+           FROM contratos WHERE fornecedor_ni=?
+           ORDER BY data_publicacao DESC""", (fornecedor_ni,))]
+    for c in contratos:
+        c["numero"] = num_contrato(c["numero"], c["ano_contrato"]) or c["numero"]
+        c["vence_em"] = None
+        if c["vigencia_fim"]:
+            dias = (date.fromisoformat(c["vigencia_fim"][:10])
+                    - date.today()).days
+            if 0 <= dias <= 60:
+                c["vence_em"] = dias
+    vigentes = sum(1 for c in contratos
+                   if c["vigencia_fim"] and c["vigencia_fim"][:10] >= str(date.today()))
+    vence_60 = sum(1 for c in contratos if c["vence_em"] is not None)
+    recebido_no_ano = db.execute(
+        """SELECT SUM(valor_global) FROM contratos
+           WHERE fornecedor_ni=? AND substr(data_publicacao,1,4)=?""",
+        (fornecedor_ni, str(ano))).fetchone()[0] or 0
+    n_dispensas_ano = db.execute(
+        """SELECT COUNT(*) FROM contratos c
+           JOIN contratacoes k ON k.numero_controle=c.contratacao_controle
+           WHERE c.fornecedor_ni=? AND k.ano=? AND k.modalidade_nome
+                 LIKE '%Dispensa%'""", (fornecedor_ni, ano)).fetchone()[0]
+    pares = db.execute(
+        """SELECT k.valor_estimado, k.valor_homologado FROM contratos c
+           JOIN contratacoes k ON k.numero_controle=c.contratacao_controle
+           WHERE c.fornecedor_ni=? AND k.valor_estimado>0
+                 AND k.valor_homologado IS NOT NULL""",
+        (fornecedor_ni,)).fetchall()
+    desagio_fornecedor = (
+        (1 - sum(h for _, h in pares) / sum(e for e, _ in pares)) * 100
+        if pares else None)
+    desagio_municipio = dados_contratacoes(db, ano)["totais"]["desagio"]
+    homologado_municipio = dados_contratacoes(db, ano)["totais"]["homologado"]
+    por_ano = [dict(ano=int(r[0]), valor=r[1] or 0, n=r[2]) for r in db.execute(
+        """SELECT substr(data_publicacao,1,4) a, SUM(valor_global), COUNT(*)
+           FROM contratos WHERE fornecedor_ni=? AND data_publicacao IS NOT NULL
+           GROUP BY 1 ORDER BY 1 DESC LIMIT 4""", (fornecedor_ni,))][::-1]
+    anos_publicacao = [c["data_publicacao"][:4] for c in contratos
+                       if c["data_publicacao"]]
+    return {
+        "fornecedor_ni": fornecedor_ni, "fornecedor_nome": linha_nome[0],
+        "no_acervo_desde": min(anos_publicacao) if anos_publicacao else None,
+        "ano": ano, "contratos": contratos,
+        "n_contratos": len(contratos), "vigentes": vigentes, "vence_60": vence_60,
+        "recebido_no_ano": recebido_no_ano,
+        "pct_do_municipio": (recebido_no_ano / homologado_municipio * 100)
+            if homologado_municipio else None,
+        "n_dispensas_ano": n_dispensas_ano,
+        "desagio_fornecedor": desagio_fornecedor,
+        "desagio_municipio": desagio_municipio,
+        "por_ano": por_ano,
+    }
+
+
 def dados_executivo(db, ano, orgao=None):
     ano = int(ano)
     og = " AND orgao_cnpj=?" if orgao else ""

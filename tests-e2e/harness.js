@@ -520,6 +520,32 @@ function scriptPonte(temaBanco = "portal") {
           corte: 0,
         };
       },
+      perfil_fornecedor: async (ni, ano) => {
+        window.__chamadas.push({ metodo: "perfil_fornecedor", ni, ano });
+        if (window.__semPerfilFornecedor) return null;
+        return window.__perfilFornecedor ?? {
+          fornecedor_ni: ni, fornecedor_nome: "RHC Produtos e Serviço Ltda",
+          no_acervo_desde: "2022", ano,
+          recebido_no_ano: 2804600, pct_do_municipio: 14.3,
+          n_contratos: 4, vigentes: 3, vence_60: 1,
+          desagio_fornecedor: 9.4, desagio_municipio: 13.3,
+          n_dispensas_ano: 1,
+          por_ano: [
+            { ano: ano - 3, valor: 612400, n: 2 },
+            { ano: ano - 2, valor: 1198700, n: 3 },
+            { ano: ano - 1, valor: 1604250, n: 3 },
+            { ano, valor: 2804600, n: 4 },
+          ],
+          contratos: [
+            { numero_controle: "CT1", numero: "61/2026",
+              objeto: "Material hospitalar", valor_global: 1284300,
+              vigencia_fim: "2027-05-06", vence_em: null },
+            { numero_controle: "CT2", numero: "48/2026",
+              objeto: "Aquisição de combustível", valor_global: 932000,
+              vigencia_fim: null, vence_em: 8 },
+          ],
+        };
+      },
       listar_municipios_referencia: async () => {
         window.__chamadas.push({ metodo: "listar_municipios_referencia" });
         return window.__municipiosReferencia ?? [

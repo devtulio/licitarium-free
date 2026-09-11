@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.2.0 — 2026-09-11
+
+**Adição — Fase 2 do handoff "Dashboard de Licitações Públicas" (Claude Design): Perfil de fornecedor**
+
+- **Ficha de fornecedor**, aberta ao clicar no nome na tabela "Onde o
+  dinheiro foi" (Painel · Execução). Novo `relatorios.dados_perfil_fornecedor`
+  + `Api.perfil_fornecedor` agregam, por exercício: recebido no ano e % do
+  total do município, nº de contratos (vigentes / a vencer em 60 dias),
+  deságio médio ofertado × médio do município, dispensas em que o
+  fornecedor venceu, valor recebido nos últimos 4 exercícios e a lista de
+  contratos. A curva de concentração reaproveita `grafConcentracao`
+  (mesma lógica já usada em Painel · Análise); novo `grafValorPorAno`
+  desenha as 4 barras com o ano corrente em destaque.
+- Hospedada no modal existente `#veu-detalhe`-like (`#veu-fornecedor`),
+  não como página com URL própria — o app não tem roteamento de página
+  hoje, e criar um seria mudança de arquitetura, não de layout (decisão
+  registrada no plano da fase).
+- **Sem selo de sanção nem endereço do fornecedor** — omissão deliberada:
+  o PNCP sincronizado por este programa não traz esses dados, e o
+  mockup original tinha ambos. Mesma régua de honestidade de dado já
+  usada no "Procedência do dado" do detalhe de contratação.
+- `.painel table` estava escopado só a `.painel`; a tabela de contratos
+  da nova ficha (fora do `.painel`, dentro de `.veu`) saía sem borda nem
+  zebra. Regra estendida para `.veu table` também — mesma classe de bug
+  já corrigida para `h3`/`.card` durante o redesenho anterior.
+- 288 pytest + 169 Playwright verdes.
+
 ## 2.1.0 — 2026-09-11
 
 **Adição — Fase 1 do handoff "Dashboard de Licitações Públicas" (Claude Design)**

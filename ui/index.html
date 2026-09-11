@@ -336,6 +336,33 @@
   </div>
 </div>
 
+<!-- ═══ PERFIL DE FORNECEDOR (handoff Claude Design, 2026-09-11, tela 1f) ═══ -->
+<div id="veu-fornecedor" class="veu oculto" role="dialog" aria-modal="true"
+     aria-label="Perfil do fornecedor">
+  <div class="card modal largo">
+    <div class="mhead">
+      <div>
+        <div class="dim" style="font-size:12px">Fornecedor</div>
+        <h1 id="forn-nome" style="font-size:24px;font-weight:400;line-height:1.3"></h1>
+        <div class="dim" id="forn-meta" style="margin-top:6px"></div>
+      </div>
+      <button class="fechar" data-fecha="veu-fornecedor" aria-label="Fechar">×</button>
+    </div>
+    <div style="padding:0 20px 20px; display:flex; flex-direction:column; gap:16px">
+      <div class="kpis" id="forn-kpis"></div>
+      <div class="card" style="padding:16px 20px 10px">
+        <div style="font:600 11px/1 system-ui;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Concentração de fornecedores no exercício</div>
+        <div id="forn-concentracao" style="margin-top:10px"></div>
+      </div>
+      <div class="card" style="padding:16px 20px 10px">
+        <div style="font:600 11px/1 system-ui;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Valor recebido por ano — ano corrente em destaque</div>
+        <div id="forn-por-ano" style="margin-top:10px"></div>
+      </div>
+      <div class="card lista" id="forn-contratos"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ RELATÓRIOS ═══ -->
 <div id="veu-relatorios" class="veu oculto" role="dialog" aria-modal="true"
      aria-label="Relatórios">
