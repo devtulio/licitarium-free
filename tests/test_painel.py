@@ -790,6 +790,11 @@ def test_economia_totais_batem_com_os_cards_do_ano(api):
     assert e["pct"] == pytest.approx(c["desagio"])
     # D3, exercício anterior: 20.000 estimados, 18.000 homologados
     assert e["economizado_anterior"] == pytest.approx(2000.0)
+    # KPIs novos da vista Economia (handoff Claude Design, fase 6, 3b):
+    # "processos no cálculo" (D1/D2/P1 têm os dois valores; P2 não) e o
+    # deságio do ano anterior no mesmo corte de período, pra comparar p.p.
+    assert e["n"] == 4 and e["n_pares"] == 3
+    assert e["pct_anterior"] == pytest.approx(10.0)   # D3: 1 - 18000/20000
 
 
 def test_economia_por_modalidade_traz_valor_em_reais(api):

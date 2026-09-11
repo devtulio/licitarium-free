@@ -27,13 +27,16 @@ test("subaba do Painel também anuncia a seleção", async ({ page }) => {
 
 test("todo gráfico tem nome acessível e não esconde os rótulos",
     async ({ page }) => {
-  await page.locator('.subabas button[data-vista="economia"]').click();
+  // Análise tem a maior variedade de gráficos hoje (funil, série, deságio,
+  // concentração, calor) — Economia perdeu "acumulada" e "por fornecedor"
+  // na fase 6 do handoff (2026-09-11) e "por categoria" virou tabela
+  await page.locator('.subabas button[data-vista="analise"]').click();
   await page.waitForTimeout(250);
   // [data-overlay] é a camada de corte vertical/rótulo por cima do SVG do
   // ECharts (ver painel.js:grafSeries) — decorativa, aria-hidden, e o
   // gráfico de baixo já carrega o nome acessível
   const graficos = await page.evaluate(() =>
-    [...document.querySelectorAll("#p-economia svg:not([data-overlay])")]
+    [...document.querySelectorAll("#p-analise svg:not([data-overlay])")]
       .map(s => ({
         // o nome acessível é `aria-label`, não <title>: o <title> desenhava o
         // balão preto nativo por cima do tooltip próprio (trocado por todos os

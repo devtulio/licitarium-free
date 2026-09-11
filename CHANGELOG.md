@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.6.0 — 2026-09-11
+
+**Adição/Mudança — Fase 6 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Economia**
+
+- **Vista Economia fica mais enxuta**, por decisão do próprio handoff
+  ("cada corte explica de onde vem: modalidade, família e categoria"):
+  saem da tela "Economia acumulada" (3 exercícios) e "Economia por
+  fornecedor" (ranking) — continuam disponíveis no relatório impresso
+  "Economia e Comparativos", que não mudou. "Economia por categoria"
+  vira tabela (Itens/Estimado/Homologado/Economia/Deságio) em vez de
+  gráfico de barras.
+- **4 KPIs no lugar de 3**: Economizado no ano, Deságio médio (com a
+  variação em p.p. sobre o ano anterior — novo `pct_anterior`, mesmo
+  corte de "mesmo período" já usado no resto do Painel), Economia a
+  mais que o ano anterior, e Processos no cálculo (com quantos ficaram
+  de fora por falta de estimado ou de resultado).
+- **Economia por modalidade e por família** passam a rotular o valor
+  cheio em R$ (`exato:true`, mesma opção da fase 3); credenciamento e
+  inexigibilidade (sem disputa de preço) saem do gráfico de economia —
+  diferente da Análise, onde continuam aparecendo com "sem disputa de
+  preço" em vez de sumir.
+- 292 pytest + 168 Playwright verdes.
+
 ## 2.5.0 — 2026-09-11
 
 **Adição — Fase 5 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Vigilância**

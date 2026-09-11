@@ -1015,20 +1015,16 @@ const DESENHO = {
                               P.dados.vigilancia.limite_compras),
   funil: (el, l) => grafFunil(el, P.dados.analise.funil, l),
   agenda: (el, l) => grafAgenda(el, P.dados.vigilancia.agenda),
-  economia_modalidade: (el, l) => grafBarras(el, P.dados.economia.por_modalidade, {
+  // credenciamento/inexigibilidade (pct=null, "sem disputa de preço" na
+  // Análise) somam 0 de economia — a vista Economia só mostra quem de
+  // fato disputou preço (nota do handoff, fase 6, tela 3b)
+  economia_modalidade: (el, l) => grafBarras(el,
+    P.dados.economia.por_modalidade.filter(m => m.pct != null), {
     valor: m => m.economizado || 0, rotulo: m => m.modalidade ?? "–",
-    sub: m => `${m.n} ${m.n === 1 ? "processo" : "processos"}`}, l),
+    exato: true}, l),
   economia_familia: (el, l) => grafBarras(el, P.dados.economia.por_familia, {
     valor: f => f.economizado || 0, rotulo: f => f.nome ?? "–",
-    sub: f => `${f.n} ${f.n === 1 ? "item" : "itens"}`}, l),
-  economia_categoria: (el, l) => grafBarras(el, P.dados.economia.por_categoria, {
-    valor: c => c.economizado || 0, rotulo: c => c.nome ?? "–",
-    sub: c => `${c.n} ${c.n === 1 ? "item" : "itens"}`}, l),
-  economia_series: (el, l) => grafSeries(el, P.dados.economia.series, P.dados.ano),
-  economia_fornecedor: (el, l) => grafBarras(el, P.dados.economia.por_fornecedor, {
-    valor: f => f.economizado || 0,
-    rotulo: f => fornecedorCurto(f.nome) ?? "–",
-    sub: f => `${f.n} ${f.n === 1 ? "item" : "itens"} · ${pct(f.pct, 0)}`}, l),
+    exato: true}, l),
 };
 
 function desenharGraficos(raiz) {
@@ -1248,13 +1244,16 @@ function vistaEconomia(d) {
   const e = d.economia, ano = d.ano;
   const varEcon = e.economizado_anterior
     ? (e.economizado / e.economizado_anterior - 1) * 100 : null;
-  // o card de homologado ficava com duas linhas contra as três dos irmãos, e
-  // a fileira perdia a linha de base comum — a comparação com o ano anterior
-  // preenche a lacuna com informação, não com espaço em branco
-  const varHom = e.homologado_anterior
-    ? (e.homologado / e.homologado_anterior - 1) * 100 : null;
+  const varDesagio = e.pct_anterior != null && e.pct != null
+    ? e.pct - e.pct_anterior : null;
+  const nSemPar = (e.n || 0) - (e.n_pares || 0);
+  const familias = P.dados.economia.por_familia;
+  const somaFamilias = familias.reduce((s, f) => s + (f.economizado || 0), 0);
+  const modalidadesComDisputa = e.por_modalidade.filter(m => m.pct != null);
+  const somaModalidades = modalidadesComDisputa.reduce(
+    (s, m) => s + (m.economizado || 0), 0);
   return `
-  <div class="faixa f-3">
+  <div class="faixa f-4">
     <div class="card hero">
       <h3>Economizado em ${ano}</h3>
       <div class="n">${dinheiro(e.economizado)}</div>
@@ -1265,32 +1264,51 @@ function vistaEconomia(d) {
     </div>
     <div class="card kpiv"><div class="v">${pct(e.pct)}</div>
       <div class="r">deságio médio</div>
-      <div class="r" style="margin-top:8px">${dinheiro(e.estimado)} estimados</div>
-    </div>
-    <div class="card kpiv"><div class="v">${dinheiro(e.homologado)}</div>
-      <div class="r">homologado no ano</div>
       <div class="r" style="margin-top:8px">${
-        varHom == null ? `sem ${ano - 1} para comparar`
-          : `<span class="dir">${varHom >= 0 ? "▲" : "▼"} ${
-              pct(Math.abs(varHom), 0)}</span> sobre ${ano - 1}`}</div></div>
+        varDesagio == null ? `sem ${ano - 1} para comparar`
+          : `<span class="${varDesagio >= 0 ? "up" : "down"}">${
+              varDesagio >= 0 ? "▲" : "▼"} ${pct(Math.abs(varDesagio), 1)
+              } p.p.</span> sobre ${ano - 1}`}</div></div>
+    <div class="card kpiv"><div class="v">${
+        e.economizado_anterior == null ? "–"
+          : dinheiro(e.economizado - e.economizado_anterior)}</div>
+      <div class="r">economia a mais que ${ano - 1}</div>
+      <div class="r" style="margin-top:8px">${
+        e.economizado_anterior == null ? `sem ${ano - 1} para comparar`
+          : `mesmo período, ${dinheiro(e.economizado_anterior)} em ${ano - 1}`
+        }</div></div>
+    <div class="card kpiv"><div class="v">${e.n_pares ?? "–"}</div>
+      <div class="r">processos no cálculo</div>
+      <div class="r" style="margin-top:8px">${nSemPar} sem estimado ou
+        sem resultado</div></div>
   </div>
-  ${cartaoGraf(`Economia acumulada — ${ano - 2} a ${ano}`, "economia_series",
-           `O ano corrente em destaque; os anteriores ficam como contexto —
-            a comparação é com o mesmo mês, não com o total do ano.`)}
-  <div class="faixa f-3">
-    ${cartaoGraf("Economia por modalidade", "economia_modalidade")}
-    ${cartaoGraf("Economia por família de item", "economia_familia",
-             `Mesmo agrupamento do medidor de limite — radical de duas
-              palavras da descrição.`)}
-    ${cartaoGraf("Economia por categoria (PNCP)", "economia_categoria",
-             `Categoria como o próprio PNCP classificou o item.`)}
-  </div>
-  ${cartaoGraf("Economia por fornecedor — quem fechou abaixo do estimado",
-           "economia_fornecedor",
-           `Agrupado pelo CNPJ/CPF, não pelo nome — a mesma empresa aparece
-            com grafias diferentes entre processos. Deságio alto não é
-            atestado de bom fornecedor: pode ser estimativa inflada na
-            origem. Leia junto com a pesquisa de preços.`)}`;
+  ${cartaoGraf("Economia por modalidade", "economia_modalidade",
+           somaModalidades ? `As ${modalidadesComDisputa.length} somam ${
+             dinheiro(somaModalidades)} dos ${dinheiro(e.economizado)} do
+             ano. Credenciamento e inexigibilidade não entram: sem disputa
+             de preço, não há economia a medir.` : "")}
+  ${cartaoGraf("Economia por família de item", "economia_familia",
+           `Mesmo agrupamento do medidor de limite — radical de duas
+            palavras da descrição.${somaFamilias ? ` As ${familias.length}
+            famílias somam ${dinheiro(somaFamilias)} dos ${
+            dinheiro(e.economizado)} do ano.` : ""}`)}
+  ${cartao("Por categoria do PNCP — campo do próprio item, sem classificação nossa",
+           tabelaPorCategoria(P.dados.economia.por_categoria))}`;
+}
+
+function tabelaPorCategoria(itens) {
+  if (!itens.length) return `<div class="vazio">Sem itens no exercício.</div>`;
+  return `<table><tr><th>Categoria</th><th class="num">Itens</th>
+    <th class="num">Estimado</th><th class="num">Homologado</th>
+    <th class="num">Economia</th><th class="num">Deságio</th></tr>` +
+    itens.slice(0, 8).map(c => `<tr>
+      <td title="${esc(c.nome ?? "")}">${esc(c.nome ?? "–")}</td>
+      <td class="num">${c.n}</td>
+      <td class="num">${dinheiro(c.estimado)}</td>
+      <td class="num">${dinheiro(c.homologado)}</td>
+      <td class="num">${dinheiro(c.economizado)}</td>
+      <td class="num" style="color:var(--ok)">${pct(c.pct, 1)}</td></tr>`
+  ).join("") + `</table>`;
 }
 
 // ══ ciclo de vida ═════════════════════════════════════════════════════════

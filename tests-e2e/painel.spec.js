@@ -234,40 +234,23 @@ test("análise traz as três séries e o mapa de calor", async ({ page }) => {
     .toBeGreaterThanOrEqual(3);
 });
 
-test("economia mostra o total do ano e os três agrupamentos",
-    async ({ page }) => {
+test("economia mostra o total do ano e os quatro KPIs", async ({ page }) => {
+  // handoff Claude Design (2026-09-11, fase 6, tela 3b): "Economia
+  // acumulada" e "Economia por fornecedor" saíram da tela — a nota do
+  // mockup fecha em só 3 cortes (modalidade/família/categoria) e um
+  // número; "por categoria" virou tabela, não gráfico de barras
   await page.locator('.subabas button[data-vista="economia"]').click();
   const v = page.locator("#p-economia");
   await expect(v).toContainText("Economizado em 2026");
   await expect(v).toContainText("deságio médio");
+  await expect(v).toContainText("economia a mais que 2025");
+  await expect(v).toContainText("processos no cálculo");
   await expect(v).toContainText("Economia por modalidade");
   await expect(v).toContainText("Economia por família de item");
-  await expect(v).toContainText("Economia por categoria");
+  await expect(v).toContainText("Por categoria do PNCP");
   await expect(v.locator("svg rect").first()).toBeVisible();
-});
-
-test("economia traz a série acumulada de 3 exercícios", async ({ page }) => {
-  await page.locator('.subabas button[data-vista="economia"]').click();
-  const v = page.locator("#p-economia");
-  await expect(v).toContainText("Economia acumulada");
-  // uma linha por exercício comparado, mesmo padrão da série de Análise
-  expect(await v.locator('[data-graf="economia_series"] svg path[stroke-width]')
-    .count()).toBeGreaterThanOrEqual(3);
-});
-
-test("economia traz o ranking de fornecedores por deságio", async ({ page }) => {
-  await page.locator('.subabas button[data-vista="economia"]').click();
-  const cartao = page.locator(
-    '#p-economia .card:has([data-graf="economia_fornecedor"])');
-  await expect(cartao).toContainText("quem fechou abaixo do estimado");
-  // o mais econômico lidera, com quantidade e % ao lado do valor (ECharts
-  // não marca o texto com classe — busca por conteúdo, não por seletor)
-  await expect(cartao.locator("svg text").filter({ hasText: "23 itens" }))
-    .toBeVisible();
-  await expect(cartao.locator("svg text").filter({ hasText: "16%" }))
-    .toBeVisible();
-  // a ressalva anda junto do número: deságio alto pode ser estimativa inflada
-  await expect(cartao).toContainText("estimativa inflada");
+  await expect(v.locator('[data-graf="economia_series"]')).toHaveCount(0);
+  await expect(v.locator('[data-graf="economia_fornecedor"]')).toHaveCount(0);
 });
 
 test("economia fica lembrada como as outras subabas", async ({ page }) => {
@@ -734,11 +717,11 @@ test("a barra fica com o grosso do cartão, não o texto em volta",
     document.querySelectorAll(".vista:not(.oculto) .graf[data-graf]")
       .forEach(el => {
         const svg = el.querySelector("svg");
-        // só os que usam grafBarras — `economia_series` é linha, não barra;
-        // `modalidades` virou dumbbell (Fase 6, pesquisa de dashboard
-        // 2026-09-10), marca é ponto pequeno por desenho, não barra longa
-        if (!svg || !["economia_modalidade", "economia_familia",
-                      "economia_categoria", "economia_fornecedor"]
+        // só os que usam grafBarras — "por categoria" virou tabela e
+        // "por fornecedor"/"acumulada" saíram da tela (handoff Claude
+        // Design, fase 6); `modalidades` virou dumbbell (Fase 6, pesquisa
+        // de dashboard 2026-09-10), marca é ponto pequeno, não barra longa
+        if (!svg || !["economia_modalidade", "economia_familia"]
                      .includes(el.dataset.graf)) return;
         const larg = el.getBoundingClientRect().width;
         const marcas = [...svg.querySelectorAll("path")]

@@ -749,7 +749,11 @@ def dados_contratacoes(db, ano=None, modalidade=None, orgao=None):
         if pares else None
     return {"linhas": linhas,
             "totais": {"n": len(linhas), "estimado": tot_est,
-                       "homologado": tot_hom, "desagio": desagio}}
+                       "homologado": tot_hom, "desagio": desagio,
+                       # quantas entraram de fato na conta do deságio —
+                       # KPI "Processos no cálculo" da vista Economia
+                       # (handoff Claude Design, fase 6, 2026-09-11)
+                       "n_pares": len(pares)}}
 
 
 def dados_contratos(db, ano=None, vigentes=False, orgao=None):
@@ -1182,6 +1186,19 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
                AND (data_publicacao IS NULL OR substr(data_publicacao,1,10) <= ?)
                {og}""", [ano - 1, corte] + og_args).fetchone()
     anterior = {"n": ant[0], "homologado": ant[1] or 0, "estimado": ant[2] or 0}
+    # deságio do ano anterior, no MESMO corte de período — KPI "Deságio
+    # médio" da vista Economia compara p.p. contra igual (handoff Claude
+    # Design, fase 6). Só sobre pares (estimado E homologado), mesma
+    # regra do deságio de sempre — não dá pra reusar `anterior` acima
+    # porque aquele soma TODA contratação, pareada ou não.
+    pares_ant = db.execute(
+        f"""SELECT valor_estimado, valor_homologado FROM contratacoes
+             WHERE referencia=0 AND ano=?
+               AND (data_publicacao IS NULL OR substr(data_publicacao,1,10) <= ?)
+               AND valor_estimado>0 AND valor_homologado IS NOT NULL{og}""",
+        [ano - 1, corte] + og_args).fetchall()
+    pct_anterior = ((1 - sum(h for _, h in pares_ant) / sum(e for e, _ in pares_ant))
+                   * 100 if pares_ant else None)
     # homologado é homologado: o resumo executivo usa
     # COALESCE(homologado, estimado) para não zerar processo em andamento,
     # mas aqui as duas barras são comparadas lado a lado — misturar as duas
@@ -1497,6 +1514,9 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
             "homologado_anterior": anterior["homologado"],
             "economizado_anterior": (anterior["estimado"] - anterior["homologado"])
                 if anterior["estimado"] and anterior["homologado"] else None,
+            "pct_anterior": pct_anterior,
+            "n_pares": executivo["cards"]["n_pares"],
+            "n": executivo["cards"]["n"],
             "por_modalidade": desagios,
             "por_familia": por_familia[:10],
             "por_categoria": por_categoria[:10],
