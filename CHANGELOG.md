@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.60.13 — 2026-09-11
+
+**Correção — auditoria de layout/espaçamento pedida pelo usuário (pós-remodelagem)**
+
+- **Rótulo "94,9%" do Pareto cortava no topo do cartão** ("Onde o
+  dinheiro foi"), virando um artefato quase ilegível — margem superior
+  do gráfico subiu de 10 pra 28px.
+- **Calendário de calor da Agenda ignorava `cellSize:[16,16]`** —
+  célula renderizava a 52×21px (esticada pra caber na largura toda do
+  cartão) em vez de 16×16. Causa: dar `left` E `right` juntos faz o
+  ECharts esticar a célula pra preencher a caixa, mesmo com `cellSize`
+  fixo. Só `left`/`top` deixa a largura nascer do `cellSize` de
+  verdade — calendário compacto agora, como desenhado.
+- **"Sincronizado em..." quebrava em 4+ linhas estreitas em janela de
+  1024px** — `.info-topo` tinha `flex:1` com base 0%, que
+  matematicamente nunca participa do encolhimento (todo o aperto
+  sobrava só pra ele, ~36px, enquanto a busca global nunca precisava
+  encolher). Base subiu pra 190px — agora a busca encolhe de verdade
+  antes disso acontecer.
+- **Sparkline da manchete de Execução deixava um vão vazio embaixo**
+  em telas largas (o cartão estica pra acompanhar o irmão de 3 itens,
+  o gráfico tem altura fixa) — ancorado no rodapé do cartão agora, lê
+  como flourish, não espaço esquecido.
+- **Achado, mas não era bug**: card "131 CONTRATAÇÕES" com borda azul
+  persistente nos prints — confirmado que é hover real (mouse do
+  Playwright parado em cima do card por causa do reflow da página,
+  não reproduz com usuário real).
+
 ## 1.60.12 — 2026-09-11
 
 **Correção — "database is locked" achado pelo usuário rodando o app real**

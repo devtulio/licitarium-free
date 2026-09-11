@@ -962,12 +962,17 @@ function grafAgendaCalor(el, itens) {
     dados.push({ value: [iso, v],
       itemStyle: { color: v ? `var(--seq${nivel(v)})` : "var(--surface2)" } });
   }
-  el.style.height = "170px";
+  el.style.height = "150px";
   const chart = _iniciarEchart(el);
   chart.setOption({
     animation: false,
+    // sem `right`/`bottom`: dando os 2 lados de uma dimensão (left+right),
+    // o ECharts estica a célula pra caber na caixa toda, ignorando
+    // `cellSize` — virava 52×21px em vez de 16×16 (achado na auditoria de
+    // layout, 2026-09-11: célula gigante, resto do cartão em branco). Só
+    // `left`/`top` deixa a largura nascer do cellSize × nº de semanas.
     calendar: { range: [isoLocal(hoje), isoLocal(fim)], cellSize: [16, 16],
-      left: 24, right: 4, top: 20, bottom: 4,
+      left: 24, top: 20,
       itemStyle: { borderWidth: 2, borderColor: "var(--surface)" },
       dayLabel: { color: "var(--muted)", fontSize: 10,
         nameMap: ["D", "S", "T", "Q", "Q", "S", "S"] },
@@ -1241,7 +1246,11 @@ function grafPareto(el, itens, totalGeral, larg = 400) {
   const chart = _iniciarEchart(el);
   chart.setOption({
     animation: false,
-    grid: { left: 8, right: 20, top: 10, bottom: 62, containLabel: true },
+    // top:28, não 10 — o rótulo do ponto acumulado mais alto (perto de
+    // 100%) fica ACIMA do ponto e cortava no topo do cartão, virando um
+    // artefato visual quase ilegível (achado na auditoria de layout,
+    // 2026-09-11)
+    grid: { left: 8, right: 20, top: 28, bottom: 62, containLabel: true },
     xAxis: { type: "category", data: nomes,
       axisLine: { lineStyle: { color: "var(--border)" } }, axisTick: { show: false },
       axisLabel: { ...ROT_TXT, interval: 0, rotate: 28 } },

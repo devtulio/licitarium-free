@@ -522,7 +522,15 @@ body.redimensionando { cursor:col-resize; user-select:none; }
    `flex:1` (2026-09-09): ganha o espaço que a busca-global (com teto de
    360px) deixa de usar — sem `margin-left:auto`, que empurrava tudo pra
    direita sem deixar o bloco crescer pra esquerda. */
-.info-topo { flex:1; margin-right:18px; text-align:right;
+/* base 190px, não 0 (2026-09-11, achado na auditoria de layout): `flex:1`
+   com base 0 nunca participa do encolhimento — matematicamente a base 0
+   pesa zero no rateio de `flex-shrink`, então a busca-global (base 360)
+   nunca precisava encolher (a linha "cabia" sem estourar) e toda a folga
+   ínfima (~36px numa janela de 1024px) sobrava só pra este bloco, que
+   quebrava em 4+ linhas estreitas. Com base 190px o navegador CONTA este
+   bloco no cálculo de overflow, e a busca-global (que já tem
+   min-width:160px) encolhe de verdade antes disso acontecer. */
+.info-topo { flex:1 1 190px; margin-right:18px; text-align:right;
              font-size:11.5px; line-height:1.6; color:var(--muted);
              min-width:0; }
 .info-topo .dot { display:inline-block; width:8px; height:8px;
@@ -914,7 +922,15 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    arredondado ("R$ 19,6 mi", 11 caracteres) virou o completo
    ("R$ 19.609.957,57", 17) — o teto de 40px nunca tinha sido calibrado
    pra essa largura. */
-.card.hero { container-type:inline-size; }
+/* flex column + sparkline empurrado pro fundo: o cartão estica pra
+   acompanhar a altura do irmão (apoios, 3 itens) em telas largas, mas o
+   sparkline tem altura FIXA (svg(240,44,...) em painel.js) — sem isso
+   sobrava um vão vazio embaixo dele, crescendo quanto mais larga a
+   janela (achado na auditoria de layout, 2026-09-11). Ancorar o
+   sparkline no rodapé lê como flourish de rodapé (padrão comum em card
+   de métrica), não como espaço esquecido. */
+.card.hero { container-type:inline-size; display:flex; flex-direction:column; }
+.card.hero svg { margin-top:auto; padding-top:14px; }
 /* piso baixou de 20px pra 18px em 2026-09-10 (coluna de sub-vistas
    tirou espaço do card na largura mínima, 900px). Teto subiu de 27px
    pra 34px no mesmo commit: a manchete deixou de dividir a faixa em 4
