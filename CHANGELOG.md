@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.4.0 — 2026-09-11
+
+**Adição — Fase 4 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Análise**
+
+- **Funil "Do edital ao contrato" mudou de Vigilância para Análise** e
+  passou de 4 para 3 etapas: publicadas → com propostas recebidas → com
+  resultado homologado. "Com contrato"/"vigentes hoje" saíram — já são
+  fato coberto pelos cartões de Execução. A porcentagem ao lado de cada
+  etapa é sempre sobre "publicadas", não sobre a etapa anterior. Nova
+  etapa "com propostas" usa `tem_resultado` (campo já sincronizado do
+  PNCP), sem custo de sync adicional.
+- **Deságio por modalidade não some mais em silêncio** quando a
+  modalidade não disputa preço (credenciamento, inexigibilidade): entra
+  na lista com "sem disputa de preço — N processos" em vez de ficar de
+  fora do gráfico como se tivesse 0% de deságio.
+- **Nova tabela "Onde concentra — por órgão"**: contratações, homologado,
+  % do ano, deságio e nº de fornecedores por órgão — agregação nova em
+  `relatorios.dados_painel`, com o mesmo cuidado de aliasing
+  (`c.orgao_cnpj`) do funil e do "vencendo" (Fase 3) contra o
+  "ambiguous column name" do SQLite.
+- Vigilância perde o funil (só "Limite anual de dispensa" segue por ora,
+  em largura total) — a fila de triagem e o resto do redesenho dessa
+  tela é a Fase 5.
+- 291 pytest + 170 Playwright verdes.
+
 ## 2.3.0 — 2026-09-11
 
 **Adição — Fase 3 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Execução**

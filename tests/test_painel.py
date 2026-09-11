@@ -51,9 +51,17 @@ def api(tmp_path, monkeypatch):
             (id_, ano, uni, mod, "Dispensa" if mod == 8 else "Pregão",
              est, hom, pub, raw))
     # item homologado: é o que faz a contratação contar como "com resultado"
+    # (tem_resultado=1 também, coerente com o PNCP real — todo item
+    # homologado teve proposta registrada antes)
     db.execute("INSERT INTO itens (id, contratacao_controle, ano, descricao,"
-               " unidade, valor_unitario_homologado, raw)"
-               " VALUES ('D1#1','D1',?, 'ITEM','UN',2700.0,'{}')", (ANO,))
+               " unidade, tem_resultado, valor_unitario_homologado, raw)"
+               " VALUES ('D1#1','D1',?, 'ITEM','UN',1,2700.0,'{}')", (ANO,))
+    # item de P1 recebeu proposta (tem_resultado=1) mas ainda sem
+    # homologação — prova a etapa "com propostas" ser mais larga que
+    # "com resultado" (handoff Claude Design, fase 4)
+    db.execute("INSERT INTO itens (id, contratacao_controle, ano, descricao,"
+               " unidade, tem_resultado, raw)"
+               " VALUES ('P1#1','P1',?, 'ITEM','UN',1,'{}')", (ANO,))
     venc = (date.today() + timedelta(days=20)).isoformat()
     db.execute("INSERT INTO contratos (numero_controle, contratacao_controle,"
                " orgao_cnpj, fornecedor_ni, fornecedor_nome, objeto,"
@@ -126,10 +134,72 @@ def test_desagio_por_modalidade(api):
     assert pcts["Dispensa"] == pytest.approx(5.4545, rel=1e-3)
 
 
+def test_desagio_modalidade_sem_disputa_entra_com_pct_none(api):
+    """Credenciamento/inexigibilidade não disputam preço — sem nenhuma
+    contratação com estimado+homologado, a modalidade sumia do gráfico em
+    silêncio. Agora entra com pct=None pra virar "sem disputa de preço"
+    em vez de desaparecer (handoff Claude Design, fase 4, tela 3a)."""
+    db = _db()
+    try:
+        db.execute(
+            "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+            " orgao_cnpj, modalidade_id, modalidade_nome, objeto,"
+            " valor_estimado, data_publicacao, referencia, raw)"
+            " VALUES ('C1',?,1,'111',15,'Credenciamento','Obj',"
+            " 40000.0,?,0,'{}')", (ANO, f"{ANO}-05-01"))
+        db.commit()
+    finally:
+        db.close()
+
+    a = api.painel(ANO)["analise"]
+    credenciamento = next(d for d in a["desagios"]
+                          if d["modalidade"] == "Credenciamento")
+    assert credenciamento["pct"] is None
+    assert credenciamento["n"] == 1
+
+
 def test_curva_de_concentracao_termina_em_cem(api):
     a = api.painel(ANO)["analise"]
     assert a["curva"][-1] == pytest.approx(100.0)
     assert a["fornecedores_total"] == 1
+
+
+def test_onde_concentra_por_orgao(api):
+    """Nova tabela "Onde concentra — por órgão" (handoff Claude Design,
+    fase 4, tela 3a): agregação nova em `contratacoes`/`contratos`, com o
+    mesmo cuidado de aliasing (`c.orgao_cnpj`) do funil e do "vencendo" —
+    sem prefixo, o JOIN da subconsulta de fornecedores dá "ambiguous
+    column name" e derruba o Painel inteiro."""
+    db = _db()
+    try:
+        db.execute(
+            "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+            " orgao_cnpj, orgao_nome, modalidade_id, modalidade_nome,"
+            " objeto, valor_estimado, valor_homologado, data_publicacao,"
+            " referencia, raw) VALUES ('E1',?,1,'222','Outro Órgão',6,"
+            " 'Pregão','Obj',100000.0,90000.0,?,0,'{}')",
+            (ANO, f"{ANO}-06-01"))
+        db.execute(
+            "INSERT INTO contratos (numero_controle, contratacao_controle,"
+            " orgao_cnpj, fornecedor_ni, fornecedor_nome, objeto,"
+            " valor_global, vigencia_inicio, vigencia_fim, data_publicacao,"
+            " raw) VALUES ('KE1','E1','222','8','Fornecedor W','Obj',"
+            " 90000.0,?,?,?,'{}')",
+            (f"{ANO}-06-01", (date.today() + timedelta(days=300)).isoformat(),
+             f"{ANO}-06-01"))
+        db.commit()
+    finally:
+        db.close()
+
+    por_orgao = api.painel(ANO)["analise"]["por_orgao"]
+    outro = next(o for o in por_orgao if o["orgao_cnpj"] == "222")
+    assert outro["n"] == 1
+    assert outro["homologado"] == pytest.approx(90000.0)
+    assert outro["desagio"] == pytest.approx(10.0)   # 90.000 sobre 100.000
+    assert outro["fornecedores"] == 1
+    # % do ano é sobre o TOTAL do exercício (todos os órgãos): 27.000 (D1) +
+    # 25.000 (D2) + 320.000 (P1) + 90.000 (E1) = 462.000
+    assert outro["pct_do_ano"] == pytest.approx(90000 / 462000 * 100)
 
 
 def test_calor_agrupa_a_cauda_em_outras(api):
@@ -140,14 +210,15 @@ def test_calor_agrupa_a_cauda_em_outras(api):
     assert a["calor"]["Pregão"][2] == 1
 
 
-# ── vigilância ──────────────────────────────────────────────────────────
+# ── análise ─────────────────────────────────────────────────────────────
 
 def test_funil_do_edital_ao_contrato(api):
-    f = api.painel(ANO)["vigilancia"]["funil"]
+    # handoff Claude Design (2026-09-11, fase 4): funil mudou de Vigilância
+    # pra Análise e de 4 pra 3 etapas — "com contrato"/"vigentes" saíram
+    f = api.painel(ANO)["analise"]["funil"]
     assert f["publicadas"] == 4
+    assert f["com_propostas"] == 2     # D1 e P1 têm item com tem_resultado=1
     assert f["com_resultado"] == 1     # só D1 tem item homologado
-    assert f["com_contrato"] == 1
-    assert f["vigentes"] == 1
 
 
 def test_medidor_de_limite_agrupa_por_objeto(api):
@@ -447,30 +518,23 @@ def test_comparacao_com_o_ano_anterior_usa_o_mesmo_periodo(api):
     assert api.painel(ANO - 1)["comparacao_parcial"] is (ANO - 1 == hoje.year)
 
 
-def test_funil_conta_o_mesmo_conjunto_nas_quatro_etapas(api):
-    """A última etapa não pode ser maior que a primeira.
-
-    "Vigentes hoje" contava contratos de qualquer exercício: no acervo real
-    isso dava 50 vigentes para 34 publicadas, e o funil alargava no fim.
+def test_funil_conta_contratacao_nao_item(api):
+    """COUNT(DISTINCT c.numero_controle): uma contratação com dois itens de
+    resultado não pode contar duas vezes — senão "com propostas" cresce
+    mais que "publicadas" quando algum processo tem vários itens.
     """
     db = _db()
     try:
-        # contrato vigente de um exercício anterior: não é deste funil
-        db.execute("INSERT INTO contratos (numero_controle,"
-                   " contratacao_controle, orgao_cnpj, fornecedor_ni,"
-                   " fornecedor_nome, objeto, valor_global, vigencia_inicio,"
-                   " vigencia_fim, data_publicacao, raw)"
-                   " VALUES ('K9','D3','111','9','OUTRO','Obj',1000,?,?,?,'{}')",
-                   (f"{ANO - 1}-01-01",
-                    (date.today() + timedelta(days=300)).isoformat(),
-                    f"{ANO - 1}-02-01"))
+        db.execute("INSERT INTO itens (id, contratacao_controle, ano,"
+                   " descricao, unidade, tem_resultado, raw)"
+                   " VALUES ('D1#2','D1',?,'ITEM 2','UN',1,'{}')", (ANO,))
         db.commit()
     finally:
         db.close()
 
-    f = api.painel(ANO)["vigilancia"]["funil"]
-    assert f["vigentes"] == 1                       # só o contrato de D1
-    assert f["publicadas"] >= f["com_resultado"] >= f["vigentes"]
+    f = api.painel(ANO)["analise"]["funil"]
+    assert f["com_propostas"] == 2                  # D1 (2 itens) e P1
+    assert f["publicadas"] >= f["com_propostas"] >= f["com_resultado"]
 
 
 def test_ano_ausente_usa_o_mais_recente_do_acervo(api):
@@ -914,13 +978,13 @@ def test_filtro_de_orgao_nao_quebra_o_painel(api):
     column name" — e o painel não abre para quem filtra por órgão.
     """
     d = api.painel(ANO, "111")
-    assert d["vigilancia"]["funil"]["publicadas"] == 4
+    assert d["analise"]["funil"]["publicadas"] == 4
     assert d["execucao"]["cards"]["n"] == 4
 
     # órgão sem nada no acervo devolve painel vazio, não exceção
     vazio = api.painel(ANO, "000")
     assert vazio["execucao"]["cards"]["n"] == 0
-    assert vazio["vigilancia"]["funil"]["publicadas"] == 0
+    assert vazio["analise"]["funil"]["publicadas"] == 0
 
 
 # ── a fronteira entre a tela e o papel ──────────────────────────────────────

@@ -498,26 +498,44 @@ function grafDesagio(el, desagios, larg = 500) {
       axisLine: { show: false }, axisTick: { show: false },
       axisLabel: { ...ROT_TXT, width: larguraRotulo, overflow: "truncate" } },
     series: [
-      { name: "economia", type: "bar", barWidth: 17,
+      { name: "economia", type: "bar", barWidth: 17, stack: "d",
         data: desagios.map(d => d.pct >= 0 ? d.pct : null),
         itemStyle: { color: "var(--s3)", borderRadius: [0, 4, 4, 0] },
         emphasis: { disabled: true },
         label: { show: true, position: "right", ...VAL_TXT,
           formatter: p => pct(p.value) } },
-      { name: "estouro", type: "bar", barWidth: 17,
+      { name: "estouro", type: "bar", barWidth: 17, stack: "d",
         data: desagios.map(d => d.pct < 0 ? d.pct : null),
         itemStyle: { color: "var(--s2)", borderRadius: [4, 0, 0, 4] },
         emphasis: { disabled: true },
         label: { show: true, position: "left", ...VAL_TXT,
-          formatter: p => pct(p.value) } }
+          formatter: p => pct(p.value) } },
+      // sem estimado+homologado ao mesmo tempo (credenciamento,
+      // inexigibilidade): não é economia zero, é ausência de disputa de
+      // preço — barra em branco diria "0%", o que o dado não afirma.
+      // `stack` igual às duas de cima: sem isso o ECharts reservava uma
+      // faixa própria pra cada série (3×17px não cabia na banda da
+      // categoria) e a etiqueta vazava pra linha vizinha (achado visual,
+      // fase 4 do handoff)
+      { name: "sem_disputa", type: "bar", barWidth: 17, stack: "d",
+        data: desagios.map(d => d.pct == null ? 0 : null),
+        itemStyle: { color: "transparent" },
+        emphasis: { disabled: true },
+        label: { show: true, position: "insideLeft", ...ROT_TXT,
+          formatter: p => { const d = desagios[p.dataIndex];
+            return `sem disputa de preço — ${d.n} ${
+              d.n === 1 ? "processo" : "processos"}`; } } }
     ]
   });
   // a linha inteira da modalidade mostra o deságio
   ligarBaloEixo(chart, el.querySelector(".graf-echart"), (i) => {
     const d = desagios[i];
-    return d ? [{ v: pct(d.pct), l: `${d.modalidade} · ${
+    if (!d) return null;
+    if (d.pct == null) return [{ v: "", l: `${d.modalidade} · sem disputa de preço · ${
+      d.n} ${d.n === 1 ? "processo" : "processos"}` }];
+    return [{ v: pct(d.pct), l: `${d.modalidade} · ${
       d.pct >= 0 ? "de deságio" : "acima do estimado"} · ${d.n} ${
-      d.n === 1 ? "processo" : "processos"}` }] : null;
+      d.n === 1 ? "processo" : "processos"}` }];
   }, 1);
 }
 
@@ -842,29 +860,37 @@ function grafLimites(el, objetos, limite) {
 }
 
 // ── funil: onde os processos do exercício pararam ─────────────────────────
+// 3 etapas sobre o MESMO conjunto (handoff Claude Design, 2026-09-11, fase
+// 4, tela 3a — mudou de Vigilância pra Análise e de 4 pra 3 etapas: "com
+// contrato"/"vigentes" saíram, já são fato coberto pelos cartões de
+// Execução). % sempre sobre "Publicadas", não sobre a etapa anterior.
 function grafFunil(el, f, larg = 500) {
-  const etapas = [["Publicadas", f.publicadas], ["Com resultado", f.com_resultado],
-                  ["Com contrato", f.com_contrato], ["Vigentes hoje", f.vigentes]];
+  const etapas = [["Publicadas", f.publicadas],
+                  ["Com propostas", f.com_propostas],
+                  ["Com resultado", f.com_resultado]];
   const max = etapas[0][1] || 1;
+  const pctDe = v => max ? pct(v / max * 100, 0) : "–";
   el.style.height = (etapas.length * 40 + 10) + "px";
   const chart = _iniciarEchart(el);
   chart.setOption({
     animation: false,
-    grid: { left: 4, right: 40, top: 4, bottom: 4, containLabel: true },
+    grid: { left: 4, right: 90, top: 4, bottom: 4, containLabel: true },
     xAxis: { type: "value", max, show: false },
     yAxis: { type: "category", inverse: true, data: etapas.map(([nome]) => nome),
       axisLine: { show: false }, axisTick: { show: false }, axisLabel: VAL_TXT },
     series: [{ type: "bar", barWidth: 26,
       data: etapas.map(([, v], i) => ({ value: v,
-        itemStyle: { color: "var(--s1)", opacity: 0.85 - i * 0.15,
+        itemStyle: { color: "var(--s1)", opacity: 1 - i * 0.22,
                      borderRadius: [0, 4, 4, 0] } })),
       emphasis: { disabled: true },
-      label: { show: true, position: "right", ...VAL_TXT } }]
+      label: { show: true, position: "right", ...VAL_TXT,
+        formatter: p => `${p.value} · ${pctDe(p.value)}` } }]
   });
   // a linha inteira da etapa (não só a barra) mostra o valor
   ligarBaloEixo(chart, el, (i) => {
     const et = etapas[i];
-    return et ? [{ v: et[1], l: et[0] }] : null;
+    return et ? [{ v: `${et[1]} · ${pctDe(et[1])} das publicadas`,
+                  l: et[0] }] : null;
   }, 1);
 }
 
@@ -984,7 +1010,7 @@ const DESENHO = {
   calor: (el, l) => grafCalor(el, P.dados.analise.calor, P.dados.analise.meses_calor),
   limites: (el, l) => grafLimites(el, P.dados.vigilancia.limites,
                               P.dados.vigilancia.limite_compras),
-  funil: (el, l) => grafFunil(el, P.dados.vigilancia.funil, l),
+  funil: (el, l) => grafFunil(el, P.dados.analise.funil, l),
   agenda: (el, l) => grafAgenda(el, P.dados.vigilancia.agenda),
   economia_modalidade: (el, l) => grafBarras(el, P.dados.economia.por_modalidade, {
     valor: m => m.economizado || 0, rotulo: m => m.modalidade ?? "–",
@@ -1124,6 +1150,10 @@ function tabelaFornecedores(itens, total90) {
 function vistaAnalise(d) {
   const a = d.analise;
   return `
+  ${cartaoGraf(`Do edital ao contrato — mesmo conjunto de contratações de ${d.ano}`,
+           "funil",
+           `${a.funil.publicadas - a.funil.com_resultado} publicadas ainda sem
+            resultado registrado no PNCP.`)}
   ${cartaoGraf(`Valor homologado acumulado — ${d.ano - 2} a ${d.ano}`, "series",
            `O ano corrente em destaque; os anteriores ficam como contexto — a
             comparação é com o mesmo mês, não com o total do ano.`)}
@@ -1135,7 +1165,27 @@ function vistaAnalise(d) {
               mais a curva se afasta dela, mais concentrado é o mercado.`)}
   </div>
   ${cartaoGraf("Quando o município compra — processos por mês e modalidade",
-               "calor")}`;
+               "calor")}
+  ${cartao(`Onde concentra — por órgão`, tabelaPorOrgao(a.por_orgao))}`;
+}
+
+function tabelaPorOrgao(itens) {
+  if (!itens.length) return `<div class="vazio">Sem contratações no exercício.</div>`;
+  return `<table><tr><th style="width:30%">Órgão</th>
+    <th class="num">Contratações</th><th class="num">Homologado</th>
+    <th class="num" style="width:70px">% do ano</th>
+    <th class="num" style="width:70px">Deságio</th>
+    <th class="num" style="width:90px">Fornecedores</th></tr>` +
+    itens.slice(0, 8).map(o => `<tr>
+      <td title="${esc(o.orgao ?? "")}">${esc(o.orgao ?? "–")}</td>
+      <td class="num">${o.n}</td>
+      <td class="num">${dinheiro(o.homologado)}</td>
+      <td class="num">${o.pct_do_ano == null ? "–" : pct(o.pct_do_ano, 1)}</td>
+      <td class="num" style="color:${
+        o.desagio == null ? "inherit" : o.desagio >= 0 ? "var(--ok)" : "var(--erro)"
+        }">${o.desagio == null ? "–" : pct(o.desagio, 1)}</td>
+      <td class="num">${o.fornecedores}</td></tr>`
+  ).join("") + `</table>`;
 }
 
 // Alerta de publicidade fora do prazo (art. 94, Lei 14.133/2021) — lista
@@ -1173,17 +1223,12 @@ function cartaoAtrasoPublicidade(v) {
 function vistaVigilancia(d) {
   const v = d.vigilancia;
   return `
-  <div class="faixa f-11">
-    ${cartaoGraf(`Limite anual de dispensa — art. 75, II (${
-               dinheiro(v.limite_compras)})`, "limites",
-             `A soma é por <b>objeto</b>, agrupado pelas duas primeiras
-              palavras significativas da descrição — o critério do art. 75 é
-              objeto de mesma natureza, e o enquadramento final é juízo do
-              gestor. Este medidor é termômetro, não veredito.`)}
-    ${cartaoGraf("Do edital ao contrato — onde os processos estão", "funil",
-             `${v.funil.publicadas - v.funil.com_resultado} publicadas ainda sem
-              resultado registrado no PNCP.`)}
-  </div>
+  ${cartaoGraf(`Limite anual de dispensa — art. 75, II (${
+             dinheiro(v.limite_compras)})`, "limites",
+           `A soma é por <b>objeto</b>, agrupado pelas duas primeiras
+            palavras significativas da descrição — o critério do art. 75 é
+            objeto de mesma natureza, e o enquadramento final é juízo do
+            gestor. Este medidor é termômetro, não veredito.`)}
   ${cartaoAtrasoPublicidade(v)}
   ${cartaoGraf("Agenda dos próximos 90 dias", "agenda",
            `O número no canto do dia é quantos contratos ou atas vencem nele

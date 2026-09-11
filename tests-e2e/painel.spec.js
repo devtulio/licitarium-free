@@ -99,15 +99,14 @@ test("o balão dispara na faixa toda do item, não só na barra fina",
   await bar.hover({ position: { x: bb.width * 0.12, y: bb.height * 0.3 } });
   await expect(tt).toBeVisible();
 
-  // funil (vigilância): hover à direita da barra curta, na faixa da etapa
-  await page.locator('.subabas button[data-vista="vigilancia"]').click();
-  const funil = page.locator('#p-vigilancia [data-graf="funil"]');
+  // funil (análise): hover à direita da barra curta, na faixa da etapa
+  await page.locator('.subabas button[data-vista="analise"]').click();
+  const funil = page.locator('#p-analise [data-graf="funil"]');
   const bf = await funil.boundingBox();
-  await funil.hover({ position: { x: bf.width * 0.75, y: bf.height * 0.85 } });
+  await funil.hover({ position: { x: bf.width * 0.75, y: bf.height * 0.72 } });
   await expect(tt).toBeVisible();
 
   // heatmap (análise): hover numa célula vazia — a grade toda resolve a célula
-  await page.locator('.subabas button[data-vista="analise"]').click();
   const calor = page.locator('#p-analise [data-graf="calor"]');
   const bh = await calor.boundingBox();
   await calor.hover({ position: { x: bh.width * 0.24, y: bh.height * 0.4 } });
@@ -287,13 +286,22 @@ test("a vista economia não repete o botão de relatório", async ({ page }) => 
     .toHaveCount(1);
 });
 
-test("vigilância mostra medidores, funil e agenda", async ({ page }) => {
+test("vigilância mostra medidor e agenda", async ({ page }) => {
   await page.locator('.subabas button[data-vista="vigilancia"]').click();
   const v = page.locator("#p-vigilancia");
   await expect(v).toContainText("Limite anual de dispensa");
-  await expect(v).toContainText("Do edital ao contrato");
   await expect(v).toContainText("Agenda dos próximos 90 dias");
-  await expect(v).toContainText("Publicadas");
+});
+
+test("análise mostra o funil do edital ao contrato", async ({ page }) => {
+  // handoff Claude Design (2026-09-11, fase 4): funil saiu de Vigilância
+  // e foi pra Análise, com 3 etapas em vez de 4
+  await page.locator('.subabas button[data-vista="analise"]').click();
+  const a = page.locator("#p-analise");
+  await expect(a).toContainText("Do edital ao contrato");
+  await expect(a).toContainText("Publicadas");
+  await expect(a).toContainText("Com propostas");
+  await expect(a).toContainText("Com resultado");
 });
 
 test("publicidade fora do prazo: sem achado, explica em vez de sumir",
@@ -538,8 +546,8 @@ test("os gráficos são desenhados na largura do espaço, não esticados",
 test("vista oculta desenha ao aparecer", async ({ page }) => {
   // com display:none o contêiner tem largura zero; sem redesenhar, a vista
   // abriria vazia
-  await page.locator('.subabas button[data-vista="vigilancia"]').click();
-  const svg = page.locator('#p-vigilancia [data-graf="funil"] svg');
+  await page.locator('.subabas button[data-vista="analise"]').click();
+  const svg = page.locator('#p-analise [data-graf="funil"] svg');
   await expect(svg).toBeVisible();
   // ECharts (renderer SVG) sai com width absoluto, não viewBox
   const larg = Number(await svg.getAttribute("width"));

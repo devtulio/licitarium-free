@@ -1172,7 +1172,6 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
     # quatro meses. Quando o exercício pedido é o corrente, o anterior é
     # cortado no mesmo dia.
     og_c = " AND c.orgao_cnpj=?" if orgao else ""     # consultas com JOIN
-    og_k = " AND k.orgao_cnpj=?" if orgao else ""
     hoje = date.today()
     parcial = ano == hoje.year
     corte = f"{ano - 1}-{hoje:%m-%d}" if parcial else f"{ano - 1}-12-31"
@@ -1238,6 +1237,17 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
                          "estimado": r[2] or 0, "homologado": r[3] or 0,
                          "economizado": (r[2] or 0) - (r[3] or 0),
                          "pct": (1 - (r[3] or 0) / r[2]) * 100 if r[2] else 0})
+    # modalidade sem NENHUMA contratação com estimado+homologado (típico de
+    # credenciamento/inexigibilidade, que não disputam preço) simplesmente
+    # não aparecia no gráfico — silêncio que parecia zero economizado, sem
+    # dizer POR QUE. Entra com pct=None; o desenho troca a barra por
+    # "sem disputa de preço" (handoff Claude Design, fase 4, tela 3a)
+    com_dado = {d["modalidade"] for d in desagios}
+    for m in executivo["modalidades"]:
+        if m["modalidade_nome"] not in com_dado:
+            desagios.append({"modalidade": m["modalidade_nome"], "n": m["n"],
+                             "estimado": 0, "homologado": 0,
+                             "economizado": 0, "pct": None})
     # ordena pelo que o gráfico desenha (economizado), não pelo estimado —
     # achado 2026-08-12, portado do licitarium-relatorios: as outras três
     # listas (família/categoria/fornecedor) já ordenam por economizado, só
@@ -1292,6 +1302,35 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
     por_fornecedor = sorted(por_fornecedor.values(),
                             key=lambda o: -o["economizado"])
 
+    # onde concentra — por órgão (handoff Claude Design, fase 4, tela 3a):
+    # `contratacoes` e a subconsulta de fornecedores têm as duas uma coluna
+    # orgao_cnpj — sem o alias `c.`/`k.` o SQLite recusa a consulta inteira
+    # ("ambiguous column name"), o mesmo bug já visto no funil e no vencendo
+    por_orgao = [dict(r) for r in db.execute(
+        f"""SELECT c.orgao_cnpj, c.orgao_nome orgao, COUNT(*) n,
+                  SUM(c.valor_homologado) homologado,
+                  SUM(CASE WHEN c.valor_estimado>0
+                           AND c.valor_homologado IS NOT NULL
+                           THEN c.valor_estimado ELSE 0 END) est_pareado,
+                  SUM(CASE WHEN c.valor_estimado>0
+                           AND c.valor_homologado IS NOT NULL
+                           THEN c.valor_homologado ELSE 0 END) hom_pareado,
+                  (SELECT COUNT(DISTINCT k.fornecedor_ni) FROM contratos k
+                     WHERE k.orgao_cnpj=c.orgao_cnpj
+                           AND substr(k.data_publicacao,1,4)=?) fornecedores
+           FROM contratacoes c
+          WHERE c.referencia=0 AND c.ano=?{og_c}
+          GROUP BY c.orgao_cnpj
+          ORDER BY homologado DESC""", [str(ano), ano] + og_args)]
+    homologado_ano = executivo["cards"]["homologado"] or 0
+    for o in por_orgao:
+        o["homologado"] = o["homologado"] or 0
+        o["pct_do_ano"] = (o["homologado"] / homologado_ano * 100
+                          if homologado_ano else None)
+        o["desagio"] = ((1 - o["hom_pareado"] / o["est_pareado"]) * 100
+                        if o["est_pareado"] else None)
+        del o["est_pareado"], o["hom_pareado"]
+
     # concentração: quanto do valor está nos maiores fornecedores
     valores = [r[0] or 0 for r in db.execute(
         f"""SELECT SUM(COALESCE(valor_global,0)) t FROM contratos
@@ -1317,33 +1356,27 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
         if r[1] and 1 <= r[1] <= 12:
             linha[r[1] - 1] += r[2]
 
-    # ── vigilância: o que exige ação
+    # ── análise: do edital ao contrato (handoff Claude Design, fase 4, 3a) —
+    # 3 etapas sobre o MESMO conjunto (contratações do exercício), não mais
+    # 4: "com contrato"/"vigentes" saíram porque o mockup só cobre publicado
+    # → recebeu proposta → foi homologado (a etapa de contrato assinado é
+    # outro fato, já coberto pelos cartões de Execução)
     funil = {
         "publicadas": executivo["cards"]["n"],
         # `contratacoes` e `itens` têm as duas uma coluna orgao_cnpj: sem o
         # prefixo, filtrar por órgão fazia o SQLite recusar a consulta
         # inteira ("ambiguous column name") e o painel não abria
+        "com_propostas": db.execute(
+            f"""SELECT COUNT(DISTINCT c.numero_controle) FROM contratacoes c
+                 JOIN itens i ON i.contratacao_controle = c.numero_controle
+                WHERE c.referencia=0 AND c.ano=?
+                  AND i.tem_resultado=1{og_c}""",
+            [ano] + og_args).fetchone()[0],
         "com_resultado": db.execute(
             f"""SELECT COUNT(DISTINCT c.numero_controle) FROM contratacoes c
                  JOIN itens i ON i.contratacao_controle = c.numero_controle
                 WHERE c.referencia=0 AND c.ano=?
                   AND i.valor_unitario_homologado IS NOT NULL{og_c}""",
-            [ano] + og_args).fetchone()[0],
-        "com_contrato": db.execute(
-            f"""SELECT COUNT(DISTINCT contratacao_controle) FROM contratos k
-                WHERE k.contratacao_controle IN (
-                  SELECT numero_controle FROM contratacoes
-                   WHERE referencia=0 AND ano=?){og_k}""",
-            [ano] + og_args).fetchone()[0],
-        # vigentes DO EXERCÍCIO: contar todos os contratos vigentes, de
-        # qualquer ano, fazia a última etapa do funil ficar maior que a
-        # primeira — as quatro barras precisam falar do mesmo conjunto
-        "vigentes": db.execute(
-            f"""SELECT COUNT(*) FROM contratos k
-                 WHERE date(k.vigencia_fim) >= date('now','localtime')
-                   AND k.contratacao_controle IN (
-                     SELECT numero_controle FROM contratacoes
-                      WHERE referencia=0 AND ano=?){og_k}""",
             [ano] + og_args).fetchone()[0],
     }
     # processo publicado há muito tempo e sem resultado é pendência, não
@@ -1398,8 +1431,9 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
         "analise": {"series": {str(a): v for a, v in series.items()},
                     "desagios": desagios, "curva": curva,
                     "fornecedores_total": len(valores),
-                    "calor": calor, "meses_calor": list(range(1, 13))},
-        "vigilancia": {"funil": funil, "limites": objetos[:6],
+                    "calor": calor, "meses_calor": list(range(1, 13)),
+                    "funil": funil, "por_orgao": por_orgao},
+        "vigilancia": {"limites": objetos[:6],
                        "limite_compras": fracionamento["limite_compras"],
                        # cap subiu de 40 pra 200 (Fase 5, pesquisa de
                        # dashboard 2026-09-10): o calendário de calor cobre

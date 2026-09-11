@@ -1055,7 +1055,7 @@ def test_painel_nao_quebra_quando_atraso_publicidade_trava(db, monkeypatch):
     assert r["vigilancia"]["atraso_publicidade"] == []
     assert r["vigilancia"]["atraso_publicidade_indisponivel"]
     # o resto do painel segue de pé mesmo com esse cartão indisponível
-    assert "execucao" in r and "funil" in r["vigilancia"]
+    assert "execucao" in r and "funil" in r["analise"]
 
 
 def test_categoria_relatorio_cobre_os_nove_tipos_em_cinco_cores():
