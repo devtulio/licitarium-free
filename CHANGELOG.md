@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.5.0 — 2026-09-11
+
+**Adição — Fase 5 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Vigilância**
+
+- **Fila de triagem**: os mesmos 5 alertas do topo (limite, contratos e
+  atas vencendo, propostas abertas, processos parados), ordenados por
+  gravidade, cada um com uma linha de contexto — maior estouro do
+  limite, quantos contratos vencem em menos de 15 dias, quanto está
+  parado e desde quando, a próxima sessão de proposta — e o mesmo
+  clique de "abrir lista" do chip. `montarAlertas` virou função
+  compartilhada entre o chip do topo e a fila, uma fonte só para os
+  dois formatos do mesmo alerta.
+- **Medidor do limite anual de dispensa** ganha o valor em R$ ao lado
+  do "×o limite"/"% do limite".
+- **Nova "Dispensas por objeto e mês"**: reusa os mesmos grupos por
+  similaridade do medidor de limite (nenhuma classificação nova),
+  contando por mês em vez de somando o valor total.
+- Calendário da Agenda: número do dia move para dentro da célula
+  (`top:3px;right:3px`, com sombra) — antes vazava pra fora da borda.
+- 292 pytest + 170 Playwright verdes.
+
 ## 2.4.0 — 2026-09-11
 
 **Adição — Fase 4 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Análise**

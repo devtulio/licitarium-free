@@ -777,8 +777,11 @@ test("o que vai ao papel tem SVG que sabe encolher", async ({ page }) => {
   const semViewBox = abrindo.filter(t => !/viewBox=/.test(t));
   expect(semViewBox, "SVG sem viewBox não encolhe no papel").toEqual([]);
   // `width="100%"` também começa com dígito: o que não pode é largura em
-  // número puro, que é a que trava o desenho no tamanho da tela
-  const comLarguraFixa = abrindo.filter(t => /width="\d+(\.\d+)?"/.test(t));
+  // número puro, que é a que trava o desenho no tamanho da tela.
+  // `(?<!-)` exclui `stroke-width="1.75"` — atributo de espessura de
+  // traço, não da largura do elemento; os ícones dos alertas (fase 5 do
+  // handoff, fila de triagem) têm um e são falso positivo sem isto.
+  const comLarguraFixa = abrindo.filter(t => /(?<!-)width="\d+(\.\d+)?"/.test(t));
   expect(comLarguraFixa, "largura em pixels trava o desenho").toEqual([]);
 });
 

@@ -834,7 +834,8 @@ function grafLimites(el, objetos, limite) {
   // sempre visível é curto de propósito
   const rotuloStatus = (o) => {
     const vezes = (o.pct / 100).toFixed(1).replace(".", ",");
-    return o.pct > 100 ? `${vezes}× o limite` : `${pct(o.pct, 0)} do limite`;
+    return (o.pct > 100 ? `${vezes}× o limite` : `${pct(o.pct, 0)} do limite`)
+      + ` · ${dinheiro(o.total)}`;
   };
   el.innerHTML = objetos.map(o => `
     <div class="lim-item">
@@ -1008,6 +1009,8 @@ const DESENHO = {
   concentracao: (el, l) => grafConcentracao(el, P.dados.analise.curva,
                                         P.dados.analise.fornecedores_total),
   calor: (el, l) => grafCalor(el, P.dados.analise.calor, P.dados.analise.meses_calor),
+  calor_dispensas: (el, l) => grafCalor(el, P.dados.vigilancia.calor_dispensas,
+                                    P.dados.vigilancia.meses_calor),
   limites: (el, l) => grafLimites(el, P.dados.vigilancia.limites,
                               P.dados.vigilancia.limite_compras),
   funil: (el, l) => grafFunil(el, P.dados.analise.funil, l),
@@ -1223,12 +1226,16 @@ function cartaoAtrasoPublicidade(v) {
 function vistaVigilancia(d) {
   const v = d.vigilancia;
   return `
+  ${filaDeTriagem(d)}
   ${cartaoGraf(`Limite anual de dispensa — art. 75, II (${
              dinheiro(v.limite_compras)})`, "limites",
            `A soma é por <b>objeto</b>, agrupado pelas duas primeiras
             palavras significativas da descrição — o critério do art. 75 é
             objeto de mesma natureza, e o enquadramento final é juízo do
             gestor. Este medidor é termômetro, não veredito.`)}
+  ${cartaoGraf("Dispensas por objeto e mês — nº de processos", "calor_dispensas",
+           `Mesmos grupos do medidor acima — o número na célula é a
+            contagem de dispensas do mês.`)}
   ${cartaoAtrasoPublicidade(v)}
   ${cartaoGraf("Agenda dos próximos 90 dias", "agenda",
            `O número no canto do dia é quantos contratos ou atas vencem nele
@@ -1339,40 +1346,55 @@ new ResizeObserver(() => {
   redesenhoPendente = setTimeout(() => desenharGraficos(), 120);
 }).observe($("painel"));
 
-// Os alertas ficam acima das subabas de propósito: alerta que só aparece
-// depois de escolher a subaba certa não alerta ninguém.
-function mostrarChips(a) {
-  // o alerta é calculado sobre o exercício e o órgão do Painel — o clique
-  // tem de levar os dois, senão a lista mostra "todos os anos/órgãos" e
-  // deixa de bater com o número que o usuário acabou de ver
+// Cada alerta em um só lugar: ícone, contagem, texto e o que o clique faz —
+// o topo (chips) e a fila de triagem da Vigilância (handoff Claude Design,
+// fase 5) mostram o MESMO alerta em dois formatos, nunca duas contas
+// divergentes (achado desta sessão: dado replicado diverge em silêncio).
+// `chave` identifica o alerta pra fila de triagem escolher gravidade e a
+// linha de detalhe; os dois primeiros elementos (cls, ícone) também
+// carregam a cor — "grave" é o estouro do limite, "aviso" é prazo
+// chegando, "" é neutro (parado ou proposta aberta, sem urgência de data).
+function montarAlertas(a) {
   const orgao = $("p-orgao").value || undefined;
-  const chips = [];
-  if (a.perto_do_limite) chips.push(["grave", ICONE.limite, a.perto_do_limite,
+  const alertas = [];
+  if (a.perto_do_limite) alertas.push(["grave", ICONE.limite, a.perto_do_limite,
     `objeto${a.perto_do_limite > 1 ? "s" : ""} ${a.acima_do_limite
       ? "acima do" : "perto do"} limite anual de dispensa`,
     () => irPara("contratacoes", {ano: P.dados.ano, orgao, modalidade: "8",
-                                  objetos: a.objetos_perto_do_limite})]);
-  if (a.vencendo_contratos) chips.push(["aviso", ICONE.prazo, a.vencendo_contratos,
+                                  objetos: a.objetos_perto_do_limite}),
+    "limite"]);
+  if (a.vencendo_contratos) alertas.push(["aviso", ICONE.prazo, a.vencendo_contratos,
     a.vencendo_contratos === 1 ? "contrato vence em 60 dias"
                                : "contratos vencem em 60 dias",
     () => irPara("contratos",
-                {orgao, vencendo: true, ord: "vigencia", dir: "asc"})]);
-  if (a.vencendo_atas) chips.push(["aviso", ICONE.prazo, a.vencendo_atas,
+                {orgao, vencendo: true, ord: "vigencia", dir: "asc"}),
+    "contratos"]);
+  if (a.vencendo_atas) alertas.push(["aviso", ICONE.prazo, a.vencendo_atas,
     a.vencendo_atas === 1 ? "ata vence em 60 dias" : "atas vencem em 60 dias",
     () => irPara("atas",
-                {orgao, vencendo: true, ord: "vigencia", dir: "asc"})]);
-  if (a.propostas) chips.push(["", ICONE.proposta, a.propostas,
+                {orgao, vencendo: true, ord: "vigencia", dir: "asc"}),
+    "atas"]);
+  if (a.propostas) alertas.push(["", ICONE.proposta, a.propostas,
     a.propostas === 1 ? "processo com proposta aberta"
                       : "processos com proposta aberta",
-    () => irPara("contratacoes", {orgao, propostas: true})]);
+    () => irPara("contratacoes", {orgao, propostas: true}),
+    "propostas"]);
   // achado da auditoria de design (2026-08-08): ampulheta e relógio (usado
   // nos dois chips de vencimento acima) lêem como "tempo passando" a um
   // olhar rápido, mas dizem coisas opostas — prazo chegando vs processo
   // parado. A pausa lê como "parado" de propósito, sem competir com relógio.
-  if (a.paradas) chips.push(["", ICONE.parado, a.paradas,
+  if (a.paradas) alertas.push(["", ICONE.parado, a.paradas,
     a.paradas === 1 ? "processo sem resultado há mais de 90 dias"
                     : "processos sem resultado há mais de 90 dias",
-    () => irPara("contratacoes", {ano: P.dados.ano, orgao, parada: true})]);
+    () => irPara("contratacoes", {ano: P.dados.ano, orgao, parada: true}),
+    "parados"]);
+  return alertas;
+}
+
+// Os alertas ficam acima das subabas de propósito: alerta que só aparece
+// depois de escolher a subaba certa não alerta ninguém.
+function mostrarChips(a) {
+  const chips = montarAlertas(a);
   const caixa = $("painel-chips");
   caixa.classList.toggle("oculto", !chips.length);
   caixa.innerHTML = chips.map(([cls, icone, n, texto], i) =>
@@ -1382,10 +1404,93 @@ function mostrarChips(a) {
     b.addEventListener("click", () => chips[+b.dataset.chip][4]()));
 }
 
+// ── fila de triagem: os mesmos alertas do topo, com a linha de contexto que
+// diz o que fazer primeiro (Vigilância 2a, handoff Claude Design 2026-09-11)
+const GRAVIDADE_ALERTA = { limite: 100, contratos: 72, atas: 38,
+                          parados: 30, propostas: 14 };
+const COR_ALERTA = { grave: "var(--erro)", aviso: "var(--warn)", "": "var(--muted)" };
+
+function detalheAlerta(chave, d) {
+  const v = d.vigilancia, ex = d.execucao;
+  if (chave === "limite") {
+    const pior = v.limites[0];
+    if (!pior) return "";
+    const vezes = (pior.pct / 100).toFixed(1).replace(".", ",");
+    return `Maior estouro: <b>${esc(pior.objeto)}</b> — ${
+      pior.pct > 100 ? `${pior.pct.toFixed(0)}% do teto do art. 75`
+                     : `${pct(pior.pct, 0)} do teto`}`;
+  }
+  if (chave === "contratos") {
+    const n15 = ex.vencendo.filter(
+      it => it.tipo === "Contrato" && (it.dias ?? 99) <= 15).length;
+    return `${n15} deles em menos de 15 dias · janela fechada, não "vigentes"`;
+  }
+  if (chave === "atas")
+    return `Contagem própria — ata e contrato não dividem o mesmo chip`;
+  if (chave === "parados") {
+    const det = v.paradas_detalhe;
+    return det?.valor_estimado
+      ? `${dinheiro(det.valor_estimado)} estimados parados${
+          det.mais_antiga ? ` · mais antigo de ${dataBr(det.mais_antiga)}` : ""}`
+      : "";
+  }
+  if (chave === "propostas") {
+    const p = v.proxima_proposta;
+    if (!p) return "";
+    const dt = new Date(p.data_encerramento_proposta);
+    const hora = dt.toLocaleTimeString("pt-BR",
+      { hour: "2-digit", minute: "2-digit" });
+    return `Próxima sessão: ${dataBr(p.data_encerramento_proposta)} às ${
+      hora} — ${esc((p.modalidade_nome ?? "").split(" ")[0])} ${
+        String(p.sequencial).padStart(3, "0")}/${p.ano}`;
+  }
+  return "";
+}
+
+function filaDeTriagem(d) {
+  const itens = montarAlertas(d.alertas);
+  if (!itens.length)
+    return cartao("Fila de triagem — ordenada por gravidade",
+      `<p class="dim">Nenhum alerta no momento.</p>`);
+  const ordenados = [...itens].sort((x, y) =>
+    (GRAVIDADE_ALERTA[y[5]] ?? 0) - (GRAVIDADE_ALERTA[x[5]] ?? 0));
+  // proposta aberta é notícia boa (processo andando, não estagnado) — o
+  // chip do topo fica neutro (é só contagem), mas aqui, com contexto,
+  // ganha a mesma cor de "dentro do previsto" que o resto da tela usa
+  const corLinha = (cls, chave) => chave === "propostas" ? "var(--ok)" : COR_ALERTA[cls];
+  const linhas = ordenados.map(([cls, icone, n, texto, aoClicar, chave]) => `
+    <div class="fila-item">
+      <span class="fila-icone" style="color:${corLinha(cls, chave)}">${icone}</span>
+      <div class="fila-corpo">
+        <div class="fila-titulo"><b>${n}</b> ${texto}</div>
+        <div class="fila-detalhe">${detalheAlerta(chave, d)}</div>
+      </div>
+      <div class="fila-trilho"><div class="fila-barra" style="width:${
+        GRAVIDADE_ALERTA[chave] ?? 20}%;background:${corLinha(cls, chave)}"></div></div>
+      <button class="fila-ir" data-fila="${chave}">abrir lista →</button>
+    </div>`).join("");
+  return cartao("Fila de triagem — ordenada por gravidade",
+    `<div class="fila">${linhas}</div>`);
+}
+
+// delegado em `#painel`, ligado uma vez só (mesmo padrão de
+// `ligarCliquesFornecedor`) — sobrevive ao innerHTML ser trocado a cada
+// carga/troca de vista, sem precisar reamarrar clique depois de montar
+function ligarCliquesFilaDeTriagem() {
+  $("painel").addEventListener("click", (evt) => {
+    const alvo = evt.target.closest("[data-fila]");
+    if (!alvo || !P.dados) return;
+    const alerta = montarAlertas(P.dados.alertas)
+      .find(([, , , , , chave]) => chave === alvo.dataset.fila);
+    alerta?.[4]();
+  });
+}
+
 
 // ── ligações da tela ──────────────────────────────────────────────────────
 ligarTooltips();
 ligarCliquesFornecedor();
+ligarCliquesFilaDeTriagem();
 
 $("painel").querySelectorAll(".subabas button").forEach(b =>
   b.addEventListener("click", () => {

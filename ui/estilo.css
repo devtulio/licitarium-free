@@ -521,6 +521,25 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .lim-obj { font-size:10.5px; color:var(--muted); overflow:hidden;
           text-overflow:ellipsis; white-space:nowrap; }
 .lim-val { font-size:11px; font-weight:600; white-space:nowrap; }
+/* fila de triagem (Painel → Vigilância, handoff Claude Design 2026-09-11,
+   fase 5): mesmos 5 alertas do chip do topo, com o porquê e uma barra de
+   gravidade — "abrir lista" é o mesmo clique do chip, só com mais contexto
+   pra decidir o que tratar primeiro. */
+.fila-item { display:flex; align-items:center; gap:14px; padding:13px 0;
+             border-bottom:1px solid var(--border); }
+.fila-item:last-child { border-bottom:0; }
+.fila-icone { display:flex; flex-shrink:0; }
+.fila-icone svg { width:19px; height:19px; }
+.fila-corpo { flex:1; min-width:0; }
+.fila-titulo { font-size:13.5px; line-height:1.35; }
+.fila-detalhe { font-size:11.5px; color:var(--muted); margin-top:3px;
+                line-height:1.5; }
+.fila-trilho { width:110px; flex-shrink:0; height:6px; border-radius:99px;
+              background:var(--surface2); overflow:hidden; }
+.fila-barra { height:100%; }
+.fila-ir { flex-shrink:0; font-size:12px; color:var(--accent);
+          background:none; border:0; cursor:pointer; padding:0; }
+.fila-ir:hover { text-decoration:underline; }
 .veu { padding-top:24px; }
 .cfg { padding:18px 20px; margin-bottom:14px; }
 .cfg h2 { font-size:14px; margin-bottom:10px; }
@@ -831,10 +850,10 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
   color:color-mix(in srgb, var(--s3) var(--badge-tom), black); }
 /* selo da contagem: o dia continua sendo o número do meio, e a quantidade
    não disputa o mesmo lugar com ele */
-.cal-dia b { position:absolute; top:-5px; right:-5px; min-width:17px;
+.cal-dia b { position:absolute; top:3px; right:3px; min-width:17px;
              height:17px; padding:0 4px; border-radius:99px; font-size:11px;
              line-height:17px; text-align:center; font-weight:700;
-             color:var(--surface); border:1.5px solid var(--surface); }
+             color:var(--surface); box-shadow:0 1px 2px rgba(0,0,0,.2); }
 .cal-dia.venc.u b { background:var(--erro); }
 .cal-dia.venc.a b { background:var(--warn); }
 .cal-dia.venc.t b { background:var(--s3); }

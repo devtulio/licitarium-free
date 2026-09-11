@@ -256,6 +256,13 @@ def test_medidor_de_limite_agrupa_por_objeto(api):
     assert papel["pct"] == pytest.approx(52000 / v["limite_compras"] * 100)
     assert "PAPEL A4" in papel["objeto"].upper()
     assert "MANUTENÇÃO PREDIAL" in manutencao["objeto"].upper()
+    # "Dispensas por objeto e mês" (fase 5 do handoff): mesmo agrupamento
+    # do medidor, só olhando o mês de cada numero_controle já reunido —
+    # D1 (fev) e D2 (mar) caem no grupo "papel", D9 (mai) no de manutenção
+    linha_papel = v["calor_dispensas"][papel["objeto"]]
+    assert linha_papel[1] == 1 and linha_papel[2] == 1   # fev, mar
+    linha_manutencao = v["calor_dispensas"][manutencao["objeto"]]
+    assert linha_manutencao[4] == 1                      # mai
 
 
 def test_alertas_contam_o_que_exige_acao(api):
@@ -268,6 +275,34 @@ def test_alertas_contam_o_que_exige_acao(api):
     # art. 75, II — 83% do limite, sem estourar
     assert a["perto_do_limite"] == 1 and a["acima_do_limite"] == 0
     assert isinstance(a["propostas"], int)
+
+
+def test_fila_de_triagem_traz_detalhe_de_parada_e_proxima_proposta(api):
+    # handoff Claude Design (2026-09-11, fase 5, tela 2a): a fila de
+    # triagem precisa de mais que a contagem simples que o chip usa —
+    # quanto está parado (R$) e desde quando, e qual a próxima proposta
+    v = api.painel(ANO)["vigilancia"]
+    assert v["paradas_detalhe"]["valor_estimado"] == pytest.approx(90000.0)
+    assert v["paradas_detalhe"]["mais_antiga"] == f"{ANO}-01-05"
+    assert v["proxima_proposta"] is None     # fixture não tem proposta aberta
+
+    db = _db()
+    try:
+        db.execute(
+            "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+            " orgao_cnpj, modalidade_id, modalidade_nome, objeto,"
+            " data_publicacao, data_encerramento_proposta, referencia, raw)"
+            " VALUES ('PR1',?,17,'111',6,'Pregão','Obj',?,?,0,'{}')",
+            (ANO, f"{ANO}-08-01",
+             (date.today() + timedelta(days=3)).isoformat() + "T09:00:00"))
+        db.commit()
+    finally:
+        db.close()
+
+    proxima = api.painel(ANO)["vigilancia"]["proxima_proposta"]
+    assert proxima["modalidade_nome"] == "Pregão"
+    assert proxima["sequencial"] == 17
+    assert proxima["ano"] == ANO
 
 
 def test_alerta_distingue_perto_de_acima_do_limite(api):
@@ -1028,6 +1063,10 @@ def test_toda_classe_do_painel_tem_estilo_no_documento_impresso():
         # dinheiro foi"): o relatório impresso monta a tabela em Python,
         # não reaproveita este HTML — a classe nunca chega ao papel
         "doc",
+        # fila de triagem (fase 5 do handoff, Vigilância): "abrir lista →"
+        # é navegação de tela, sem sentido no papel — vira texto comum
+        "fila", "fila-item", "fila-icone", "fila-corpo", "fila-titulo",
+        "fila-detalhe", "fila-trilho", "fila-barra", "fila-ir",
         # modificadores sem geometria própria (herdam da classe base)
         "on", "oculto", "hoje", "venc", "fora", "u", "a", "t",
         "grave", "aviso", "info", "ok", "warn", "err", "up", "down", "dir",

@@ -1381,23 +1381,60 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
     }
     # processo publicado há muito tempo e sem resultado é pendência, não
     # estatística: costuma ser homologação que o órgão esqueceu de publicar
-    paradas = db.execute(
-        f"""SELECT COUNT(*) FROM contratacoes c
+    parada_linha = db.execute(
+        f"""SELECT COUNT(*), SUM(c.valor_estimado), MIN(c.data_publicacao)
+             FROM contratacoes c
              WHERE c.referencia=0 AND c.valor_homologado IS NULL
                AND date(c.data_publicacao) < date('now','localtime','-90 day')
-               AND c.ano=?{og_c}""", [ano] + og_args).fetchone()[0]
+               AND c.ano=?{og_c}""", [ano] + og_args).fetchone()
+    paradas = parada_linha[0]
+    # detalhe pra fila de triagem (handoff Claude Design, fase 5, tela 2a):
+    # "quanto" e "desde quando" — `alertas.paradas` (acima) continua um
+    # inteiro simples, é o que o chip do topo e os testes já esperam
+    paradas_detalhe = {"valor_estimado": parada_linha[1] or 0,
+                       "mais_antiga": parada_linha[2]}
     propostas = db.execute(
         f"""SELECT COUNT(*) FROM contratacoes
              WHERE referencia=0
                AND datetime(data_encerramento_proposta)
                    >= datetime('now','localtime'){og}""",
         og_args).fetchone()[0]
+    # a próxima proposta a fechar — mesmo cuidado do "vencendo": junta com a
+    # própria contratacoes pra ter modalidade/sequencial/ano formatáveis
+    # como "pregão 042/2026" na fila de triagem
+    proxima_proposta = db.execute(
+        f"""SELECT data_encerramento_proposta, modalidade_nome, sequencial, ano
+             FROM contratacoes
+             WHERE referencia=0
+               AND datetime(data_encerramento_proposta)
+                   >= datetime('now','localtime'){og}
+             ORDER BY data_encerramento_proposta LIMIT 1""",
+        og_args).fetchone()
+    proxima_proposta = dict(proxima_proposta) if proxima_proposta else None
     # o card "Limite anual" reusa o mesmo agrupamento por similaridade do
     # relatório de Fracionamento (`fracionamento`, já calculado acima) —
     # não recalcula nada aqui (achado 2026-08-25: eram dois motores
     # divergentes, um por objeto de Nº fixo de palavras, outro por unidade)
     objetos = fracionamento["unidades"]
     perto_do_limite = [o for o in objetos if o["pct"] >= 75]
+    # "Dispensas por objeto e mês" (handoff Claude Design, fase 5, tela
+    # 2a): mesmos grupos do medidor de limite acima — não é modalidade
+    # nova nem consulta de similaridade nova, só olhar o mês de cada
+    # numero_controle que o próprio medidor já reuniu por objeto
+    calor_dispensas = {}
+    for o in objetos[:5]:
+        linha = [0] * 12
+        if o["numeros_controle"]:
+            marcadores = ",".join("?" * len(o["numeros_controle"]))
+            for r in db.execute(
+                    f"""SELECT CAST(substr(data_publicacao,6,2) AS INTEGER)
+                       FROM contratacoes
+                       WHERE numero_controle IN ({marcadores})
+                             AND data_publicacao IS NOT NULL""",
+                    o["numeros_controle"]):
+                if r[0] and 1 <= r[0] <= 12:
+                    linha[r[0] - 1] += 1
+        calor_dispensas[o["objeto"]] = linha
 
     return {
         "ano": ano,
@@ -1445,7 +1482,11 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
                        "agenda": executivo["vencendo"][:200],
                        "atraso_publicidade": atraso_publicidade["fora_do_prazo"],
                        "atraso_publicidade_indisponivel":
-                           atraso_publicidade.get("indisponivel")},
+                           atraso_publicidade.get("indisponivel"),
+                       "paradas_detalhe": paradas_detalhe,
+                       "proxima_proposta": proxima_proposta,
+                       "calor_dispensas": calor_dispensas,
+                       "meses_calor": list(range(1, 13))},
         "economia": {
             "estimado": executivo["cards"]["estimado"],
             "homologado": executivo["cards"]["homologado"],
