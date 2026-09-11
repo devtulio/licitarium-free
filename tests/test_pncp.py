@@ -8,6 +8,7 @@ e escopo — testado com um `FakeMotor` que imita a superfície pública do
 """
 import sqlite3
 import sys
+import unittest.mock
 from datetime import date
 from pathlib import Path
 
@@ -119,6 +120,23 @@ def test_sync_contratacoes_idempotente(db):
     assert linha["valor_homologado"] == 90.0
     assert linha["referencia"] == 0
     assert "numeroControlePNCP" in linha["raw"]
+
+
+def test_sync_contratacoes_commita_em_lote_nao_so_no_fim(db):
+    """"database is locked" em set_config (achado do usuário, v1.60.11):
+    a fase só commitava no `finally`, depois do gerador inteiro — a
+    transação ficava aberta pelos minutos inteiros da sincronização,
+    segurando o lock de escrita além do busy_timeout de qualquer escritor
+    concorrente (a ponte JS chamando set_config, por exemplo). Agora tem
+    que soltar o lock a cada _COMMIT_A_CADA linhas, não só ao final.
+    """
+    raws = [contratacao(f"PNCP-{i}") for i in range(pncp._COMMIT_A_CADA + 5)]
+    motor = FakeMotor(contratacoes=lambda i, a, b: (Contratacao(r) for r in raws))
+    espiao = unittest.mock.MagicMock(wraps=db)  # commit() conta, resto vai pro banco real
+    pncp.sync_contratacoes(espiao, "3534203", date(2026, 1, 1), date(2026, 3, 1),
+                           motor=motor)
+    assert espiao.commit.call_count >= 2, \
+        "só commitou no fim — lock ficaria preso o sync inteiro"
 
 
 def test_falha_no_meio_grava_o_que_veio_mas_nao_da_a_fase_por_completa(db):

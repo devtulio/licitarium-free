@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.60.12 — 2026-09-11
+
+**Correção — "database is locked" achado pelo usuário rodando o app real**
+
+- **Configurações (tema, largura, coluna etc.) podiam falhar com
+  "database is locked" enquanto uma sincronização estava rodando** —
+  as fases 1 (contratações) e 2 (contratos/atas/PCA) só commitavam
+  UMA VEZ, depois do laço inteiro (minutos de rede, por modalidade ou
+  por órgão), segurando o lock de escrita além do `busy_timeout` de
+  30s de qualquer escritor concorrente. Agora commitam a cada 200
+  linhas, soltando o lock periodicamente — mesmo comportamento de
+  "o que já entrou fica gravado mesmo se a sync cair no meio", só
+  com granularidade mais fina. A fase 3 (itens) já commitava por
+  contratação, não precisou de ajuste.
+
 ## 1.60.11 — 2026-09-10
 
 **Novo — Fase 6 de 6: dumbbell em "Por modalidade", fecha a pesquisa de dashboard**

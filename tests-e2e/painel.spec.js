@@ -772,9 +772,15 @@ test("calendário de calor da agenda mostra a contagem do dia no balão",
   await page.locator('.subabas button[data-vista="vigilancia"]').click();
   const cal = page.locator('[data-graf="agenda_calor"]');
   await expect(cal.locator("svg")).toBeVisible();
+  // data relativa a "hoje" (mesmo padrão da fixture — ver comentário no
+  // topo de painel-dados.js: nunca fixa, senão sai da janela de 90 dias
+  // com a passagem do tempo). dias:8 é o dia com 11 vencimentos.
   const pt = await page.evaluate(() => {
     const el = document.querySelector('[data-graf="agenda_calor"]');
-    return echarts.getInstanceByDom(el).convertToPixel({ seriesIndex: 0 }, "2026-09-18");
+    const d = new Date(); d.setDate(d.getDate() + 8);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${
+      String(d.getDate()).padStart(2, "0")}`;
+    return echarts.getInstanceByDom(el).convertToPixel({ seriesIndex: 0 }, iso);
   });
   await cal.hover({ position: { x: pt[0], y: pt[1] } });
   await expect(page.locator(".graf-tt")).toContainText("11 vencimentos");

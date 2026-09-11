@@ -234,6 +234,18 @@ def _upsert_ata(db, item):
 
 # ── fases de sincronização ──────────────────────────────────────────────────
 
+# Fases 1 e 2 liam o gerador do motor inteiro (13 modalidades, minutos de
+# rede) e só commitavam no fim — a transação ficava aberta o tempo todo,
+# segurando o lock de escrita além do `busy_timeout` de 30s de qualquer
+# escritor concorrente (achado do usuário: "database is locked" em
+# `set_config`, disparado pela ponte JS enquanto a sync rodava). Commit a
+# cada N linhas solta o lock periodicamente sem virar overhead — idempotente,
+# o comportamento de "o que já entrou fica gravado mesmo se a sync cair no
+# meio" (comentário original) continua valendo, só que com granularidade
+# mais fina.
+_COMMIT_A_CADA = 200
+
+
 def sync_contratacoes(db, codigo_ibge, inicio, fim, motor=None, referencia=0):
     """Fase 1: contratações do município, por modalidade e janela de datas.
 
@@ -248,6 +260,8 @@ def sync_contratacoes(db, codigo_ibge, inicio, fim, motor=None, referencia=0):
         for contratacao in motor.contratacoes(codigo_ibge, inicio, fim):
             total += _upsert_contratacao(db, contratacao.raw, codigo_ibge,
                                          referencia)
+            if total % _COMMIT_A_CADA == 0:
+                db.commit()
     finally:
         # o que já veio fica gravado mesmo se PncpErro/SyncCancelado escapar
         # do gerador no meio — upsert é idempotente, a próxima passada
@@ -287,6 +301,8 @@ def sync_contratos(db, cnpj, inicio, fim, motor=None):
     try:
         for contrato in motor.contratos(cnpj, inicio, fim):
             total += _upsert_contrato(db, contrato.raw)
+            if total % _COMMIT_A_CADA == 0:
+                db.commit()
     finally:
         db.commit()
     return total
@@ -299,6 +315,8 @@ def sync_atas(db, cnpj, inicio, fim, motor=None):
     try:
         for ata in motor.atas(cnpj, inicio, fim):
             total += _upsert_ata(db, ata.raw)
+            if total % _COMMIT_A_CADA == 0:
+                db.commit()
     finally:
         db.commit()
     return total
@@ -342,6 +360,8 @@ def sync_pca(db, cnpj, inicio, fim, motor=None):
     try:
         for plano in motor.pca(cnpj, inicio, fim):
             total += _upsert_pca(db, plano.raw)
+            if total % _COMMIT_A_CADA == 0:
+                db.commit()
     finally:
         db.commit()
     return total
