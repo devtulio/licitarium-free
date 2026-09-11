@@ -558,6 +558,12 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 #precos-kpis { grid-template-columns:repeat(4,1fr); margin-bottom:0; }
 #precos-kpis .kpi { cursor:default; }
 #precos-kpis .kpi:hover { border-color:var(--border); }
+/* PCA (handoff Claude Design, 2026-09-11): mesmo padrão de #precos-kpis —
+   4 colunas, não clicável, com linha extra de contexto (.r) que o KPI do
+   topo do Painel também usa */
+#pca-kpis { grid-template-columns:repeat(4,1fr); margin-bottom:0; }
+#pca-kpis .kpi { cursor:default; }
+#pca-kpis .kpi:hover { border-color:var(--border); }
 .topo-painel { display:flex; justify-content:space-between; align-items:center; }
 .grade-painel { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .tit-painel { font-size:12.5px; color:var(--muted); font-weight:600;
@@ -707,7 +713,7 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .card.hero { container-type:inline-size; }
 .hero .n { font-size:clamp(20px, 11cqw, 27px); font-weight:700;
            line-height:1.05; white-space:nowrap; }
-.hero .r, .kpiv .r { font-size:12px; color:var(--muted); margin-top:2px; }
+.hero .r, .kpiv .r, .kpi .r { font-size:12px; color:var(--muted); margin-top:2px; }
 .kpiv .v { font-size:22px; font-weight:700; }
 .kpiv .r { font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
 /* Verde e vermelho afirmam "bom" e "ruim": só valem onde a direção do

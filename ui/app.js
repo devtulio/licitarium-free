@@ -1164,19 +1164,58 @@ async function carregarMinuta() {
       familiaFiltro = b.dataset.familia || null;
       carregarMinuta();
     }));
-  const classeA = dados.itens.filter(i => i.abc === "A").length;
   const p = dados.parametros || {};
   $("pca-totais").innerHTML = dados.itens.length
-    ? `<b>${t.grupos}</b> itens no plano · <b>${dinheiro(t.valor)}</b>
-       ${classeA ? ` · <b>${classeA}</b> itens classe A concentram 80% do valor` : ""}
-       ${t.excluidos ? ` · ${t.excluidos} excluído(s)` : ""}
-       ${dados.gerado_em ? ` · gerado em ${dataBr(dados.gerado_em)}` : ""}
-       ${p.ipca_ate ? ` · preços a valor de ${dataBr(p.ipca_ate + "-01")}
-         pelo IPCA (${p.precos_corrigidos} de ${p.total_precos} corrigidos)`
-         : (p.corrigir_ipca === false ? "" :
-            " · sem série do IPCA sincronizada ainda: preços sem correção")}`
+    ? [
+        t.excluidos ? `${t.excluidos} excluído(s)` : null,
+        dados.gerado_em ? `gerado em ${dataBr(dados.gerado_em)}` : null,
+        p.ipca_ate
+          ? `preços a valor de ${dataBr(p.ipca_ate + "-01")} pelo IPCA (${
+              p.precos_corrigidos} de ${p.total_precos} corrigidos)`
+          : (p.corrigir_ipca === false ? null
+              : "sem série do IPCA sincronizada ainda: preços sem correção"),
+      ].filter(Boolean).join(" · ")
     : `Nenhuma minuta para este exercício — ajuste os parâmetros e clique em
        <b>Gerar</b>.`;
+  // curva ABC (handoff Claude Design, 2026-09-11): resumo em 4 KPIs +
+  // gráfico acumulado, só quando há minuta de verdade
+  const incluidos = dados.itens.filter(i => i.incluir ?? 1);
+  const rotuloEstatistica = { mediana: "mediana", media: "média",
+    recente: "mais recente", menor: "menor" }[p.estatistica] ?? "mediana";
+  if (dados.itens.length) {
+    const semReferencia = incluidos.filter(i => !i.valor_unitario).length;
+    // precisa ficar visível ANTES de desenhar: ECharts mede a largura do
+    // container no momento de echarts.init, e um <div class="oculto">
+    // (display:none) mede 0 — o gráfico nasceria vazio e não se corrige
+    // sozinho depois (achado da Fase 6 do redesenho anterior, mesma classe
+    // de bug — "el.style.height/visibilidade precisa vir antes de desenhar")
+    $("pca-abc-caixa").classList.remove("oculto");
+    const resumoAbc = grafCurvaABC($("pca-abc"), dados.itens);
+    const nA = resumoAbc?.nA ?? 0;
+    $("pca-kpis").innerHTML = `
+      <div class="card kpi"><div class="n">${compacto(t.valor)}</div>
+        <div class="l">Estimado para ${+$("pca-ano").value}</div>
+        <div class="r">preço de referência: ${rotuloEstatistica} do acervo</div></div>
+      <div class="card kpi"><div class="n">${t.grupos}</div>
+        <div class="l">Itens na minuta</div>
+        <div class="r">${resumoAbc
+          ? `${resumoAbc.nA} classe A · ${resumoAbc.nB} B · ${resumoAbc.nC} C`
+          : "poucos itens com valor pra classificar"}</div></div>
+      <div class="card kpi"><div class="n">${incluidos.length
+          ? pct(nA / incluidos.length * 100, 1) : "–"}</div>
+        <div class="l">Itens de classe A</div>
+        <div class="r">${resumoAbc
+          ? `respondem por ${pct(resumoAbc.pctValorA, 0)} do valor`
+          : "sem itens suficientes"}</div></div>
+      <div class="card kpi"><div class="n">${semReferencia}</div>
+        <div class="l">Itens sem preço de referência</div>
+        <div class="r"${semReferencia ? ' style="color:var(--warn)"' : ""}
+          >${semReferencia ? "precisam de pesquisa antes da minuta"
+            : "todos com referência"}</div></div>`;
+  } else {
+    $("pca-kpis").innerHTML = "";
+    $("pca-abc-caixa").classList.add("oculto");
+  }
   const cab = `<div class="linha cab g-pca-minuta">
       <span title="Selecionar para mesclar">⚯</span>
       <span title="Incluir no plano">✓</span>

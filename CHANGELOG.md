@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.1.0 — 2026-09-11
+
+**Adição — Fase 1 do handoff "Dashboard de Licitações Públicas" (Claude Design)**
+
+- **Montar PCA ganha a curva ABC.** `pca_builder.classificar_abc` já
+  calculava a classe A/B/C de cada item da minuta (já aparecia linha a
+  linha na tabela), mas nunca virava o agregado visual — quantos itens
+  em cada classe, e quanto do valor a classe A concentra. Novo gráfico
+  (`grafCurvaABC`) mostra a curva acumulada com as três faixas
+  sombreadas e o ponto de corte de 80% rotulado; 4 novos cartões de KPI
+  acima (estimado do ano, itens por classe, % de itens classe A,
+  itens sem preço de referência) resumem o que antes só saía numa
+  linha de texto corrida. Zero SQL nova — só expõe o que o back-end já
+  calculava.
+- Primeira fase de 12 do handoff completo de 13 telas (detalhe em
+  `C:\Users\devtu\.claude\plans\sorted-soaring-lamport.md`). 287 pytest
+  + 169 Playwright verdes.
+
 ## 2.0.0 — 2026-09-11
 
 **Reversão — decisão do usuário**

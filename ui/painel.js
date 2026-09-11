@@ -588,6 +588,81 @@ function grafConcentracao(el, curva, total) {
   });
 }
 
+// ── curva ABC do PCA: itens ordenados por valor, acumulado do plano ───────
+// Handoff Claude Design (2026-09-11): a classe (`i.abc`) já era calculada
+// por `pca_builder.classificar_abc` e mostrada linha a linha na tabela —
+// só faltava o agregado visual. Mesmo agrupamento "incluídos" que
+// `pca_builder.totais` usa, pra bater com os números do `#pca-kpis` ao
+// lado (senão "214 itens" do KPI e "N itens" da curva divergiam).
+function grafCurvaABC(el, itens, larg = 660) {
+  const validos = itens.filter(i => (i.incluir ?? 1) && (i.valor_total || 0) > 0)
+    .slice().sort((a, b) => b.valor_total - a.valor_total);
+  if (validos.length < 3) {
+    el.innerHTML = `<div class="vazio">Poucos itens com valor pra traçar a curva.</div>`;
+    return null;
+  }
+  const total = validos.reduce((s, i) => s + i.valor_total, 0);
+  let acumulado = 0;
+  const curva = validos.map(i => {
+    acumulado += i.valor_total;
+    return (acumulado / total) * 100;
+  });
+  const nA = validos.filter(i => i.abc === "A").length;
+  const nB = validos.filter(i => i.abc === "B").length;
+  const nC = validos.length - nA - nB;
+  const fimA = Math.max(0, nA - 1), fimB = Math.max(fimA, nA + nB - 1);
+
+  el.innerHTML = `<div class="graf-echart" style="height:230px"></div>
+    <div class="leg" style="display:grid;grid-template-columns:${
+      (((fimA + 1) / validos.length) * 100).toFixed(1)}% ${
+      ((nB / validos.length) * 100).toFixed(1)}% 1fr;gap:0;margin-top:2px">
+      <span style="color:var(--s1)">A · ${nA} ${nA === 1 ? "item" : "itens"}</span>
+      <span style="justify-self:center">B · ${nB} ${nB === 1 ? "item" : "itens"}</span>
+      <span style="justify-self:center">C · ${nC} ${nC === 1 ? "item" : "itens"}</span>
+    </div>
+    <div class="dim" style="font-size:12px;margin-top:6px">A concentra até
+      80% do valor, B até 95%, C o resto — mesma classe da coluna ABC da
+      tabela abaixo.</div>`;
+  const alvo = el.querySelector(".graf-echart");
+  const chart = _iniciarEchart(alvo);
+  chart.setOption({
+    animation: false,
+    grid: { left: 8, right: 12, top: 12, bottom: 8, containLabel: true },
+    xAxis: { type: "value", min: 0, max: validos.length - 1, show: false },
+    yAxis: { type: "value", min: 0, max: 100, axisLabel: { ...ROT_TXT,
+        formatter: "{value}%" },
+      splitLine: { lineStyle: { color: COR_EIXO, opacity: .55 } } },
+    series: [{
+      type: "line", symbol: "none", silent: true,
+      data: curva.map((v, i) => [i, v]),
+      lineStyle: { color: "var(--s1)", width: 2.5 },
+      markArea: { silent: true, data: [
+        [{ xAxis: 0, itemStyle: { color: "var(--seq1)" } }, { xAxis: fimA }],
+        [{ xAxis: fimA, itemStyle: { color: "var(--surface2)" } }, { xAxis: fimB }],
+      ] },
+      markPoint: {
+        silent: true, symbol: "circle", symbolSize: 8,
+        itemStyle: { color: "var(--s1)", borderColor: "var(--surface)", borderWidth: 2 },
+        label: { show: true, position: "right", offset: [8, 0],
+          fontFamily: _fonteUI(), fontSize: 12.5, fontWeight: 600,
+          color: "var(--text)",
+          formatter: () => `${nA} ${nA === 1 ? "item" : "itens"} (classe A) = ${
+            pct(curva[fimA], 0)} do valor do plano` },
+        data: [{ coord: [fimA, curva[fimA]] }],
+      },
+    }],
+  });
+  ligarBaloEixo(chart, alvo, (i) => {
+    const idx = Math.max(0, Math.min(validos.length - 1, i));
+    return [{ v: `${pct(curva[idx], 0)} do valor`, cor: "var(--s1)",
+      l: `${idx + 1}º item · classe ${validos[idx].abc}` }];
+  });
+  // devolvido pro chamador: os cartões de KPI acima do gráfico mostram a
+  // mesma conta (nº de itens por classe, % do valor em A) — uma fonte só,
+  // pra não divergir do que a curva desenha
+  return { nA, nB, nC, pctValorA: curva[fimA] };
+}
+
 // ── calor: processos por mês e modalidade, rampa de uma cor só ────────────
 function grafCalor(el, calor, meses) {
   const linhas = Object.entries(calor);

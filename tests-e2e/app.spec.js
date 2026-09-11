@@ -370,11 +370,13 @@ test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {
   // sinalizações que orientam a revisão
   await expect(linhas.nth(0).locator(".aviso-un")).toBeVisible();
   await expect(linhas.nth(1).locator(".tag-unico")).toContainText("ÚNICA");
-  await expect(page.locator("#pca-totais")).toContainText("525.000,00");
+  // total agora mora no 1º KPI da curva ABC (handoff Claude Design,
+  // 2026-09-11), em formato compacto — mesma convenção do hero do Painel
+  await expect(page.locator("#pca-kpis .kpi").first()).toContainText("525 mil");
   // editar a quantidade recalcula o total
   await linhas.nth(0).locator('[data-campo="quantidade"]').fill("300");
   await linhas.nth(0).locator('[data-campo="quantidade"]').blur();
-  await expect(page.locator("#pca-totais")).toContainText("533.000,00");
+  await expect(page.locator("#pca-kpis .kpi").first()).toContainText("533 mil");
   // excluir um item sai da conta e é contado como excluído
   await linhas.nth(1).locator('[data-campo="incluir"]').uncheck();
   await expect(page.locator("#pca-totais")).toContainText("1 excluído");
@@ -392,7 +394,7 @@ test("PCA: famílias filtram, ABC classifica e mesclagem funde itens",
   await expect(linhas).toHaveCount(3);
   // curva ABC destacada e resumida no topo
   await expect(linhas.nth(0).locator(".abc")).toHaveText("B");
-  await expect(page.locator("#pca-totais")).toContainText("classe A");
+  await expect(page.locator("#pca-kpis")).toContainText("classe A");
   // chips por família: FILTRO tem 2 itens
   const chipFiltro = page.locator('#pca-familias button[data-familia="FILTRO"]');
   await expect(chipFiltro).toContainText("2");
