@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.60.16 — 2026-09-11
+
+**Correção — achado do usuário no exe real**
+
+- **Banco de preços: busca já vinha com itens marcados sozinha.** Uma
+  busca repetida restaurava a seleção salva de uma visita anterior
+  (recurso de 2026-09-07) — o usuário via isso como "vem marcado sem eu
+  ter feito nada", pediu pra tirar. Toda busca agora começa sempre
+  zerada, mesmo repetindo o termo exato; marcar item virou 100% manual
+  a cada visita. Como efeito colateral (o mesmo achado do usuário): a
+  seção "Comparação com municípios de referência" parava de parecer
+  duplicada da "Por município" de cima — elas só coincidiam quando a
+  seleção por engano já estava em 100% dos itens.
+
 ## 1.60.15 — 2026-09-11
 
 **Correção — achado do usuário no exe real**

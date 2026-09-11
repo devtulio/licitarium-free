@@ -256,15 +256,12 @@ function scriptPonte(temaBanco = "portal") {
       },
       selecionados: async (busca) => {
         window.__chamadas.push({ metodo: "selecionados", busca });
-        // sem override explícito do teste, a busca já vem com tudo
-        // selecionado — poupa reescrever todo teste que não é sobre a
-        // seleção em si (IPCA, conteúdo, ordenação...). Testes que
-        // exercitam o padrão novo (tudo desmarcado) setam
-        // window.__selecionados = {} (ou um subconjunto) explicitamente.
-        if (window.__selecionados)
-          return window.__selecionados[String(busca).toLowerCase().trim()]
-            ?? [];
-        return (DADOS.itens || []).map(i => i.id);
+        // toda busca começa vazia (achado do usuário, 2026-09-11 — vinha
+        // marcado sozinho, restaurar seleção de busca repetida confundia).
+        // Testes que precisam de itens já marcados setam
+        // window.__selecionados = { <termo>: [ids] } explicitamente.
+        return window.__selecionados?.[String(busca).toLowerCase().trim()]
+          ?? [];
       },
       selecionar_preco: async (busca, item_id) => {
         window.__chamadas.push({ metodo: "selecionar_preco", busca, item_id });
@@ -276,16 +273,18 @@ function scriptPonte(temaBanco = "portal") {
         // sem item_id é "desmarcar tudo do recorte atual" — mantém
         // window.__selecionados coerente pro checkbox de cabeçalho não
         // entrar em loop (marca → re-lê seleção vazia → desmarca de novo)
-        if (!item_id && window.__selecionados)
+        if (!item_id) {
+          window.__selecionados = window.__selecionados || {};
           window.__selecionados[String(busca).toLowerCase().trim()] = [];
+        }
         return { ok: true };
       },
       selecionar_todos_precos: async (busca, ano, origem, unidade) => {
         window.__chamadas.push({ metodo: "selecionar_todos_precos", busca,
                                  ano, origem, unidade });
-        if (window.__selecionados)
-          window.__selecionados[String(busca).toLowerCase().trim()] =
-            (DADOS.itens || []).map(i => i.id);
+        window.__selecionados = window.__selecionados || {};
+        window.__selecionados[String(busca).toLowerCase().trim()] =
+          (DADOS.itens || []).map(i => i.id);
         return { ok: true, n: (DADOS.itens || []).length };
       },
       fornecedores_pesquisa_precos: async (busca, ano, origem) => {

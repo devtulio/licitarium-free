@@ -1936,7 +1936,19 @@ let promessaSelecaoPrecos = null;
 function garantirSelecaoPrecos(termo) {
   if (termo !== ultimoTermoPrecos) {
     ultimoTermoPrecos = termo;
-    promessaSelecaoPrecos = carregarSelecaoPrecos(termo);
+    // achado do usuário (2026-09-11): restaurar a seleção salva de uma
+    // busca repetida (feita em 2026-09-07) confundia — "já vem marcado"
+    // sem o usuário ter feito nada. Ao ENTRAR num termo novo (não a
+    // cada refresh dentro da mesma busca — cabeçalho/filtro de unidade
+    // chamam carregarSelecaoPrecos() direto, sem passar por aqui), zera
+    // a seleção persistida antes de carregar: toda busca começa vazia,
+    // mesmo repetindo o termo. Zera no banco (não só na tela), senão o
+    // Relatório (lado servidor, lê `precos_selecionados` direto) ainda
+    // puxaria a seleção fantasma que a tela não mostra mais.
+    promessaSelecaoPrecos = (async () => {
+      if (termo && api.desselecionar_preco) await api.desselecionar_preco(termo);
+      await carregarSelecaoPrecos(termo);
+    })();
   }
   return promessaSelecaoPrecos;
 }
