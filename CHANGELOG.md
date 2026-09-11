@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.60.17 — 2026-09-11
+
+**Correção — achados do usuário no exe real**
+
+- **Painel · monitor largo: faixa morta dos dois lados da tela.** A
+  densidade "Compacta" (metade da largura da janela, com piso de
+  1000px) era o padrão desde 2026-08-08 — num monitor largo, isso
+  sobrava centenas de pixels em branco de cada lado do `<main>`.
+  Passou a padrão "Expandida" (janela inteira); quem prefere coluna
+  estreita pra leitura ainda troca em Configurações.
+- **Botão "Imprimir" do Painel com ícone fora do lugar.** `.btn .ico
+  { display:block }` (regra pensada só pros botões só-ícone, como o de
+  Configurações) valia pra QUALQUER ícone dentro de um `.btn` — no
+  Imprimir (ícone + texto), o ícone virava bloco e quebrava a linha
+  antes do texto. Regra virou `.btn.icon .ico`, escopada só aos
+  botões que são só o ícone.
+
 ## 1.60.16 — 2026-09-11
 
 **Correção — achado do usuário no exe real**

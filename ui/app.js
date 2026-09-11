@@ -157,7 +157,9 @@ window.addEventListener("pywebviewready", async () => {
     montarSplash();
   }
   aplicarTema(temaBanco, false);
-  aplicarLargura(e.largura || "compacta", false);
+  // o padrão de verdade é definido no backend (get_estado, licitarium.py)
+  // — "expandida" aqui só cobre a ponte não ter mandado a chave
+  aplicarLargura(e.largura || "expandida", false);
   aplicarFonte(e.fonte || "normal", false);
   aplicarDensidade(e.densidade || "confortavel", false);
   try { larguras = JSON.parse(e.colunas || "{}"); } catch { larguras = {}; }

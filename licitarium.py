@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "1.60.16"
+VERSAO = "1.60.17"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -791,7 +791,12 @@ class Api:
                     "uf": cfg.get("municipio_uf"),
                     "ibge": cfg.get("municipio_ibge"),
                     "tema": cfg.get("tema", "portal"),
-                    "largura": cfg.get("largura", "compacta"),
+                    # achado do usuário (2026-09-11): Compacta (50% da
+                    # janela) em monitor largo deixa uma faixa morta de
+                    # centenas de px dos dois lados do <main> — Expandida
+                    # (janela inteira) virou o padrão; quem prefere coluna
+                    # estreita pra leitura ainda troca em Configurações.
+                    "largura": cfg.get("largura", "expandida"),
                     "fonte": cfg.get("fonte", "normal"),
                     "densidade": cfg.get("densidade", "confortavel"),
                     "colunas": cfg.get("colunas", "{}"),

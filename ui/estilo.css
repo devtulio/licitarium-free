@@ -160,7 +160,7 @@ input, select { background:var(--surface); color:var(--text);
    frequência de uso (redesenho 2026-09-10): Sincronizar é o único
    botão colorido/primário, o resto some visualmente até ser preciso */
 .btn.icon { padding:9px 10px; font-size:16px; line-height:1; }
-.btn .ico { display:block; }
+.btn.icon .ico { display:block; }
 
 /* menu "Mais" (Montar PCA / Relatórios) — mesmo padrão de painel
    flutuante ancorado que a busca global já usa acima */

@@ -927,6 +927,10 @@ test("Compacta é metade da janela, Expandida é a janela inteira",
   // pra lista igual — sem teto fixo escolhido a dedo. Piso de 1000px
   // (janela larga o bastante aqui pra não entrar em jogo).
   await page.setViewportSize({ width: 2400, height: 900 });
+  // Expandida é o padrão desde 2026-09-11 (achado do usuário: Compacta
+  // deixava faixa morta em monitor largo) — aqui o teste força Compacta
+  // pra continuar cobrindo as duas réguas, não o padrão em si.
+  await page.evaluate(() => { document.documentElement.dataset.largura = "compacta"; });
   const compacta = await page.locator("main").evaluate(
     el => el.getBoundingClientRect().width);
   expect(compacta).toBeCloseTo(1200, 0);           // 50vw de 2400px
