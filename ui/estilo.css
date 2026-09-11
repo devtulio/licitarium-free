@@ -740,7 +740,12 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
                          white-space:nowrap; }
 .painel td:first-child, .painel th:first-child,
 .veu td:first-child, .veu th:first-child { width:34%; padding-right:14px; }
-.painel td.num, .painel th.num, .veu td.num, .veu th.num { width:84px; }
+.painel td.num, .painel th.num, .veu td.num, .veu th.num { width:100px; }
+/* CNPJ/CPF é largura fixa (nunca varia), diferente de objeto/órgão — sem
+   coluna própria ele reticências no meio do número, achado da fase 3 do
+   handoff (2026-09-11): "Onde o dinheiro foi" ganhou coluna de CNPJ */
+.painel td.doc, .painel th.doc, .veu td.doc, .veu th.doc {
+  width:122px; font-variant-numeric:tabular-nums; }
 .painel td, .painel th, .veu td, .veu th { padding:5px 6px; text-align:left;
                          border-bottom:1px solid var(--border); }
 .painel th, .veu th { font-size:11px; color:var(--muted); text-transform:uppercase;

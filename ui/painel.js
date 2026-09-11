@@ -47,11 +47,6 @@ function escala(maximo) {
 // (era <title>, que desenhava o balão preto nativo por cima do tooltip
 // próprio — trocado em toda parte, mesma correção do calendário na 1.40.1),
 // que é o ponto único por onde todo gráfico passa.
-function svg(largura, altura, dentro) {
-  return `<svg viewBox="0 0 ${largura} ${altura}" width="100%"
-    height="${altura}" preserveAspectRatio="xMidYMid meet"
-    >${dentro}</svg>`;
-}
 
 // ══ interação: um tooltip só, para todos os gráficos ═══════════════════════
 // Substitui o <title> nativo — que o navegador demora ~1s para mostrar e não
@@ -219,7 +214,7 @@ function _iniciarEchart(el) {
 }
 
 // ── colunas pareadas: estimado (claro) × homologado (cheio) ────────────────
-function grafMeses(el, meses, larg = 660) {
+function grafMeses(el, meses, ano, larg = 660) {
   // Mês sem contratação é informação: filtrá-lo comprimia o eixo e escondia
   // o buraco — no acervo do piloto, março sumia entre fevereiro e abril.
   if (!meses.some(m => m.valor || m.estimado)) {
@@ -228,15 +223,18 @@ function grafMeses(el, meses, larg = 660) {
   }
   const ultimo = meses.reduce(
     (u, m, i) => (m.valor || m.estimado) ? i : u, 0);
-  const dados = meses.slice(0, Math.max(ultimo + 1, new Date().getMonth() + 1));
+  const hoje = new Date();
+  const mesCorrente = ano === hoje.getFullYear() ? hoje.getMonth() + 1 : 0;
+  const dados = meses.slice(0, Math.max(ultimo + 1, mesCorrente));
   el.innerHTML = `<div class="graf-echart" style="height:196px"></div>
     <div class="leg"><span><i style="background:var(--s1);opacity:.32"></i>Estimado</span>
-    <span><i style="background:var(--s1)"></i>Homologado</span></div>`;
+    <span><i style="background:var(--s1)"></i>Homologado</span>
+    <span class="nota" style="margin:0">valor rotulado é o homologado do mês</span></div>`;
   const alvo = el.querySelector(".graf-echart");
   const chart = _iniciarEchart(alvo);
   chart.setOption({
     animation: false,
-    grid: { left: 8, right: 8, top: 10, bottom: 8, containLabel: true },
+    grid: { left: 8, right: 8, top: 26, bottom: 8, containLabel: true },
     xAxis: { type: "category", data: dados.map(m => MES[m.mes - 1]),
       axisLine: { lineStyle: { color: COR_EIXO } }, axisTick: { show: false },
       axisLabel: ROT_TXT },
@@ -249,7 +247,18 @@ function grafMeses(el, meses, larg = 660) {
         emphasis: { disabled: true } },
       { name: "Homologado", type: "bar", data: dados.map(m => m.valor || 0),
         itemStyle: { color: "var(--s1)", borderRadius: [4, 4, 0, 0] },
-        emphasis: { disabled: true } }
+        emphasis: { disabled: true },
+        // valor exato do mês em cima da barra — "sem dado"/"em curso" no
+        // lugar do número quando não há o que rotular (handoff, fase 3)
+        label: { show: true, position: "top", fontFamily: _fonteUI(),
+          formatter: p => {
+            const m = dados[p.dataIndex];
+            if (mesCorrente && m.mes === mesCorrente) return "{mut|em curso}";
+            if (!m.valor && !m.estimado) return "{mut|sem dado}";
+            return `{val|${compacto(m.valor || 0)}}`;
+          },
+          rich: { val: { color: "var(--text)", fontWeight: 600, fontSize: 12 },
+                  mut: { color: "var(--muted)", fontSize: 11 } } } }
     ]
   });
   // a coluna inteira do mês mostra os dois valores (estimado + homologado)
@@ -268,7 +277,7 @@ function grafMeses(el, meses, larg = 660) {
 // Mesmo layout de app.js:desenharBarrasEcharts (rótulo como eixo à
 // esquerda, valor ao final da barra) — os dois motores usam a mesma
 // convenção agora, onde antes o Painel desenhava o rótulo acima da barra.
-function grafBarras(el, itens, {valor, rotulo, sub, cor = "var(--s1)"}, larg = 360) {
+function grafBarras(el, itens, {valor, rotulo, sub, cor = "var(--s1)", exato = false}, larg = 360) {
   if (!itens.length) {
     el.innerHTML = `<div class="vazio">Sem dados no exercício.</div>`;
     return;
@@ -283,12 +292,16 @@ function grafBarras(el, itens, {valor, rotulo, sub, cor = "var(--s1)"}, larg = 3
   const largura = el.clientWidth;
   const medir = (rs) => Math.ceil(Math.max(
     ...rs.map(t => _larguraTexto(t, VAL_TXT.fontSize)))) + 8;  // 5 do gap + 3
-  let rotulosValor = itens.map(
-    it => compacto(valor(it)) + (sub ? " · " + sub(it) : ""));
+  // "exato" (Painel · Execução, valor homologado por modalidade): rótulo
+  // é o valor cheio, sem sufixo — largura sobra porque a tela é a mais
+  // larga do app (1a do handoff, 2026-09-11); os demais chamadores
+  // (Economia) continuam compactos, com sufixo quando cabe
+  let rotulosValor = itens.map(it => exato ? dinheiro(valor(it))
+    : compacto(valor(it)) + (sub ? " · " + sub(it) : ""));
   let folgaDireita = medir(rotulosValor);
   // cartão apertado: o sufixo ("· 29 processos") sai do gráfico antes da
   // barra encolher — ele continua inteiro no tooltip
-  if (largura - folgaDireita < largura * (CHAO_BARRA + 0.3)) {
+  if (!exato && largura - folgaDireita < largura * (CHAO_BARRA + 0.3)) {
     rotulosValor = itens.map(it => compacto(valor(it)));
     folgaDireita = medir(rotulosValor);
   }
@@ -960,11 +973,10 @@ function cartaoGraf(titulo, chave, nota) {
 // Cada chave sabe se desenhar em qualquer largura. O redesenho acontece
 // depois da montagem e a cada mudança de tamanho da janela.
 const DESENHO = {
-  meses: (el, l) => grafMeses(el, P.dados.execucao.meses, l),
+  meses: (el, l) => grafMeses(el, P.dados.execucao.meses, P.dados.ano, l),
   modalidades: (el, l) => grafBarras(el, P.dados.execucao.modalidades.slice(0, 6), {
     valor: m => m.homologado || m.estimado || 0,
-    rotulo: m => m.modalidade_nome ?? "–",
-    sub: m => `${m.n} ${m.n === 1 ? "processo" : "processos"}`}, l),
+    rotulo: m => m.modalidade_nome ?? "–", exato: true}, l),
   series: (el, l) => grafSeries(el, P.dados.analise.series, P.dados.ano),
   desagio: (el, l) => grafDesagio(el, P.dados.analise.desagios, l),
   concentracao: (el, l) => grafConcentracao(el, P.dados.analise.curva,
@@ -1029,11 +1041,6 @@ function vistaExecucao(d) {
   const varValor = c.homologado && d.execucao.homologado_anterior
     ? (c.homologado / d.execucao.homologado_anterior - 1) * 100 : null;
   const varN = c.n - (d.execucao.n_anterior || 0);
-  const spark = d.execucao.meses.filter(m => m.valor);
-  const maxS = Math.max(...spark.map(m => m.valor), 1);
-  const linha = spark.map((m, i) =>
-    `${8 + i * (224 / Math.max(1, spark.length - 1))},${38 - (m.valor / maxS) * 32}`
-  ).join(" ");
   return `
   <div class="faixa f-4">
     <div class="card hero">
@@ -1043,8 +1050,6 @@ function vistaExecucao(d) {
         : `<span class="dir">${
             varValor >= 0 ? "▲" : "▼"} ${pct(Math.abs(varValor), 0)}</span>
            sobre ${ano - 1}${d.comparacao_parcial ? " no mesmo período" : ""}`}</div>
-      ${spark.length > 1 ? svg(240, 44, `<polyline fill="none" stroke="var(--s1)"
-        stroke-width="2" stroke-linejoin="round" points="${linha}"/>`) : ""}
     </div>
     <div class="card kpiv"><div class="v">${c.n}</div>
       <div class="r">contratações</div>
@@ -1070,36 +1075,48 @@ function vistaExecucao(d) {
     ${cartao("Vence nos próximos 90 dias", tabelaVencendo(d.execucao.vencendo),
              `<span class="so-tela">Clicar leva à aba correspondente.</span>`)}
     ${cartao(`Onde o dinheiro foi — fornecedores de ${ano}`,
-             tabelaFornecedores(d.execucao.fornecedores))}
+             tabelaFornecedores(d.execucao.fornecedores,
+                                d.execucao.fornecedores_valor_total))}
   </div>`;
 }
 
 function tabelaVencendo(itens) {
   if (!itens.length) return `<div class="vazio">Nada vence em 90 dias.</div>`;
-  return `<table><tr><th>Fornecedor / ata</th><th>Objeto</th>
+  return `<table><tr><th>Fornecedor / ata</th><th>Objeto</th><th>Órgão</th>
+    <th>Origem</th><th class="num">Valor</th>
     <th class="num">Vence</th></tr>` + itens.slice(0, 6).map(v => {
       const cls = (v.dias ?? 0) <= 15 ? "b" : (v.dias ?? 0) <= 60 ? "a" : "c";
       return `<tr><td title="${esc(v.nome ?? "")}">${
         esc(fornecedorCurto(v.nome) ?? "–")}</td>
         <td title="${esc(v.objeto ?? "")}">${
           esc((v.objeto ?? "–").slice(0, 40))}</td>
+        <td title="${esc(v.orgao ?? "")}">${esc(v.orgao ?? "–")}</td>
+        <td>${esc(v.origem ?? "–")}</td>
+        <td class="num">${dinheiro(v.valor)}</td>
         <td class="num"><span class="badge ${cls === "b" ? "err"
           : cls === "a" ? "warn" : "ok"}">${v.dias} dias</span></td></tr>`;
     }).join("") + `</table>`;
 }
 
-function tabelaFornecedores(itens) {
+function tabelaFornecedores(itens, total90) {
   if (!itens.length) return `<div class="vazio">Sem contratos no exercício.</div>`;
-  const total = itens.reduce((s, f) => s + (f.total || 0), 0);
+  const total = total90 || itens.reduce((s, f) => s + (f.total || 0), 0);
   const topo4 = itens.slice(0, 4).reduce((s, f) => s + (f.total || 0), 0);
-  return `<table><tr><th>Fornecedor</th><th class="num">Contratos</th>
-    <th class="num">Total</th></tr>` + itens.slice(0, 5).map(f =>
+  return `<table><tr><th style="width:18%">Fornecedor</th><th class="doc">CNPJ</th>
+    <th>Objeto</th><th class="num" style="width:54px" title="Contratos">Contr.</th>
+    <th class="num" style="width:104px">Total</th>
+    <th class="num" style="width:58px" title="% do ano">% ano</th></tr>` +
+    itens.slice(0, 5).map(f =>
     `<tr><td title="${esc(f.fornecedor_nome ?? "")}">${
       f.fornecedor_ni
         ? `<a href="#" class="link" data-fornecedor="${esc(f.fornecedor_ni)}"
             >${esc(fornecedorCurto(f.fornecedor_nome) ?? "–")}</a>`
         : esc(fornecedorCurto(f.fornecedor_nome) ?? "–")}</td>
-      <td class="num">${f.n}</td><td class="num">${compacto(f.total)}</td></tr>`
+      <td class="doc">${esc(f.fornecedor_ni_fmt ?? "–")}</td>
+      <td title="${esc(f.objeto_principal ?? "")}">${
+        esc((f.objeto_principal ?? "–").slice(0, 30))}</td>
+      <td class="num">${f.n}</td><td class="num">${dinheiro(f.total)}</td>
+      <td class="num">${total ? pct(f.total / total * 100, 1) : "–"}</td></tr>`
   ).join("") + `</table>` + (total ? `<div class="nota">Os quatro primeiros
     somam ${pct(topo4 / total * 100, 0)} do valor contratado.</div>` : "");
 }

@@ -912,12 +912,22 @@ def dados_executivo(db, ano, orgao=None):
            FROM contratacoes
            WHERE referencia=0 AND ano=? AND data_publicacao IS NOT NULL{og}
            GROUP BY 1""", [ano] + og_args)}
+    # objeto_principal: subconsulta correlacionada pelo maior contrato do
+    # fornecedor no ano — só 10 fornecedores por exercício, não pesa junção
+    # em tabela grande com window function
+    og2 = " AND c2.orgao_cnpj=?" if orgao else ""
     fornecedores = [dict(r) for r in db.execute(
-        f"""SELECT fornecedor_nome, fornecedor_ni, COUNT(*) n,
-                  SUM(COALESCE(valor_global,0)) total
-           FROM contratos WHERE substr(data_publicacao,1,4)=?{og}
-           GROUP BY fornecedor_ni ORDER BY total DESC LIMIT 10""",
-        [str(ano)] + og_args)]
+        f"""SELECT c.fornecedor_nome, c.fornecedor_ni, COUNT(*) n,
+                  SUM(COALESCE(c.valor_global,0)) total,
+                  (SELECT c2.objeto FROM contratos c2
+                     WHERE c2.fornecedor_ni=c.fornecedor_ni
+                           AND substr(c2.data_publicacao,1,4)=?{og2}
+                     ORDER BY c2.valor_global DESC LIMIT 1) objeto_principal
+           FROM contratos c WHERE substr(c.data_publicacao,1,4)=?{og}
+           GROUP BY c.fornecedor_ni ORDER BY total DESC LIMIT 10""",
+        [str(ano)] + og_args + [str(ano)] + og_args)]
+    for f in fornecedores:
+        f["fornecedor_ni_fmt"] = documento(f["fornecedor_ni"])
     # total de TODOS os fornecedores do exercício, não só o LIMIT 10 acima —
     # sem isso, um gráfico de Pareto (% acumulado) só chegaria à soma dos 10
     # primeiros, nunca aos 100% reais do exercício (Fase 4, pesquisa de
@@ -926,23 +936,40 @@ def dados_executivo(db, ano, orgao=None):
         f"""SELECT SUM(COALESCE(valor_global,0))
            FROM contratos WHERE substr(data_publicacao,1,4)=?{og}""",
         [str(ano)] + og_args).fetchone()[0] or 0
+    # órgão e origem (modalidade + processo) vêm de contratacoes, via
+    # contratacao_controle — contratos/atas só guardam orgao_cnpj, não o
+    # nome nem o processo de origem
+    og_c = " AND c.orgao_cnpj=?" if orgao else ""
+    og_a = " AND a.orgao_cnpj=?" if orgao else ""
     vencendo = [dict(r) for r in db.execute(
-        f"""SELECT 'Contrato' tipo, fornecedor_nome nome, objeto, vigencia_fim,
-                  CAST(julianday(vigencia_fim) - julianday('now','localtime')
-                       AS INTEGER) dias
-           FROM contratos
-           WHERE date(vigencia_fim) BETWEEN date('now','localtime')
-                 AND date('now','localtime','+90 day'){og}
+        f"""SELECT 'Contrato' tipo, c.fornecedor_nome nome, c.objeto,
+                  c.vigencia_fim,
+                  CAST(julianday(c.vigencia_fim) - julianday('now','localtime')
+                       AS INTEGER) dias,
+                  k.orgao_nome orgao, k.modalidade_nome modalidade,
+                  k.sequencial sequencial, k.ano ano_processo, c.valor_global valor
+           FROM contratos c LEFT JOIN contratacoes k
+                ON k.numero_controle=c.contratacao_controle
+           WHERE date(c.vigencia_fim) BETWEEN date('now','localtime')
+                 AND date('now','localtime','+90 day'){og_c}
            UNION ALL
-           SELECT 'Ata', json_extract(raw,'$.numeroAtaRegistroPreco') || '/' ||
-                  json_extract(raw,'$.anoAta'),
-                  json_extract(raw,'$.objetoContratacao'), vigencia_fim,
-                  CAST(julianday(vigencia_fim) - julianday('now','localtime')
-                       AS INTEGER)
-           FROM atas
-           WHERE date(vigencia_fim) BETWEEN date('now','localtime')
-                 AND date('now','localtime','+90 day'){og}
+           SELECT 'Ata', json_extract(a.raw,'$.numeroAtaRegistroPreco') || '/' ||
+                  json_extract(a.raw,'$.anoAta'),
+                  json_extract(a.raw,'$.objetoContratacao'), a.vigencia_fim,
+                  CAST(julianday(a.vigencia_fim) - julianday('now','localtime')
+                       AS INTEGER),
+                  k.orgao_nome, k.modalidade_nome, k.sequencial, k.ano, NULL
+           FROM atas a LEFT JOIN contratacoes k
+                ON k.numero_controle=a.contratacao_controle
+           WHERE date(a.vigencia_fim) BETWEEN date('now','localtime')
+                 AND date('now','localtime','+90 day'){og_a}
            ORDER BY vigencia_fim""", og_args + og_args)]
+    for v in vencendo:
+        if v["modalidade"] and v["sequencial"] and v["ano_processo"]:
+            v["origem"] = (f"{v['modalidade'].split(' ')[0]} "
+                            f"{int(v['sequencial']):03d}/{v['ano_processo']}")
+        else:
+            v["origem"] = None
     cards = dados_contratacoes(db, ano, orgao=orgao)["totais"]
     cards["contratos_vigentes"] = db.execute(
         f"SELECT COUNT(*) FROM contratos WHERE date(vigencia_fim)"

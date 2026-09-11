@@ -960,6 +960,10 @@ def test_toda_classe_do_painel_tem_estilo_no_documento_impresso():
         # link pro perfil de fornecedor (handoff Claude Design, 2026-09-11):
         # abre um modal — no papel não há o que clicar, sai como texto comum
         "link",
+        # coluna de largura fixa pra CNPJ/CPF (fase 3 do handoff, "Onde o
+        # dinheiro foi"): o relatório impresso monta a tabela em Python,
+        # não reaproveita este HTML — a classe nunca chega ao papel
+        "doc",
         # modificadores sem geometria própria (herdam da classe base)
         "on", "oculto", "hoje", "venc", "fora", "u", "a", "t",
         "grave", "aviso", "info", "ok", "warn", "err", "up", "down", "dir",

@@ -18,4 +18,29 @@ function calcularVigencia(linha) {
 dados.execucao.vencendo.forEach(calcularVigencia);
 dados.vigilancia.agenda.forEach(calcularVigencia);
 
+// Enriquecimento pós-geração (handoff Claude Design, 2026-09-11, fase 3):
+// órgão/origem/valor em "Vence em 90 dias" e CNPJ/objeto principal em
+// "Onde o dinheiro foi" não vinham do backend que gerou este fixture —
+// sintéticos aqui, só pra tela não ficar com "–" nessas colunas novas.
+const ORGAOS = ["Sec. de Obras", "Sec. de Administração", "Sec. de Educação",
+                "Sec. de Saúde", "Sec. de Serviços Urbanos"];
+const MODALIDADES_ORIGEM = ["Pregão", "Dispensa", "Inexigibilidade"];
+dados.execucao.vencendo.forEach((v, i) => {
+  v.orgao = ORGAOS[i % ORGAOS.length];
+  v.origem = v.tipo === "Contrato"
+    ? `${MODALIDADES_ORIGEM[i % MODALIDADES_ORIGEM.length]} ${
+        String(10 + i).padStart(3, "0")}/${dados.ano}` : null;
+  v.valor = v.tipo === "Contrato" ? 30000 + i * 41250 : null;
+});
+const CNPJS_FORNECEDOR = ["08441207000130", "21677904000118",
+  "04812339000172", "08528442000127", "11222333000144",
+  "22333444000155", "33444555000166", "44555666000177"];
+dados.execucao.fornecedores.forEach((f, i) => {
+  const digitos = CNPJS_FORNECEDOR[i % CNPJS_FORNECEDOR.length];
+  f.fornecedor_ni_fmt = `${digitos.slice(0, 2)}.${digitos.slice(2, 5)}.${
+    digitos.slice(5, 8)}/${digitos.slice(8, 12)}-${digitos.slice(12)}`;
+  f.objeto_principal = dados.execucao.vencendo.find(
+    v => v.nome === f.fornecedor_nome)?.objeto ?? "Diversos";
+});
+
 module.exports = dados;

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.3.0 — 2026-09-11
+
+**Adição — Fase 3 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Execução**
+
+- **Uma coluna, largura total**, seguindo o mockup 1a: hero perde a
+  sparkline (removida a pedido, registrada no README do handoff — o
+  número grande já carrega a comparação com o ano anterior).
+- **Contratações por mês** ganha rótulo do valor homologado em cima de
+  cada barra ("R$ 2,8 mi"); mês sem contratação mostra "sem dado" e o
+  mês corrente mostra "em curso" em vez de desenhar zero.
+- **Por modalidade** passa a rotular o valor cheio ("R$ 9.943.041,93")
+  em vez de compacto — `grafBarras` ganha a opção `exato`, usada só
+  aqui; os 4 gráficos de Economia que reusam a mesma função continuam
+  compactos.
+- **Vence nos próximos 90 dias** ganha colunas de Órgão e Origem
+  (modalidade + número do processo) e Valor; **Onde o dinheiro foi**
+  ganha CNPJ, principal objeto contratado e % do total do ano. Órgão e
+  origem exigiram JOIN novo com `contratacoes` em
+  `relatorios.dados_executivo` — contratos/atas só guardam
+  `orgao_cnpj`, não o nome nem o processo de origem.
+- 289 pytest + 169 Playwright verdes.
+
 ## 2.2.0 — 2026-09-11
 
 **Adição — Fase 2 do handoff "Dashboard de Licitações Públicas" (Claude Design): Perfil de fornecedor**

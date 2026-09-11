@@ -98,6 +98,30 @@ def test_dados_executivo(db):
     assert all("homologado_anterior" in m for m in d["modalidades"])
 
 
+def test_dados_executivo_vencendo_traz_orgao_e_origem(db):
+    # contratos/atas só guardam orgao_cnpj — órgão (nome) e origem
+    # (modalidade + processo) vêm de contratacoes via contratacao_controle
+    # (handoff Claude Design 2026-09-11, fase 3, tela 1a)
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_nome, modalidade_nome, objeto, data_publicacao, raw)"
+        " VALUES ('D',2026,17,'Sec. de Obras','Pregão eletrônico',"
+        " 'Manutenção predial','2026-01-01','{}')")
+    vence_em = (date.today() + timedelta(days=8)).isoformat()
+    db.execute(
+        "INSERT INTO contratos (numero_controle, contratacao_controle,"
+        " fornecedor_nome, objeto, valor_global, vigencia_inicio,"
+        " vigencia_fim, data_publicacao, raw) VALUES ('CT4','D',"
+        " 'RHC Produtos','Manutenção predial',412000.0,'2026-01-01',?,"
+        " '2026-01-05','{}')", (vence_em,))
+    db.commit()
+    v = [x for x in relatorios.dados_executivo(db, 2026)["vencendo"]
+         if x["nome"] == "RHC Produtos"][0]
+    assert v["orgao"] == "Sec. de Obras"
+    assert v["origem"] == "Pregão 017/2026"
+    assert v["valor"] == 412000.0
+
+
 def test_dados_perfil_fornecedor(db):
     # CT1/CT2 do fixture não têm fornecedor_ni (PNCP às vezes não traz) —
     # um 3º contrato, ligado à contratação "A" (dispensa, 2026, estimado
