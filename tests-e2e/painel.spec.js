@@ -209,7 +209,7 @@ test("execução mostra hero, colunas mensais e modalidades",
   await expect(v).toContainText("Por modalidade");
 });
 
-test("fornecedor truncado carrega o nome completo no title/balão",
+test("fornecedor truncado carrega o nome completo no title",
     async ({ page }) => {
   // achado da auditoria de design (2026-08-08): a tabela corta o nome com
   // CSS ellipsis, mas sem title o nome completo não aparecia nem passando
@@ -218,13 +218,6 @@ test("fornecedor truncado carrega o nome completo no title/balão",
   const linhaVencendo = v.locator("table").first().locator("td").first();
   await expect(linhaVencendo).toHaveAttribute("title",
     /RHC PRODUTOS E SERVIÇO LTDA/);
-  // "Onde o dinheiro foi" virou gráfico (Pareto, Fase 4 da pesquisa de
-  // dashboard) — o rótulo do eixo é o nome CURTO (só cabe isso), o nome
-  // inteiro mora no balão que a faixa toda da barra dispara
-  const pareto = v.locator('[data-graf="pareto"]');
-  const box = await pareto.boundingBox();
-  await pareto.hover({ position: { x: box.width * 0.15, y: box.height * 0.5 } });
-  await expect(page.locator(".graf-tt")).toContainText("RHC PRODUTOS E SERVIÇO LTDA");
 });
 
 test("análise traz as três séries e o mapa de calor", async ({ page }) => {
@@ -606,35 +599,6 @@ test("chips ficam com a mesma altura mesmo quando o texto quebra linha",
   for (const h of alturas) expect(h).toBeCloseTo(primeira, 0);
 });
 
-test("os 5 alertas possíveis não esticam pra largura igual (quebram do tamanho próprio)",
-    async ({ page }) => {
-  // até a v1.52.x, a faixa de alertas era um grid que esticava cada chip
-  // pra mesma largura — um "4 objetos acima do limite" virava banner do
-  // mesmo tamanho que "1 ata vence em 60 dias". Auditoria de redesenho
-  // (2026-09-10, regra "gravidade antes de quantidade"): flex que quebra
-  // linha, cada chip do tamanho do próprio conteúdo. Na largura mínima da
-  // janela (900px, min_size do pywebview em licitarium.py) os 5 alertas
-  // possíveis não cabem numa linha só — e não precisam mais caber: o que
-  // importa é que NÃO esticam artificialmente e o mais grave (chip.grave)
-  // continua sempre primeiro.
-  await page.evaluate(() => {
-    window.__painel = { ...window.PAINEL_DADOS,
-      alertas: { perto_do_limite: 5, acima_do_limite: 5,
-                 vencendo_contratos: 9, vencendo_atas: 16,
-                 propostas: 1, paradas: 1 } };
-  });
-  await page.locator("#p-ano").selectOption({ index: 0 });
-  await page.setViewportSize({ width: 900, height: 700 });
-  const chips = page.locator("#painel-chips .chip");
-  await expect(chips).toHaveCount(5);
-  const larguras = await chips.evaluateAll(
-    els => els.map(el => el.getBoundingClientRect().width));
-  // não esticam: larguras bem diferentes entre si (texto de tamanho
-  // bem diferente), não a mesma largura de coluna de grid
-  expect(Math.max(...larguras) - Math.min(...larguras)).toBeGreaterThan(20);
-  await expect(chips.first()).toHaveClass(/grave/);
-});
-
 test("número do hero cabe numa linha, em qualquer largura de janela",
     async ({ page }) => {
   // achado da auditoria (m1, 2026-08-08): a 900px (min_size do pywebview,
@@ -701,44 +665,6 @@ test("chip.aviso não herda margin-top da classe .aviso genérica",
   expect(ys[1]).toBe(ys[0]);
 });
 
-test("a agenda é uma lista por semana, só as semanas com vencimento",
-    async ({ page }) => {
-  // Substituiu o calendário de 3 meses (escolha do usuário entre quatro
-  // desenhos, 2026-08-14) — a grade inteira era, na maioria, dia vazio;
-  // decisão nova do usuário (2026-09-10): virar lista, só semana que TEM
-  // vencimento aparece.
-  await page.locator('.subabas button[data-vista="vigilancia"]').click();
-  const agenda = page.locator('[data-graf="agenda"]');
-  const semanas = agenda.locator(".wk");
-  await expect(semanas.first()).toBeVisible();
-  const n = await semanas.count();
-  expect(n).toBeGreaterThan(0);
-  for (const wk of await semanas.all())
-    await expect(wk.locator("h5")).toContainText("Semana de");
-  // toda semana renderizada tem pelo menos um dia com vencimento — não
-  // existe "semana vazia" só de passagem
-  for (const wk of await semanas.all())
-    expect(await wk.locator(".d").count()).toBeGreaterThan(0);
-});
-
-test("dois vencimentos no mesmo dia empilham no mesmo bloco, não repetem o dia",
-    async ({ page }) => {
-  // o acervo de exemplo tem um dia com 11 vencimentos e outro com 3 (mesmo
-  // "dias": 8 e 14 no fixture) — é o amontoado que derrubava o desenho
-  // antigo (linha do tempo); aqui cada dia aparece uma vez só, com os
-  // vencimentos daquele dia um embaixo do outro dentro do MESMO bloco
-  await page.locator('.subabas button[data-vista="vigilancia"]').click();
-  const dias = await page.locator('[data-graf="agenda"] .wk .d')
-    .evaluateAll(cs => cs.map(c => ({
-      rotulo: c.querySelector(".dt")?.textContent.trim(),
-      eventos: c.querySelectorAll(".ev").length })));
-  expect(dias.length).toBeGreaterThan(0);
-  // nenhum bloco de dia repetido (rótulo "dia da semana + número" único)
-  expect(new Set(dias.map(d => d.rotulo)).size).toBe(dias.length);
-  // pelo menos um dia amontoa vários vencimentos no mesmo bloco
-  expect(Math.max(...dias.map(d => d.eventos))).toBeGreaterThanOrEqual(10);
-});
-
 test("trocar de subaba não vai ao banco de novo", async ({ page }) => {
   const antes = await page.evaluate(() => window.__chamadas
     .filter(c => c.metodo === "painel").length);
@@ -761,29 +687,6 @@ test("falha na consulta explica em vez de deixar a tela muda",
   await expect(page.locator("#p-execucao")).toContainText("Não consegui montar");
   await expect(page.locator("#p-execucao")).toContainText("database is locked");
   await expect(page.locator("#painel")).not.toHaveClass(/carregando/);
-});
-
-test("calendário de calor da agenda mostra a contagem do dia no balão",
-    async ({ page }) => {
-  // achado ao implementar (Fase 5, pesquisa de dashboard 2026-09-10):
-  // convertFromPixel de coordinateSystem "calendar" devolve o timestamp
-  // (ms) do dia, não [iso, valor] como o heatmap comum — sem converter
-  // certo, o balão nunca aparecia em dia nenhum
-  await page.locator('.subabas button[data-vista="vigilancia"]').click();
-  const cal = page.locator('[data-graf="agenda_calor"]');
-  await expect(cal.locator("svg")).toBeVisible();
-  // data relativa a "hoje" (mesmo padrão da fixture — ver comentário no
-  // topo de painel-dados.js: nunca fixa, senão sai da janela de 90 dias
-  // com a passagem do tempo). dias:8 é o dia com 11 vencimentos.
-  const pt = await page.evaluate(() => {
-    const el = document.querySelector('[data-graf="agenda_calor"]');
-    const d = new Date(); d.setDate(d.getDate() + 8);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${
-      String(d.getDate()).padStart(2, "0")}`;
-    return echarts.getInstanceByDom(el).convertToPixel({ seriesIndex: 0 }, iso);
-  });
-  await cal.hover({ position: { x: pt[0], y: pt[1] } });
-  await expect(page.locator(".graf-tt")).toContainText("11 vencimentos");
 });
 
 test("nenhum rótulo de gráfico escapa do cartão, nas quatro vistas",

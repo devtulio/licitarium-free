@@ -94,36 +94,6 @@ test("fileira de filtros tem folga vertical maior que a horizontal",
   expect(gap.linha).toBeGreaterThan(gap.coluna);
 });
 
-test("filtro com valor escolhido ganha aparência de chip ativo (redesenho 2026-09-10)",
-    async ({ page }) => {
-  // puramente CSS (:has(option:checked[value=""]), :placeholder-shown,
-  // :has(input:checked)) — toda opção "sem filtro" do sistema já é
-  // <option value="">, então dá pra saber se o filtro está ativo sem
-  // JS nenhum. Testado nas 5 listas que reusam a mesma barra.
-  const corDeFundo = async (loc) =>
-    loc.evaluate(el => getComputedStyle(el).backgroundColor);
-
-  await abrirLista(page, "contratacoes");
-  const selectAno = page.locator("#f-ano");
-  const antes = await corDeFundo(selectAno);
-  await selectAno.selectOption("2026");
-  const depois = await corDeFundo(selectAno);
-  expect(depois).not.toBe(antes);
-
-  const checkParada = page.locator(".check-filtro").filter({ hasText: "Sem resultado" });
-  const corCheckAntes = await corDeFundo(checkParada);
-  await page.locator("#f-parada").check();
-  expect(await corDeFundo(checkParada)).not.toBe(corCheckAntes);
-
-  // Preços: mesma barra, componente diferente (#filtros-precos)
-  await page.locator('nav.abas button[data-tipo="precos"]').click();
-  const busca = page.locator("#pr-busca");
-  const corBuscaAntes = await corDeFundo(busca);
-  await busca.fill("papel");
-  await page.locator("#pr-ano").focus();  // sai do campo, sem foco atrapalhar a leitura
-  expect(await corDeFundo(busca)).not.toBe(corBuscaAntes);
-});
-
 test("checkbox de filtro tem alvo de clique maior que a linha de texto",
     async ({ page }) => {
   // achado da auditoria de design (2026-08-08): a área clicável seguia a
@@ -279,36 +249,6 @@ test("tema troca via configurações e persiste via set_config",
   expect(salvo.v).toBe("observatorio");
 });
 
-test("--s1 (série principal dos gráficos) é fixo, independente do --accent do tema",
-    async ({ page }) => {
-  // auditoria de redesenho (2026-09-10): reverte o pedido de 2026-09-08
-  // que fazia --s1 = --accent. Motivo: a cor de marca também pinta botão
-  // primário e aba ativa — quando o dado usa a MESMA cor, duas séries do
-  // mesmo gráfico só se distinguem por 2 tons do mesmo matiz (falha pra
-  // daltonismo, não escala pra 3ª série). --s1/--s2/--s3 agora são fixos
-  // (mesmo papel azul/laranja/verde-água) em qualquer tema — só o
-  // Observatório pisa um degrau mais escuro do MESMO azul/laranja/verde
-  // pra continuar passando no validador de contraste contra fundo escuro
-  // (ver comentário em ui/estilo.css); ainda assim, os 3 nunca colidem
-  // com --accent, que muda por tema.
-  const esperado = {
-    portal: "#2a78d6", pergaminho: "#2a78d6", civil: "#2a78d6",
-    observatorio: "#2571c9",
-  };
-  for (const tema of ["portal", "pergaminho", "observatorio", "civil"]) {
-    await page.evaluate(t => {
-      document.documentElement.dataset.theme = t;
-    }, tema);
-    const [s1, accent] = await page.evaluate(() => {
-      const cs = getComputedStyle(document.documentElement);
-      return [cs.getPropertyValue("--s1").trim(),
-              cs.getPropertyValue("--accent").trim()];
-    });
-    expect(s1, `tema ${tema}`).toBe(esperado[tema]);
-    expect(s1, `tema ${tema} não pode colidir com o acento`).not.toBe(accent);
-  }
-});
-
 test("trocar de tema redesenha os gráficos da tela atual", async ({ page }) => {
   // achado do usuário (2026-09-08): os gráficos ECharts leem a cor do
   // tema (--s1/--accent/...) só no instante em que desenham — sem
@@ -365,7 +305,6 @@ test("restaurar larguras volta ao padrão", async ({ page }) => {
 
 test("relatório executivo manda os gráficos do Painel já desenhados pro papel",
     async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await expect(page.locator("#veu-relatorios")).toBeVisible();
   await page.locator("#rel-tipo").selectOption("executivo");
@@ -386,7 +325,6 @@ test("relatório executivo manda os gráficos do Painel já desenhados pro papel
 
 test("relatório de economia manda os quatro gráficos já desenhados pro papel",
     async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await page.locator("#rel-tipo").selectOption("economia");
   await page.locator("#rel-gerar").click();
@@ -407,7 +345,6 @@ test("relatório de economia manda os quatro gráficos já desenhados pro papel"
 // isso — checam conteúdo, não geometria).
 test("barras dos gráficos capturados vêm no tamanho final, não no frame zerado da animação",
     async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await page.locator("#rel-tipo").selectOption("executivo");
   await page.locator("#rel-gerar").click();
@@ -422,7 +359,6 @@ test("barras dos gráficos capturados vêm no tamanho final, não no frame zerad
 });
 
 test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await expect(page.locator("#veu-pca")).toBeVisible();
   // exercício sugerido é o ano seguinte ao último com itens (2026 -> 2027)
@@ -450,7 +386,6 @@ test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {
 
 test("PCA: famílias filtram, ABC classifica e mesclagem funde itens",
     async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-gerar").click();
   const linhas = page.locator("#pca-lista .linha:not(.cab)");
@@ -482,7 +417,6 @@ test("PCA: famílias filtram, ABC classifica e mesclagem funde itens",
 
 test("PCA: mostra correção do IPCA, delta vs ano anterior e ata vigente",
     async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-gerar").click();
   // resumo do topo diz até quando os preços foram trazidos e quantos
@@ -498,7 +432,6 @@ test("PCA: mostra correção do IPCA, delta vs ano anterior e ata vigente",
 
 test("modal do PCA ocupa a janela e a descrição tem espaço", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-gerar").click();
   await expect(page.locator("#pca-lista .linha:not(.cab)")).toHaveCount(3);
@@ -514,7 +447,6 @@ test("modal do PCA ocupa a janela e a descrição tem espaço", async ({ page })
 });
 
 test("parâmetros do PCA chegam ao motor", async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await page.locator("#pca-base").selectOption("ultimo");
   await page.locator("#pca-estatistica").selectOption("recente");
@@ -527,81 +459,6 @@ test("parâmetros do PCA chegam ao motor", async ({ page }) => {
   expect(c.params).toEqual({ base: "ultimo", estatistica: "recente",
                              margem: 25, palavras: 2, so_recorrentes: false,
                              corrigir_ipca: true });
-});
-
-test("aba PCA mostra manchete própria em vez do kpis-topo genérico",
-    async ({ page }) => {
-  // redesenho 2026-09-10: pca_itens não tem vínculo item a item com
-  // contratações — a manchete compara planejado × homologado agregado
-  // no MESMO exercício (Api.dados_pca), nunca por item
-  await page.locator('nav.abas button[data-tipo="pca"]').click();
-  await expect(page.locator("#kpis-topo")).toBeHidden();
-  const manchete = page.locator("#pca-manchete");
-  await expect(manchete).toBeVisible();
-  await expect(page.locator("#pca-planejado")).toContainText("3 itens");
-  // texto sempre no mesmo formato agora (sem "% do plano" condicional) —
-  // quem mostra planejado × homologado é o bullet graph abaixo
-  await expect(page.locator("#pca-comparacao")).toContainText("já homologado em 2026");
-  await expect(page.locator("#pca-comparacao")).not.toContainText("%");
-  const chamada = await page.evaluate(() =>
-    window.__chamadas.find(c => c.metodo === "dados_pca"));
-  expect(chamada).toBeTruthy();
-});
-
-test("bullet graph do PCA fica vermelho quando homologado estoura o planejado",
-    async ({ page }) => {
-  // caso real (achado do usuário, print 2026-09-10): PCA sincronizado
-  // pequeno (poucos itens) × homologado do exercício inteiro, bem maior —
-  // a barra vermelha conta a história sem frase condicional
-  await page.evaluate(() => {
-    window.pywebview.api.dados_pca = async () => ({
-      ano: 2026, n_itens: 3, planejado: 254249.95,
-      homologado: 15956061.73, pct: 6276 });
-  });
-  await page.locator('nav.abas button[data-tipo="pca"]').click();
-  await expect(page.locator("#pca-bullet")).toBeVisible();
-  const { fills, erro, s1 } = await page.evaluate(() => {
-    const cs = getComputedStyle(document.documentElement);
-    const fills = [...document.querySelectorAll("#pca-bullet svg rect, #pca-bullet svg path")]
-      .map(el => getComputedStyle(el).fill);
-    return { fills, erro: cs.getPropertyValue("--erro").trim(),
-      s1: cs.getPropertyValue("--s1").trim() };
-  });
-  // a barra do "real" (homologado) usa --erro quando estoura o alvo, não o
-  // --s1 azul de sempre — cores resolvidas pra rgb() pelo navegador, então
-  // compara contra um <div> com a mesma custom property
-  const rgb = async cor => page.evaluate(c => {
-    const d = document.createElement("div");
-    d.style.color = c; document.body.append(d);
-    const r = getComputedStyle(d).color; d.remove(); return r;
-  }, cor);
-  expect(fills).toContain(await rgb(erro));
-  expect(fills).not.toContain(await rgb(s1));
-});
-
-test("manchete do PCA some quando o ano não tem nada planejado",
-    async ({ page }) => {
-  await page.locator('nav.abas button[data-tipo="pca"]').click();
-  await expect(page.locator("#pca-manchete")).toBeVisible();
-  await page.locator("#f-ano").selectOption("2025");
-  await expect(page.locator("#pca-manchete")).toBeHidden();
-});
-
-test("estimado e homologado aparecem em colunas separadas (redesenho 2026-09-10)",
-    async ({ page }) => {
-  // "Valor" virou "Estimado"/"Homologado" lado a lado — deságio visível
-  // sem conta de cabeça, e "–" no lugar do valor que ainda não existe em
-  // vez do antigo rótulo "est." (a coluna já diz o que cada número é).
-  await abrirLista(page);   // a tela inicial agora é o Painel
-  const linhas = page.locator(".linha:not(.cab)");
-  const numCols = linhas.nth(0).locator(".num");
-  // X-1: estimado 52.000,00, homologado 48.230,00 — os dois presentes
-  await expect(numCols.nth(0)).toContainText("52.000,00");
-  await expect(numCols.nth(1)).toContainText("48.230,00");
-  // X-2: só estimado (200.000,00); homologado é "–", não "est."
-  const numCols2 = linhas.nth(1).locator(".num");
-  await expect(numCols2.nth(0)).toContainText("200.000,00");
-  await expect(numCols2.nth(1)).toHaveText("–");
 });
 
 test("badge de situação encurtada mantém o texto completo no title",
@@ -654,7 +511,6 @@ test("densidade compacta aplica e persiste", async ({ page }) => {
 });
 
 test("modal trava o fundo, recebe foco e prende o Tab", async ({ page }) => {
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-relatorios").click();
   await expect(page.locator("body")).toHaveClass(/travado/);
   // foco entrou no diálogo
@@ -823,40 +679,6 @@ test("selos de situação atingem o contraste AA nos quatro temas",
     const reprovados = medidas.filter(m => m.razao < 4.5)
       .map(m => `${tema}/${m.classe} = ${m.razao.toFixed(2)}`);
     expect(reprovados).toEqual([]);
-  }
-});
-
-test("selo de vigência: coluna própria, centralizada mesmo com objeto longo",
-    async ({ page }) => {
-  // achado 2026-08-12: vigência inicial/final e status viraram colunas
-  // separadas (antes eram datas + selo espremidos numa célula só). O bug
-  // original só aparecia quando o objeto comprido fazia a linha crescer
-  // (quebra de texto); desde o redesenho 2026-09-10 (regra "linha de
-  // tabela com altura fixa") o objeto corta com reticências numa linha
-  // só e a fileira não cresce mais — o teste passa a confirmar que a
-  // centralização se mantém na altura fixa, não mais numa alta.
-  await page.setViewportSize({ width: 1300, height: 900 });
-  for (const aba of ["contratos", "atas"]) {
-    await page.locator(`nav.abas button[data-tipo="${aba}"]`).click();
-    const m = await page.evaluate(() =>
-      [...document.querySelectorAll(".linha:not(.cab)")].map(l => {
-        const selo = l.querySelector(".badge");
-        const rs = selo.getBoundingClientRect();
-        const rl = l.getBoundingClientRect();
-        return {
-          alturaLinha: rl.height,
-          // quanto o centro do selo desvia do centro vertical da linha
-          desvioCentro: Math.abs((rs.top + rs.height / 2)
-                                 - (rl.top + rl.height / 2)),
-        };
-      }));
-    expect(m.length).toBe(3);
-    // altura fixa em todas as linhas agora — nenhuma cresce mais que a
-    // outra (a régua de 40px é exatamente pra isso)
-    const alturas = new Set(m.map(x => Math.round(x.alturaLinha)));
-    expect(alturas.size, `alturas diferentes: ${[...alturas]}`).toBe(1);
-    for (const x of m)
-      expect(x.desvioCentro).toBeLessThanOrEqual(2);   // centralizado
   }
 });
 

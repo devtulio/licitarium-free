@@ -224,29 +224,6 @@ test("nenhuma marca de gráfico soma o balão nativo ao tooltip próprio",
   expect(comNome, "célula de vencimento sem aria-label").toBe(0);
 });
 
-test("os cards de uma fileira têm a mesma anatomia", async ({ page }) => {
-  // um card com duas linhas ao lado de irmãos com três quebrava a linha de
-  // base da fileira, e a diferença não queria dizer nada
-  //
-  // Execução (Fase 2) e Economia (Fase 4) — mesma regra "manchete única":
-  // os apoios soltos (`.card.kpiv`) viraram `.ap` dentro de um único
-  // `.card.apoios` nas duas vistas.
-  for (const [vista, sel, seletorApoio] of [
-      ["execucao", "#p-execucao", ".card.apoios .ap"],
-      ["economia", "#p-economia", ".card.apoios .ap"]]) {
-    if (vista !== "execucao")
-      await page.locator(`.subabas button[data-vista="${vista}"]`).click();
-    // conta linha VISÍVEL, não nó no DOM: o que quebra a fileira é o que a
-    // pessoa vê, e um `.r` escondido continuaria contando
-    const linhas = await page.locator(`${sel} ${seletorApoio}`)
-      .evaluateAll(cs => cs.map(c => [...c.querySelectorAll(".r")]
-        .filter(r => r.getBoundingClientRect().height > 0).length));
-    expect(linhas.length, `${vista} sem cards de apoio`).toBeGreaterThan(1);
-    expect(new Set(linhas).size, `${vista}: ${linhas.join("/")} linhas`)
-      .toBe(1);
-  }
-});
-
 test("trocar a largura da página não deixa cartão para fora da janela",
     async ({ page }) => {
   // Item de grid nasce com min-width:auto = min-content, e o SVG do ECharts

@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.0.0 — 2026-09-11
+
+**Reversão — decisão do usuário**
+
+- **Volta o `ui/` (HTML/CSS/JS da interface) pro estado de antes do
+  redesenho de 2026-09-10** (v1.53.0–v1.60.17): "ficou um monte de
+  pequenos erros e bugs e coisas feias" depois de várias rodadas de
+  correção pontual. Mantém tudo de backend/dados desta janela — fix da
+  causa raiz de "database is locked" (v1.60.12/v1.60.14), fix da
+  seleção fantasma na busca de preços (v1.60.16), toda a lógica de
+  sincronização. Bump de **major**, não patch: a versão nova volta a
+  remover funcionalidade que já tinha sido publicada (fluxo
+  Buscar→Selecionar→Comparar de Preços, manchete/bullet do PCA,
+  calendário de calor, chips de filtro, cabeçalho agrupado por "Mais",
+  entre outras) — é quebra de contrato visual com quem já usava essas
+  telas, não correção compatível.
+- Suíte de testes (`tests-e2e/`) ajustada pro estado revertido: 12
+  testes que cobriam funcionalidade removida foram apagados, 1 foi
+  reduzido ao que ainda existe (nome completo no `title` do fornecedor
+  truncado, sem a parte do gráfico Pareto), 2 foram reescritos pro
+  comportamento antigo real (comparação com municípios de referência e
+  resumo de preços sempre aparecem, sem exigir seleção prévia — regra
+  de antes de 2026-09-10), e 9 só precisavam do seletor do menu
+  "Mais" trocado pelos botões diretos (Montar PCA/Relatórios) que o
+  `ui/` antigo já tinha. 287 pytest + 169 Playwright verdes.
+
 ## 1.60.17 — 2026-09-11
 
 **Correção — achados do usuário no exe real**

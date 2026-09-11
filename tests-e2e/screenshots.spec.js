@@ -29,7 +29,6 @@ test("screenshot montar PCA", async ({ page }) => {
   await page.setViewportSize({ width: 1180, height: 860 });
   await abrirApp(page);
   await expect(page.locator("#splash")).toBeHidden();
-  await page.locator("#btn-mais").click();
   await page.locator("#btn-pca").click();
   await expect(page.locator("#veu-pca")).toBeVisible();
   await page.locator("#pca-gerar").click();
