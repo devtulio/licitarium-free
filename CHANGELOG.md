@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.60.15 — 2026-09-11
+
+**Correção — achado do usuário no exe real**
+
+- **Manchete de Preços · Situação do banco desalinhada do resto da
+  tela.** `.fp-manchete` usava a proporção 1,7fr:1fr (mesma régua de
+  Execução/Economia), mas as 4 fileiras de `.grade-painel` logo abaixo,
+  NA MESMA tela, já são 1fr:1fr — a borda dos cartões da manchete não
+  batia com a do resto. Corrigido pra 1fr:1fr, só nesta manchete (não
+  mexe em Execução/Economia/PCA).
+
 ## 1.60.14 — 2026-09-11
 
 **Correção — "database is locked" ao abrir o app (achado do usuário)**

@@ -681,10 +681,14 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .bolinha-status.status-verde { background:var(--ok); }
 /* Situação do banco de preços (portado do Pretiarium Free, 2026-09-07) */
 #precos-situacao { display:flex; flex-direction:column; gap:16px; }
-/* manchete (redesenho 2026-09-10) — mesma régua de .f-4/.fe-manchete,
-   classe própria pelo mesmo motivo da Fase 4: cada manchete livre pra
-   evoluir sem colidir com as outras. */
-.fp-manchete { grid-template-columns:1.7fr 1fr; container-type:inline-size;
+/* manchete (redesenho 2026-09-10) — classe própria pelo mesmo motivo da
+   Fase 4: cada manchete livre pra evoluir sem colidir com as outras.
+   1fr 1fr, NÃO 1.7fr 1fr como .f-4/.fe-manchete (achado do usuário,
+   2026-09-11): abaixo desta linha, as 4 fileiras de `.grade-painel` desta
+   MESMA tela já são 1fr 1fr — com proporção diferente, a borda dos
+   cartões não alinhava entre a manchete e o resto da tela, a única com
+   ritmo de coluna diferente do resto da própria página.*/
+.fp-manchete { grid-template-columns:1fr 1fr; container-type:inline-size;
                margin-bottom:0; }
 /* PCA (Fase 6): só manchete, sem .card.apoios — não tem uma 2ª métrica
    honesta pra pôr ao lado (ver achado no plano da fase: pca_itens não
