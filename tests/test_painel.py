@@ -703,12 +703,13 @@ def test_imprimir_detalhe_grava_a_ficha_com_o_que_a_tela_montou(
     assert "detalhe_12345_2026-1" in r["arquivo"]
 
 
-def test_imprimir_detalhe_contratacao_grava_cabecalho_e_corpo_ricos(
+def test_imprimir_detalhe_rico_grava_cabecalho_e_corpo_ricos(
         tmp_path, monkeypatch):
-    """Ficha rica (fase 12): botão Imprimir manda cabeçalho + corpo já
-    montados pela tela (andamento, itens, vencedor) — não a ficha
-    genérica, que ficaria em branco (`#det-titulo`/`.meta` ocultos nesse
-    modo). Achado do usuário, 2026-09-12."""
+    """Ficha rica (fase 12, estendida a Contratos/Atas em 2026-09-12):
+    botão Imprimir manda cabeçalho + corpo já montados pela tela
+    (andamento, itens, vencedor) — não a ficha genérica, que ficaria em
+    branco (`#det-titulo`/`.meta` ocultos nesse modo). Achado do
+    usuário, 2026-09-12."""
     monkeypatch.setattr(licitarium, "DIR_DADOS", tmp_path)
     monkeypatch.setattr(licitarium, "ARQUIVO_DB", tmp_path / "t.db")
     licitarium.abrir_db().close()
@@ -716,8 +717,8 @@ def test_imprimir_detalhe_contratacao_grava_cabecalho_e_corpo_ricos(
 
     cabecalho = '<p class="ficha-objeto">AQUISIÇÃO DE MATERIAL HOSPITALAR</p>'
     corpo = '<div class="det-andamento">...</div><div id="det-itens">...</div>'
-    r = licitarium.Api().imprimir_detalhe_contratacao(
-        "12345/2026-1", cabecalho, corpo)
+    r = licitarium.Api().imprimir_detalhe_rico(
+        "contratacoes", "12345/2026-1", cabecalho, corpo)
     assert r["ok"]
     html = Path(r["arquivo"]).read_text(encoding="utf-8")
     assert cabecalho in html

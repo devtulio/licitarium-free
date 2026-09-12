@@ -192,13 +192,14 @@ test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
     // achado do usuário (2026-09-12): o botão Imprimir chamava sempre
     // `imprimir_detalhe`, que lê #det-titulo/.meta — ocultos e vazios na
     // ficha rica, gerando folha em branco. Agora, na ficha rica, chama
-    // `imprimir_detalhe_contratacao` com o cabeçalho + #det-corpo-rico.
+    // `imprimir_detalhe_rico` com o cabeçalho + #det-corpo-rico.
     await abrirLista(page);
     await page.locator('.linha[data-nc="X-1"]').click();
     await page.locator("#det-imprimir").click();
     const chamada = await page.evaluate(() => window.__chamadas
-      .filter(c => c.metodo === "imprimir_detalhe_contratacao").pop());
+      .filter(c => c.metodo === "imprimir_detalhe_rico").pop());
     expect(chamada).toBeTruthy();
+    expect(chamada.tipo).toBe("contratacoes");
     expect(chamada.nc).toBe("X-1");
     expect(chamada.cabecalho_html).toContain("gêneros alimentícios");   // objeto do X-1
     expect(chamada.corpo_html).toContain("det-andamento");
@@ -220,10 +221,15 @@ test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
     expect(chamada.ni).toBe("09475002000101");
   });
 
-  test("outros tipos continuam com a ficha genérica de sempre",
+  test("Preços (item) continua com a ficha genérica de sempre (sem ficha rica)",
       async ({ page }) => {
-    await page.locator('nav.abas button[data-tipo="contratos"]').click();
-    await page.locator(".linha:not(.cab)").first().click();
+    // contratos e atas ganharam ficha rica em 2026-09-12 (ver describes
+    // abaixo) — Preços é o exemplo que segue sem, pra provar que o gate
+    // continua seletivo por tipo, não "tudo virou rico"
+    await page.locator('nav.abas button[data-tipo="precos"]').click();
+    await page.locator("#pr-busca").fill("papel");
+    await page.waitForTimeout(400);
+    await page.locator("#pr-lista .linha:not(.cab)").first().click();
     await expect(page.locator("#veu-detalhe")).toBeVisible();
     await expect(page.locator("#det-modal")).not.toHaveClass(/largo/);
     await expect(page.locator("#det-mhead-rico")).toBeHidden();
@@ -304,6 +310,63 @@ test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
       .toBeLessThanOrEqual(modalBox.x + modalBox.width + 1);
     expect(tableBox.width).toBeLessThanOrEqual(
       (await page.locator("#det-itens").boundingBox()).width + 1);
+  });
+});
+
+// pedido do usuário (2026-09-12): estender a ficha rica além de
+// Contratações. Andamento de Contrato é mais fraco (só 4 datas, sem
+// aditivo/execução no schema) — decisão do usuário: manter mesmo assim.
+test.describe("Detalhe rico do CONTRATO (estendido, 2026-09-12)", () => {
+  test("abre com andamento, itens comparados à mediana e vencedor",
+      async ({ page }) => {
+    await page.locator('nav.abas button[data-tipo="contratos"]').click();
+    await page.locator('.linha[data-nc="Y-1"]').click();
+    await expect(page.locator("#veu-detalhe")).toBeVisible();
+    await expect(page.locator("#det-modal")).toHaveClass(/largo/);
+    await expect(page.locator("#det-migalha"))
+      .toContainText("Contratos · contrato 33/2026");
+    await expect(page.locator("#det-homologado")).toContainText("R$ 30.294,00");
+
+    const passos = page.locator("#det-andamento .det-passo .rotulo");
+    await expect(passos).toHaveText(
+      ["Publicado", "Assinado", "Vigência início", "Vigência fim"]);
+
+    await expect(page.locator("#det-itens")).toContainText("Consultoria técnica em educação");
+    await expect(page.locator("#det-vencedor"))
+      .toContainText("DANILO HENRIQUE NUNES CONSULTORIA");
+    // CNPJ/CPF sai com máscara na ficha rica também (achado do usuário,
+    // 2026-08-12) — mesma função (mascararDocumento), reusada no card
+    // de vencedor em vez de reimplementada
+    await expect(page.locator("#det-vencedor")).toContainText("09.475.002/0001-01");
+    await expect(page.locator("#det-vencedor")).not.toContainText("09475002000101");
+  });
+});
+
+test.describe("Detalhe rico da ATA (estendido, 2026-09-12)", () => {
+  test("abre com vencedores (lista) quando tem mais de 1 fornecedor",
+      async ({ page }) => {
+    await page.locator('nav.abas button[data-tipo="atas"]').click();
+    await page.locator('.linha[data-nc="Z-5"]').click();
+    await expect(page.locator("#veu-detalhe")).toBeVisible();
+    await expect(page.locator("#det-modal")).toHaveClass(/largo/);
+    await expect(page.locator("#det-migalha")).toContainText("Atas · ata 30/2026");
+    await expect(page.locator("#det-homologado")).toContainText("R$ 20.000,00");
+    await expect(page.locator("#det-vencedor")).toContainText("Vencedores");
+    await expect(page.locator("#det-vencedor")).toContainText("GRAFICA MODELO LTDA");
+    await expect(page.locator("#det-vencedor")).toContainText("PAPELARIA CENTRAL LTDA");
+  });
+
+  test("ata compartilhada não separa itens/registrado por ata individual",
+      async ({ page }) => {
+    // achado do usuário testando com acervo real (2026-09-12): sem
+    // vínculo item→ata no schema, uma ata-irmã não pode ter seus
+    // próprios itens/registrado — mesma honestidade da lista
+    await page.locator('nav.abas button[data-tipo="atas"]').click();
+    await page.locator('.linha[data-nc="Z-6"]').click();
+    await expect(page.locator("#veu-detalhe")).toBeVisible();
+    await expect(page.locator("#det-homologado")).toContainText("compartilhado");
+    await expect(page.locator("#det-itens")).toContainText("compartilhado");
+    await expect(page.locator("#det-itens table")).toHaveCount(0);
   });
 });
 
@@ -405,50 +468,28 @@ test("Configurações abre no clique e busca os dados em paralelo, não em fila"
   expect(tCompletou).toBeLessThan(ATRASO * 2);
 });
 
-test("ficha impressa: objeto no corpo (não no cabeçalho) e origem vira link do PNCP",
-    async ({ page }) => {
-  // pedido do usuário (2026-08-12): cabeçalho = brasão + município;
-  // objeto desce pro corpo; "Contratação de origem" vira link no papel
-  await page.locator('nav.abas button[data-tipo="atas"]').click();
-  await page.locator(".linha:not(.cab)").first().click();
-  await expect(page.locator("#veu-detalhe")).toBeVisible();
-  await page.locator("#det-imprimir").click();
-
-  const chamada = await page.evaluate(() => window.__chamadas
-    .filter(c => c.metodo === "imprimir_detalhe").pop());
-  // "Contratação de origem" (45148970000177-1-000061/2025 na 1ª ata do
-  // mock) veio como link pro edital, com o mesmo texto de antes
-  expect(chamada.meta_html).toContain(
-    '<a href="https://pncp.gov.br/app/editais/45148970000177/2025/61">'
-    + '45148970000177-1-000061/2025</a>');
-  // na TELA (não na impressão) segue texto puro — nunca um <a href> cru
-  // dentro da modal do pywebview, que navegaria a janela do app pra fora
-  const metaTela = await page.locator("#det-meta").innerHTML();
-  expect(metaTela).not.toContain("<a href");
-});
-
-test("CNPJ/CPF na ficha de detalhe sai com máscara (achado do usuário)",
-    async ({ page }) => {
-  await page.locator('nav.abas button[data-tipo="contratos"]').click();
-  await page.locator(".linha:not(.cab)").first().click();
-  await expect(page.locator("#veu-detalhe")).toBeVisible();
-  const metaTela = await page.locator("#det-meta").innerText();
-  expect(metaTela).toContain("09.475.002/0001-01");
-  expect(metaTela).toContain("45.148.970/0001-77");
-  expect(metaTela).not.toContain("09475002000101");
-});
+// Contratos e Atas ganharam ficha RICA em 2026-09-12 (ver describes
+// acima) — imprimem via `imprimir_detalhe_rico`, não mais
+// `imprimir_detalhe`/`#det-meta`. Os 3 testes abaixo (origem vira link,
+// CNPJ mascarado, botão Imprimir manda o que a tela mostra) testavam o
+// caminho GENÉRICO; movidos/reapontados pra Preços (Banco de Preços),
+// único tipo que ainda usa esse caminho — ver
+// "ficha impressa de item de preço" em precos-resumo.spec.js pro caso
+// da origem virando link.
 
 test("botão Imprimir do modal de detalhe manda o que a tela já mostra",
     async ({ page }) => {
-  await page.locator('nav.abas button[data-tipo="contratos"]').click();
-  await page.locator(".linha:not(.cab)").first().click();
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await page.locator("#pr-lista .linha:not(.cab)").first().click();
   await expect(page.locator("#veu-detalhe")).toBeVisible();
   const titulo = await page.locator("#det-titulo").textContent();
   await page.locator("#det-imprimir").click();
 
   const chamada = await page.evaluate(() => window.__chamadas
     .filter(c => c.metodo === "imprimir_detalhe").pop());
-  expect(chamada.tipo).toBe("contratos");
+  expect(chamada.tipo).toBe("itens");
   expect(chamada.titulo).toBe(titulo);
   // o mesmo HTML já formatado (moeda/data) que está em #det-meta na tela —
   // não reimplementa rótulo por rótulo no Python

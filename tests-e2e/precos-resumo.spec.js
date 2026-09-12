@@ -61,6 +61,31 @@ test("clicar num item de preço abre a mesma ficha de detalhe de Contratações"
   expect(chamada.tipo).toBe("itens");
 });
 
+test("ficha impressa de item de preço: origem vira link do PNCP (mesmo padrão de antes)",
+    async ({ page }) => {
+  // pedido do usuário (2026-08-12): "Contratação de origem" vira link no
+  // papel. Testava via Atas/Contratos antes de eles ganharem ficha rica
+  // (2026-09-12, imprimem via imprimir_detalhe_rico agora); Preços
+  // continua no caminho genérico (`imprimir_detalhe`/`metaParaImpressao`)
+  // — é o único tipo que ainda exercita essa linkificação.
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await page.locator("#pr-lista .linha:not(.cab)").first().click();
+  await expect(page.locator("#veu-detalhe")).toBeVisible();
+  await page.locator("#det-imprimir").click();
+
+  const chamada = await page.evaluate(() => window.__chamadas
+    .filter(c => c.metodo === "imprimir_detalhe").pop());
+  // X-3#1 no mock: contratacao_controle "45148970000177-1-000050/2025"
+  expect(chamada.meta_html).toContain(
+    '<a href="https://pncp.gov.br/app/editais/45148970000177/2025/50">');
+  // na TELA (não na impressão) segue texto puro — nunca um <a href> cru
+  // dentro da modal do pywebview, que navegaria a janela do app pra fora
+  const metaTela = await page.locator("#det-meta").innerHTML();
+  expect(metaTela).not.toContain("<a href");
+});
+
 test("gráficos de preço desenham: boxplot, série temporal e por município",
     async ({ page }) => {
   await buscarESelecionarTudo(page);

@@ -108,7 +108,8 @@ const DADOS = {
   ],
   pca: [],
   itens: [
-    { id: "X-3#1", contratacao_controle: "X-3", ano: 2025, sequencial: 50,
+    { id: "X-3#1", contratacao_controle: "45148970000177-1-000050/2025",
+      ano: 2025, sequencial: 50,
       numero_item: 1, descricao: "PAPEL SULFITE A4 75G RESMA 500 FOLHAS",
       unidade: "RESMA", quantidade: 300, quantidade_homologada: 300,
       valor_unitario_estimado: 24.9, valor_unitario_homologado: 18.75,
@@ -318,6 +319,89 @@ function scriptPonte(temaBanco = "portal") {
             nome: "DANILO HENRIQUE NUNES CONSULTORIA",
             perfil: { n_contratos: 3, recebido_no_ano: 120000 } },
         };
+      },
+      // ficha rica de Contratos/Atas — pedido do usuário 2026-09-12 pra
+      // estender além de Contratações
+      detalhe_contrato: async (nc) => {
+        window.__chamadas.push({ metodo: "detalhe_contrato", nc });
+        // demais contratos do mock (Y-2..Y-4): mesma linha da lista, sem
+        // itens/perfil ricos — cobre o gate por TIPO (todo contrato tem
+        // ficha rica agora), sem precisar escrever à mão cada um
+        const generico = DADOS.contratos.find(x => x.numero_controle === nc);
+        if (nc !== "Y-1")
+          return generico ? { contrato: { ...generico,
+                sync_em: "2026-09-11T14:32:00" }, itens: [],
+              vencedor: generico.fornecedor_ni ? { ni: generico.fornecedor_ni,
+                nome: generico.fornecedor_nome, perfil: null } : null }
+            : null;
+        return {
+          contrato: { numero_controle: "Y-1", numero_contrato: "0033/26",
+            ano_contrato: 2026,
+            objeto: "Serviços de assessoria e consultoria técnica na área da educação",
+            orgao_nome: "Sec. de Educação",
+            fornecedor_ni: "09475002000101",
+            fornecedor_nome: "DANILO HENRIQUE NUNES CONSULTORIA",
+            valor_global: 30294, data_publicacao: "2026-07-13",
+            data_assinatura: "2026-07-20", vigencia_inicio: "2026-05-28",
+            vigencia_fim: "${emDias(300)}", sync_em: "2026-09-11T14:32:00" },
+          itens: [
+            { numero_item: 1, descricao: "Consultoria técnica em educação",
+              unidade: "MES", quantidade_homologada: 12,
+              valor_unitario_homologado: 2524.5, mediana_acervo: null,
+              n_comparaveis: 1 },
+          ],
+          vencedor: { ni: "09475002000101",
+            nome: "DANILO HENRIQUE NUNES CONSULTORIA",
+            perfil: { n_contratos: 3, recebido_no_ano: 120000 } },
+        };
+      },
+      detalhe_ata: async (nc) => {
+        window.__chamadas.push({ metodo: "detalhe_ata", nc });
+        if (nc === "Z-5")
+          return {
+            ata: { numero_controle: "Z-5", numero_ata: "30", ano_ata: 2026,
+              objeto: "Registro de preços de material de escritório",
+              orgao_nome: "Sec. de Administração",
+              contratacao_controle: "45148970000177-1-000080/2026",
+              data_publicacao: "2026-06-01", data_assinatura: "2026-06-05",
+              vigencia_inicio: "2026-06-01", vigencia_fim: "${emDias(150)}",
+              sync_em: "2026-09-11T14:32:00" },
+            compartilhada: false, registrado: 20000, n_contratos: 2,
+            itens: [
+              { numero_item: 1, descricao: "Papel sulfite A4", unidade: "RESMA",
+                quantidade_homologada: 300, valor_unitario_homologado: 18.75,
+                mediana_acervo: 20.6, n_comparaveis: 4 },
+            ],
+            vencedores: [
+              { ni: "11111111000101", nome: "GRAFICA MODELO LTDA",
+                perfil: { n_contratos: 2, recebido_no_ano: 15000 } },
+              { ni: "22222222000102", nome: "PAPELARIA CENTRAL LTDA",
+                perfil: { n_contratos: 1, recebido_no_ano: 5000 } },
+            ],
+          };
+        if (nc === "Z-6")
+          return {
+            ata: { numero_controle: "Z-6", numero_ata: "31", ano_ata: 2026,
+              objeto: "Registro de preços — lote 2",
+              orgao_nome: "Sec. de Administração",
+              contratacao_controle: "45148970000177-1-000090/2026",
+              data_publicacao: "2026-06-01", data_assinatura: "2026-06-05",
+              vigencia_inicio: "2026-06-01", vigencia_fim: "${emDias(150)}",
+              sync_em: "2026-09-11T14:32:00" },
+            compartilhada: true, registrado: null, n_contratos: null,
+            itens: null,
+            vencedores: [{ ni: "33333333000103", nome: "COMERCIAL FENIX LTDA",
+              perfil: { n_contratos: 1, recebido_no_ano: 8000 } }],
+          };
+        const generico = DADOS.atas.find(x => x.numero_controle === nc);
+        return generico ? { ata: { ...generico,
+              sync_em: "2026-09-11T14:32:00" }, compartilhada: false,
+            registrado: generico.registrado ?? 0,
+            n_contratos: generico.contratos ?? 0, itens: [],
+            vencedores: generico.fornecedor_nome
+              ? [{ ni: "00000000000100", nome: generico.fornecedor_nome, perfil: null }]
+              : [] }
+          : null;
       },
       descartes: async (busca) => {
         window.__chamadas.push({ metodo: "descartes", busca });
@@ -553,9 +637,9 @@ function scriptPonte(temaBanco = "portal") {
           titulo, subtitulo, meta_html, raw_html });
         return { ok: true, arquivo: "detalhe.html" };
       },
-      imprimir_detalhe_contratacao: async (nc, cabecalho_html, corpo_html,
-                                           raw_html) => {
-        window.__chamadas.push({ metodo: "imprimir_detalhe_contratacao", nc,
+      imprimir_detalhe_rico: async (tipo, nc, cabecalho_html, corpo_html,
+                                    raw_html) => {
+        window.__chamadas.push({ metodo: "imprimir_detalhe_rico", tipo, nc,
           cabecalho_html, corpo_html, raw_html });
         return { ok: true, arquivo: "detalhe.html" };
       },

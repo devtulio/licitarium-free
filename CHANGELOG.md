@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.13.0 — 2026-09-12
+
+**Adiciona — ficha rica estendida a Contratos e Atas**
+
+Pedido do usuário: a ficha rica da contratação (fase 12 do handoff,
+andamento/itens × mediana/vencedor/procedência) agora existe também pra
+Contratos e Atas. Banco de Preços fica de fora — item não tem sub-itens
+nem ciclo de vida, o que faria sentido (comparação com a mediana) já
+está nos gráficos da própria aba.
+
+- **Contratos**: itens × mediana e vencedor reusam a mesma query de
+  Contratações (mesmo `contratacao_controle`). Andamento é mais fraco
+  de propósito — sem aditivo/execução no schema, usa as 4 datas que já
+  existem (Publicado/Assinado/Vigência início/fim); decisão do usuário,
+  não omitir a seção.
+- **Atas**: 2 diferenças forçadas pelos dados. (1) Pode ter mais de 1
+  fornecedor (ARP com vários itens/lotes) — vira LISTA de vencedores,
+  não card único. (2) Ata cuja contratação de origem tem ata-irmã (lote/
+  grupo) não separa itens/registrado por ata individual — sem vínculo
+  item→ata no schema, mostra "compartilhado" em vez de um número
+  inflado (mesma honestidade já aplicada na listagem de atas).
+- Botão Imprimir generalizado: `imprimir_detalhe_rico`/
+  `render_detalhe_rico` (antes só de contratação) atendem os 3 tipos.
+- 310 testes Python + 188 Playwright verdes.
+
 ## 2.12.7 — 2026-09-12
 
 **Correção — título da ficha impressa e catástrofe de paginação no PDF real**

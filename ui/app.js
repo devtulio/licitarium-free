@@ -1169,11 +1169,17 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
       return `<div><div class="k">${rotulo}</div><div class="v">${esc(v)}</div></div>`;
     }).join("");
   $("det-raw").innerHTML = jsonColorido(d.raw);
-  // ficha rica (handoff Claude Design, fase 12, tela 1d) só pra
-  // Contratações — os outros tipos continuam com o cabeçalho/grade
-  // genéricos de sempre (título/sub e Ver no PNCP/Imprimir seguem
-  // populados do mesmo jeito, então a impressão não muda)
-  const rico = tipo === "contratacoes" && api.detalhe_contratacao;
+  // ficha rica (handoff Claude Design, fase 12, tela 1d; estendida a
+  // Contratos/Atas por pedido do usuário, 2026-09-12) — PCA e Preços
+  // continuam com o cabeçalho/grade genéricos de sempre (título/sub e
+  // Ver no PNCP/Imprimir seguem populados do mesmo jeito, sem mudar)
+  const FICHA_RICA = {
+    contratacoes: { buscar: api.detalhe_contratacao, render: renderDetalheRicoContratacao },
+    contratos: { buscar: api.detalhe_contrato, render: renderDetalheRicoContrato },
+    atas: { buscar: api.detalhe_ata, render: renderDetalheRicoAta },
+  };
+  const ficha = FICHA_RICA[tipo];
+  const rico = ficha && ficha.buscar;
   $("det-modal").classList.toggle("largo", !!rico);
   document.querySelector("#det-modal > .mhead:not(.det-rico)")
     .classList.toggle("oculto", !!rico);
@@ -1181,8 +1187,8 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
   $("det-meta").classList.toggle("oculto", !!rico);
   $("det-corpo-rico").classList.toggle("oculto", !rico);
   if (rico) {
-    const dc = await api.detalhe_contratacao(nc);
-    if (dc) renderDetalheRicoContratacao(d, dc);
+    const dc = await ficha.buscar(nc);
+    if (dc) ficha.render(d, dc);
   }
   abrirModal("veu-detalhe");
 }
@@ -1200,6 +1206,85 @@ function celulaPosicao(diferenca) {
     return `<span class="det-posicao mediana">na mediana</span>`;
   const cl = diferenca < 0 ? "abaixo" : "acima";
   return `<span class="det-posicao ${cl}">${pct(Math.abs(diferenca), 0)} ${cl}</span>`;
+}
+
+// tabela de itens × mediana — compartilhada pelas 3 fichas ricas
+// (contratação, contrato, ata): mesmo formato de dado (`numero_item`,
+// `descricao`, `unidade`, `quantidade_homologada`,
+// `valor_unitario_homologado`, `mediana_acervo`) em todas.
+function tabelaItensComMediana(itens) {
+  return !itens.length
+    ? `<div class="vazio" style="padding:20px">Nenhum item homologado ainda.</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">
+        <colgroup><col><col style="width:70px"><col style="width:100px">
+          <col style="width:100px"><col style="width:170px"></colgroup>
+        <tr class="dim" style="text-align:left;background:var(--surface2)">
+          <th style="padding:10px 16px">Item</th>
+          <th style="padding:10px 8px;text-align:right">Qtd</th>
+          <th style="padding:10px 8px;text-align:right">Unitário</th>
+          <th style="padding:10px 8px;text-align:right">Mediana</th>
+          <th style="padding:10px 16px">Posição</th></tr>
+        ${itens.map(it => `<tr>
+          <td style="padding:10px 16px;border-top:1px solid var(--border);
+              overflow-wrap:break-word"
+              title="${esc(it.descricao)}">${esc(it.descricao)}</td>
+          <td style="padding:10px 8px;border-top:1px solid var(--border);
+              text-align:right">${it.quantidade_homologada ?? "–"}
+              ${esc(it.unidade ?? "")}</td>
+          <td style="padding:10px 8px;border-top:1px solid var(--border);
+              text-align:right">${dinheiro(it.valor_unitario_homologado)}</td>
+          <td class="dim" style="padding:10px 8px;border-top:1px solid var(--border);
+              text-align:right">${dinheiro(it.mediana_acervo)}</td>
+          <td style="padding:10px 16px;border-top:1px solid var(--border)">
+            ${celulaPosicao(it.mediana_acervo == null ? null
+              : (it.valor_unitario_homologado / it.mediana_acervo - 1) * 100)}</td>
+        </tr>`).join("")}
+      </table>`;
+}
+
+// card de 1 vencedor — contratação e contrato têm sempre 1 fornecedor só
+function cardVencedor(v, ano) {
+  if (!v)
+    return `<div class="rot-filtros">Vencedor</div>
+       <div class="dim" style="margin-top:10px">Ainda sem resultado.</div>`;
+  return `<div class="rot-filtros">Vencedor</div>
+       <div style="font-weight:600;font-size:14px;margin-top:10px">
+         ${v.perfil ? `<a href="#" class="link" data-fornecedor="${esc(v.ni)}"
+                         data-ano="${ano}">${esc(v.nome)}</a>`
+                     : esc(v.nome ?? "–")}</div>
+       <div class="dim" style="font-size:12px;margin-top:6px">
+         ${v.ni ? `CNPJ/CPF ${esc(mascararDocumento(v.ni))}` : ""}</div>
+       <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+         <div class="det-vencedor-linha"><span class="r">Contratos no acervo</span>
+           <b>${v.perfil ? v.perfil.n_contratos : "0"}</b></div>
+         <div class="det-vencedor-linha"><span class="r">Total recebido em ${ano}</span>
+           <b>${dinheiro(v.perfil?.recebido_no_ano ?? 0)}</b></div>
+         <div class="det-vencedor-linha"><span class="r">Sanções</span>
+           <span class="dim">sem dado no acervo</span></div>
+       </div>`;
+}
+
+// ata pode ter mais de 1 fornecedor (ARP com vários itens/lotes,
+// concatenado no PNCP) — lista em vez de card único (pedido do usuário,
+// 2026-09-12)
+function cardVencedores(vencedores, ano) {
+  if (!vencedores.length)
+    return `<div class="rot-filtros">Vencedor</div>
+       <div class="dim" style="margin-top:10px">Ainda sem resultado.</div>`;
+  return `<div class="rot-filtros">Vencedor${vencedores.length > 1 ? "es" : ""}</div>
+       <div style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
+       ${vencedores.map(v => `
+         <div>
+           <div style="font-weight:600;font-size:13.5px">
+             ${v.perfil ? `<a href="#" class="link" data-fornecedor="${esc(v.ni)}"
+                             data-ano="${ano}">${esc(v.nome)}</a>`
+                         : esc(v.nome ?? "–")}</div>
+           <div class="dim" style="font-size:12px;margin-top:4px">
+             CNPJ/CPF ${esc(mascararDocumento(v.ni))}
+             ${v.perfil ? `· ${v.perfil.n_contratos} contrato(s) no acervo
+               · ${dinheiro(v.perfil.recebido_no_ano ?? 0)} recebidos em ${ano}` : ""}</div>
+         </div>`).join("")}
+       </div>`;
 }
 
 function renderDetalheRicoContratacao(d, dc) {
@@ -1251,56 +1336,93 @@ function renderDetalheRicoContratacao(d, dc) {
       <div class="data">${p.data ? MES_ABREV_2D(p.data) : esc(p.semData ?? "–")}</div>
     </div>`).join("");
 
-  $("det-itens").innerHTML = !dc.itens.length
-    ? `<div class="vazio" style="padding:20px">Nenhum item homologado ainda.</div>`
-    : `<table style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">
-        <colgroup><col><col style="width:70px"><col style="width:100px">
-          <col style="width:100px"><col style="width:170px"></colgroup>
-        <tr class="dim" style="text-align:left;background:var(--surface2)">
-          <th style="padding:10px 16px">Item</th>
-          <th style="padding:10px 8px;text-align:right">Qtd</th>
-          <th style="padding:10px 8px;text-align:right">Unitário</th>
-          <th style="padding:10px 8px;text-align:right">Mediana</th>
-          <th style="padding:10px 16px">Posição</th></tr>
-        ${dc.itens.map(it => `<tr>
-          <td style="padding:10px 16px;border-top:1px solid var(--border);
-              overflow-wrap:break-word"
-              title="${esc(it.descricao)}">${esc(it.descricao)}</td>
-          <td style="padding:10px 8px;border-top:1px solid var(--border);
-              text-align:right">${it.quantidade_homologada ?? "–"}
-              ${esc(it.unidade ?? "")}</td>
-          <td style="padding:10px 8px;border-top:1px solid var(--border);
-              text-align:right">${dinheiro(it.valor_unitario_homologado)}</td>
-          <td class="dim" style="padding:10px 8px;border-top:1px solid var(--border);
-              text-align:right">${dinheiro(it.mediana_acervo)}</td>
-          <td style="padding:10px 16px;border-top:1px solid var(--border)">
-            ${celulaPosicao(it.mediana_acervo == null ? null
-              : (it.valor_unitario_homologado / it.mediana_acervo - 1) * 100)}</td>
-        </tr>`).join("")}
-      </table>`;
-
-  const v = dc.vencedor;
-  $("det-vencedor").innerHTML = !v
-    ? `<div class="rot-filtros">Vencedor</div>
-       <div class="dim" style="margin-top:10px">Ainda sem resultado.</div>`
-    : `<div class="rot-filtros">Vencedor</div>
-       <div style="font-weight:600;font-size:14px;margin-top:10px">
-         ${v.perfil ? `<a href="#" class="link" data-fornecedor="${esc(v.ni)}"
-                         data-ano="${c.ano}">${esc(v.nome)}</a>`
-                     : esc(v.nome ?? "–")}</div>
-       <div class="dim" style="font-size:12px;margin-top:6px">
-         ${v.ni ? `CNPJ/CPF ${esc(mascararDocumento(v.ni))}` : ""}</div>
-       <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
-         <div class="det-vencedor-linha"><span class="r">Contratos no acervo</span>
-           <b>${v.perfil ? v.perfil.n_contratos : "0"}</b></div>
-         <div class="det-vencedor-linha"><span class="r">Total recebido em ${c.ano}</span>
-           <b>${dinheiro(v.perfil?.recebido_no_ano ?? 0)}</b></div>
-         <div class="det-vencedor-linha"><span class="r">Sanções</span>
-           <span class="dim">sem dado no acervo</span></div>
-       </div>`;
-
+  $("det-itens").innerHTML = tabelaItensComMediana(dc.itens);
+  $("det-vencedor").innerHTML = cardVencedor(dc.vencedor, c.ano);
   $("det-procedencia").textContent = c.sync_em
     ? `Espelho local do PNCP, ${fraseSincronizado(c.sync_em)}. Nada foi
+       editado no acervo.`
+    : "Espelho local do PNCP. Nada foi editado no acervo.";
+}
+
+// ── ficha rica de CONTRATO (pedido do usuário, 2026-09-12): mesmo
+// padrão da contratação — itens × mediana, vencedor, procedência.
+// Andamento mais fraco por opção do usuário: o schema não tem
+// aditivo/execução, só as 4 datas que já existem no registro.
+function renderDetalheRicoContrato(d, dc) {
+  const c = dc.contrato;
+  $("det-migalha").textContent = `Contratos · contrato ${numContrato(c)}`;
+  $("det-titulo-rico").textContent = c.objeto || "–";
+  $("det-info-linha").innerHTML = [c.orgao_nome, c.fornecedor_nome]
+    .filter(Boolean).map(t => `<span>${esc(t)}</span>`).join("");
+  $("det-homologado").innerHTML = c.valor_global != null
+    ? `<div style="font:600 11px/1 system-ui;letter-spacing:.08em;color:var(--muted)">VALOR GLOBAL</div>
+       <div style="font-size:22px;font-weight:700;margin-top:6px">${dinheiro(c.valor_global)}</div>`
+    : `<span class="badge mut">Sem valor no acervo</span>`;
+
+  const passos = [
+    { rotulo: "Publicado", data: c.data_publicacao, ok: !!c.data_publicacao },
+    { rotulo: "Assinado", data: c.data_assinatura, ok: !!c.data_assinatura },
+    { rotulo: "Vigência início", data: c.vigencia_inicio, ok: !!c.vigencia_inicio },
+    { rotulo: "Vigência fim", data: c.vigencia_fim, ok: !!c.vigencia_fim },
+  ];
+  $("det-andamento").innerHTML = passos.map(p => `
+    <div class="det-passo ${p.ok ? "" : "futuro"}">
+      <div class="trilho"><span class="bola"></span><span class="trilho-linha"></span></div>
+      <div class="rotulo">${esc(p.rotulo)}</div>
+      <div class="data">${p.data ? MES_ABREV_2D(p.data) : "–"}</div>
+    </div>`).join("");
+
+  $("det-itens").innerHTML = tabelaItensComMediana(dc.itens);
+  $("det-vencedor").innerHTML = cardVencedor(dc.vencedor, c.ano_contrato);
+  $("det-procedencia").textContent = c.sync_em
+    ? `Espelho local do PNCP, ${fraseSincronizado(c.sync_em)}. Nada foi
+       editado no acervo.`
+    : "Espelho local do PNCP. Nada foi editado no acervo.";
+}
+
+// ── ficha rica de ATA (pedido do usuário, 2026-09-12): mesmo padrão,
+// com 2 diferenças forçadas pelos dados — pode ter mais de 1 fornecedor
+// (lista, não card único) e, quando a contratação de origem tem
+// ata-irmã, itens/registrado não dá pra separar por ata (honesto:
+// "compartilhado", não um número inflado — mesmo padrão da LISTA de atas).
+function renderDetalheRicoAta(d, dc) {
+  const a = dc.ata;
+  $("det-migalha").textContent = `Atas · ata ${a.numero_ata ?? "–"}/${a.ano_ata ?? ""}`;
+  $("det-titulo-rico").textContent = a.objeto || "–";
+  $("det-info-linha").innerHTML = [a.orgao_nome].filter(Boolean)
+    .map(t => `<span>${esc(t)}</span>`).join("");
+  const compartilhado = `<span class="dim" title="A contratação de origem
+    gerou mais de uma ata — não dá para separar por ata individual">
+    compartilhado</span>`;
+  $("det-homologado").innerHTML = dc.compartilhada
+    ? `<div style="font:600 11px/1 system-ui;letter-spacing:.08em;color:var(--muted)">REGISTRADO</div>
+       <div style="font-size:16px;font-weight:600;margin-top:6px">${compartilhado}</div>`
+    : `<div style="font:600 11px/1 system-ui;letter-spacing:.08em;color:var(--muted)">REGISTRADO</div>
+       <div style="font-size:22px;font-weight:700;margin-top:6px">${dinheiro(dc.registrado)}</div>
+       <div class="dim" style="font-size:12px;margin-top:4px">${
+         dc.n_contratos ? `${dc.n_contratos} contrato(s) decorrente(s)` : "sem contrato decorrente"}</div>`;
+
+  const passos = [
+    { rotulo: "Publicado", data: a.data_publicacao, ok: !!a.data_publicacao },
+    { rotulo: "Assinado", data: a.data_assinatura, ok: !!a.data_assinatura },
+    { rotulo: "Vigência início", data: a.vigencia_inicio, ok: !!a.vigencia_inicio },
+    { rotulo: "Vigência fim", data: a.vigencia_fim, ok: !!a.vigencia_fim },
+  ];
+  $("det-andamento").innerHTML = passos.map(p => `
+    <div class="det-passo ${p.ok ? "" : "futuro"}">
+      <div class="trilho"><span class="bola"></span><span class="trilho-linha"></span></div>
+      <div class="rotulo">${esc(p.rotulo)}</div>
+      <div class="data">${p.data ? MES_ABREV_2D(p.data) : "–"}</div>
+    </div>`).join("");
+
+  $("det-itens").innerHTML = dc.compartilhada
+    ? `<div class="vazio" style="padding:20px">${compartilhado} — a
+        contratação de origem gerou mais de uma ata, não dá pra separar
+        os itens por ata individual.</div>`
+    : tabelaItensComMediana(dc.itens);
+  $("det-vencedor").innerHTML = cardVencedores(dc.vencedores, a.ano_ata);
+  $("det-procedencia").textContent = a.sync_em
+    ? `Espelho local do PNCP, ${fraseSincronizado(a.sync_em)}. Nada foi
        editado no acervo.`
     : "Espelho local do PNCP. Nada foi editado no acervo.";
 }
@@ -1330,10 +1452,10 @@ function metaParaImpressao() {
   }
   return clone.innerHTML;
 }
-// ficha rica (contratação) tem cabeçalho/corpo próprios — imprimir com
-// `imprimir_detalhe` capturaria #det-titulo/.meta, ocultos e vazios
-// nesse modo (folha em branco). Mesmo padrão de sempre: a tela desenha
-// (cabeçalho + #det-corpo-rico já prontos), o papel só captura.
+// ficha rica (contratação/contrato/ata) tem cabeçalho/corpo próprios —
+// imprimir com `imprimir_detalhe` capturaria #det-titulo/.meta, ocultos
+// e vazios nesse modo (folha em branco). Mesmo padrão de sempre: a tela
+// desenha (cabeçalho + #det-corpo-rico já prontos), o papel só captura.
 function cabecalhoRicoParaImpressao() {
   return `<div class="dim" style="margin-bottom:2px">${
       esc($("det-migalha").textContent)}</div>
@@ -1345,7 +1467,7 @@ function cabecalhoRicoParaImpressao() {
 $("det-imprimir").addEventListener("click", () => {
   const rico = !$("det-corpo-rico").classList.contains("oculto");
   if (rico)
-    api.imprimir_detalhe_contratacao(detalheAtual,
+    api.imprimir_detalhe_rico(detalheTipo, detalheAtual,
       cabecalhoRicoParaImpressao(), $("det-corpo-rico").innerHTML,
       $("det-raw").innerHTML);
   else

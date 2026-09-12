@@ -1029,6 +1029,97 @@ def dados_detalhe_contratacao(db, numero_controle):
             "homologado_em": homologado_em, "vencedor": vencedor}
 
 
+def dados_detalhe_contrato(db, numero_controle):
+    """Ficha rica do CONTRATO — mesmo padrão de `dados_detalhe_contratacao`
+    (itens × mediana do acervo, vencedor), pedido do usuário 2026-09-12
+    pra estender a ficha rica além de Contratações.
+
+    Andamento (montado na tela, não aqui) fica mais fraco que o da
+    contratação: o schema de `contratos` não tem aditivo/execução, só as
+    4 datas que já existem (publicado/assinado/vigência início/fim) —
+    decisão do usuário: manter mesmo assim, em vez de omitir a seção.
+    """
+    c = db.execute("SELECT * FROM contratos WHERE numero_controle=?",
+                   (numero_controle,)).fetchone()
+    if not c:
+        return None
+    c = dict(c)
+
+    itens = [dict(r) for r in db.execute(
+        """SELECT numero_item, descricao, unidade, quantidade_homologada,
+                  valor_unitario_homologado
+           FROM itens WHERE contratacao_controle=?
+                 AND valor_unitario_homologado IS NOT NULL
+           ORDER BY numero_item""", (c["contratacao_controle"],))]
+    for it in itens:
+        mediana, n = _mediana_unitario_do_acervo(db, it["descricao"])
+        it["mediana_acervo"] = mediana
+        it["n_comparaveis"] = n
+
+    vencedor = None
+    if c.get("fornecedor_ni"):
+        vencedor = {"ni": c["fornecedor_ni"], "nome": c["fornecedor_nome"],
+                    "perfil": dados_perfil_fornecedor(
+                        db, c["fornecedor_ni"], c.get("ano_contrato"))}
+
+    return {"contrato": c, "itens": itens, "vencedor": vencedor}
+
+
+def dados_detalhe_ata(db, numero_controle):
+    """Ficha rica da ATA — mesmo padrão acima, com 2 diferenças forçadas
+    pelos dados (não por escolha):
+
+    1. Pode ter MAIS DE 1 fornecedor (ARP com vários itens/lotes) — o
+       campo vem concatenado (`pncp.separar_fornecedores`); a ficha
+       mostra uma LISTA de vencedores, não um card único (decisão do
+       usuário, 2026-09-12).
+    2. Quando a contratação de origem tem ata-irmã (mais de uma ata pra
+       mesma contratação — comum em registro de preços por lote), não dá
+       pra separar itens/registrado/contratos POR ata: o schema só liga
+       item→contratação, não item→ata (mesma limitação documentada em
+       `top_atas_saldo` e na listagem de atas). `itens`/`registrado`/
+       `n_contratos` saem `None` nesse caso — honesto, não inventado.
+    """
+    a = db.execute("SELECT * FROM atas WHERE numero_controle=?",
+                   (numero_controle,)).fetchone()
+    if not a:
+        return None
+    a = dict(a)
+
+    compartilhada = db.execute(
+        "SELECT COUNT(*) FROM atas WHERE contratacao_controle=?",
+        (a["contratacao_controle"],)).fetchone()[0] > 1
+
+    itens = registrado = n_contratos = None
+    if not compartilhada:
+        itens = [dict(r) for r in db.execute(
+            """SELECT numero_item, descricao, unidade, quantidade_homologada,
+                      valor_unitario_homologado
+               FROM itens WHERE contratacao_controle=?
+                     AND valor_unitario_homologado IS NOT NULL
+               ORDER BY numero_item""", (a["contratacao_controle"],))]
+        for it in itens:
+            mediana, n = _mediana_unitario_do_acervo(db, it["descricao"])
+            it["mediana_acervo"] = mediana
+            it["n_comparaveis"] = n
+        registrado = db.execute(
+            """SELECT COALESCE(SUM(valor_total_homologado),0) FROM itens
+               WHERE contratacao_controle=?""",
+            (a["contratacao_controle"],)).fetchone()[0]
+        n_contratos = db.execute(
+            "SELECT COUNT(*) FROM contratos WHERE contratacao_controle=?",
+            (a["contratacao_controle"],)).fetchone()[0]
+
+    vencedores = [
+        {"ni": linha["fornecedor_ni"], "nome": linha["fornecedor_nome"],
+         "perfil": dados_perfil_fornecedor(db, linha["fornecedor_ni"], a.get("ano_ata"))}
+        for linha in pncp.separar_fornecedores([a]) if linha.get("fornecedor_ni")]
+
+    return {"ata": a, "itens": itens, "compartilhada": compartilhada,
+            "registrado": registrado, "n_contratos": n_contratos,
+            "vencedores": vencedores}
+
+
 def dados_executivo(db, ano, orgao=None):
     ano = int(ano)
     og = " AND orgao_cnpj=?" if orgao else ""
@@ -3548,7 +3639,7 @@ CSS_DET_RICO = """
 """
 
 
-def render_detalhe_contratacao(cabecalho_html, corpo_html, municipio, uf,
+def render_detalhe_rico(cabecalho_html, corpo_html, municipio, uf,
                                brasao=None, raw_html="", titulo_doc=None,
                                subtitulo=""):
     """Ficha impressa da contratação — versão rica (fase 12 do handoff).

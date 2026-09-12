@@ -631,6 +631,105 @@ def test_detalhe_contratacao_homologado_em_usa_data_resultado_dos_itens(api):
     assert api.detalhe_contratacao("H")["homologado_em"] == "2026-05-06"
 
 
+# ficha rica estendida a Contratos/Atas (pedido do usuário, 2026-09-12) —
+# mesmo padrão acima, itens x mediana do acervo via contratacao_controle.
+def test_detalhe_contrato_compara_item_com_mediana_e_traz_vencedor(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratos (numero_controle, contratacao_controle,"
+        " numero_contrato, ano_contrato, objeto, fornecedor_ni,"
+        " fornecedor_nome, valor_global) VALUES"
+        " ('K-1','K','0010/26',2026,'Obj','111','Fornecedor K',5000)")
+    db.executemany(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " descricao, valor_unitario_homologado) VALUES (?,?,?,?,?)",
+        [("K#1", "K", 1, "Item comparável", 10.0),
+         ("X#2", "X", 1, "Item comparável", 12.0)])
+    db.commit()
+    db.close()
+
+    d = api.detalhe_contrato("K-1")
+    assert d["contrato"]["fornecedor_nome"] == "Fornecedor K"
+    assert d["itens"][0]["mediana_acervo"] == 11.0
+    assert d["vencedor"]["ni"] == "111"
+
+
+def test_detalhe_contrato_sem_fornecedor_nao_inventa_vencedor(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratos (numero_controle, contratacao_controle,"
+        " objeto) VALUES ('K-2','K2','Obj')")
+    db.commit()
+    db.close()
+    assert api.detalhe_contrato("K-2")["vencedor"] is None
+
+
+def test_detalhe_ata_traz_itens_e_1_vencedor_quando_nao_compartilhada(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, objeto, fornecedor_ni, fornecedor_nome)"
+        " VALUES ('L-1','L','5',2026,'Obj RP','222','Fornecedor L')")
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " descricao, valor_unitario_homologado, valor_total_homologado)"
+        " VALUES ('L#1','L',1,'Item da ata',10.0,100.0)")
+    db.commit()
+    db.close()
+
+    d = api.detalhe_ata("L-1")
+    assert d["compartilhada"] is False
+    assert d["itens"][0]["descricao"] == "Item da ata"
+    assert d["registrado"] == 100.0
+    assert len(d["vencedores"]) == 1
+    assert d["vencedores"][0]["ni"] == "222"
+
+
+def test_detalhe_ata_compartilhada_nao_separa_itens_por_ata(api):
+    """Sem vínculo item→ata no schema (só item→contratação), uma ata cuja
+    contratação de origem tem ata-irmã não tem como ter itens/registrado
+    PRÓPRIOS — sair `None` é a honestidade, não um bug. Mesma limitação
+    já documentada em `top_atas_saldo`/listagem de atas."""
+    db = licitarium.abrir_db()
+    db.executemany(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, objeto) VALUES (?,?,?,?,?)",
+        [("M-1", "M", "1", 2026, "Lote 1"),
+         ("M-2", "M", "2", 2026, "Lote 2")])
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " descricao, valor_unitario_homologado, valor_total_homologado)"
+        " VALUES ('M#1','M',1,'Item',10.0,100.0)")
+    db.commit()
+    db.close()
+
+    d = api.detalhe_ata("M-1")
+    assert d["compartilhada"] is True
+    assert d["itens"] is None
+    assert d["registrado"] is None
+    assert d["n_contratos"] is None
+
+
+def test_detalhe_ata_com_fornecedor_concatenado_vira_lista_de_vencedores(api):
+    """ARP com mais de 1 item homologado por fornecedores diferentes:
+    `fornecedor_ni`/`fornecedor_nome` vêm concatenados por
+    `pncp.SEPARADOR_FORNECEDOR` — a ficha rica lista os 2, não escolhe 1
+    (pedido do usuário, 2026-09-12)."""
+    sep = pncp.SEPARADOR_FORNECEDOR
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, objeto, fornecedor_ni, fornecedor_nome)"
+        " VALUES ('N-1','N','9',2026,'Obj',?,?)",
+        (f"111{sep}222", f"Fornecedor 1{sep}Fornecedor 2"))
+    db.commit()
+    db.close()
+
+    vencedores = api.detalhe_ata("N-1")["vencedores"]
+    assert [v["ni"] for v in vencedores] == ["111", "222"]
+    assert [v["nome"] for v in vencedores] == ["Fornecedor 1", "Fornecedor 2"]
+
+
 def test_asset_do_auto_update_aceita_todos_os_nomes_ja_publicados():
     """O nome do exe mudou duas vezes: ganhou a versão (1.2.4) e o "Free"
     (1.35.0). O casamento é por padrão porque a checagem roda contra

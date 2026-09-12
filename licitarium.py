@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.12.7"
+VERSAO = "2.13.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1573,11 +1573,12 @@ class Api:
         webbrowser.open(arquivo.as_uri())
         return {"ok": True, "arquivo": str(arquivo)}
 
-    def imprimir_detalhe_contratacao(self, numero_controle, cabecalho_html,
-                                      corpo_html, raw_html=""):
-        """Ficha impressa da CONTRATAÇÃO — versão rica (handoff Claude
-        Design, fase 12, tela 1d): andamento, itens × mediana, vencedor,
-        procedência. `imprimir_detalhe` (acima) não serve aqui porque lê
+    def imprimir_detalhe_rico(self, tipo, numero_controle, cabecalho_html,
+                               corpo_html, raw_html=""):
+        """Ficha impressa da versão RICA (handoff Claude Design, fase 12,
+        tela 1d — estendida a Contratos/Atas, pedido do usuário
+        2026-09-12): andamento, itens × mediana, vencedor, procedência.
+        `imprimir_detalhe` (acima) não serve aqui porque lê
         `#det-titulo`/`.meta`, que ficam ocultos e vazios na ficha rica —
         capturaria uma folha em branco. Mesmo princípio: a tela desenha
         (`cabecalho_html`/`corpo_html` já vêm prontos, incl. andamento e
@@ -1588,17 +1589,17 @@ class Api:
             municipio = pncp._config(db, "municipio_nome") or "Município"
             uf = pncp._config(db, "municipio_uf") or ""
             brasao = pncp._config(db, "brasao")
-            d = self.detalhe("contratacoes", numero_controle) or {}
-            titulo_doc = _titulo_impressao_detalhe(db, "contratacoes", d)
+            d = self.detalhe(tipo, numero_controle) or {}
+            titulo_doc = _titulo_impressao_detalhe(db, tipo, d)
         finally:
             db.close()
-        html = relatorios.render_detalhe_contratacao(
+        html = relatorios.render_detalhe_rico(
             cabecalho_html, corpo_html, municipio, uf, brasao=brasao,
             raw_html=raw_html, titulo_doc=titulo_doc,
             subtitulo=numero_controle or "")
         destino = DIR_DADOS / "relatorios"
         destino.mkdir(parents=True, exist_ok=True)
-        limpo = re.sub(r"[^\w-]+", "_", (numero_controle or "contratacao").lower())[:60]
+        limpo = re.sub(r"[^\w-]+", "_", (numero_controle or tipo).lower())[:60]
         arquivo = destino / f"detalhe_{limpo}.html"
         arquivo.write_text(html, encoding="utf-8")
         webbrowser.open(arquivo.as_uri())
@@ -1671,6 +1672,23 @@ class Api:
         db = abrir_db()
         try:
             return relatorios.dados_detalhe_contratacao(db, numero_controle)
+        finally:
+            db.close()
+
+    def detalhe_contrato(self, numero_controle):
+        """Ficha rica do contrato — mesmo padrão da contratação, pedido do
+        usuário 2026-09-12 pra estender a ficha rica além de Contratações."""
+        db = abrir_db()
+        try:
+            return relatorios.dados_detalhe_contrato(db, numero_controle)
+        finally:
+            db.close()
+
+    def detalhe_ata(self, numero_controle):
+        """Ficha rica da ata — mesmo pedido do usuário acima."""
+        db = abrir_db()
+        try:
+            return relatorios.dados_detalhe_ata(db, numero_controle)
         finally:
             db.close()
 
