@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.13.2 — 2026-09-12
+
+**Adiciona/Corrige — gráfico de Atas vai pro Painel; 350px também em Preços**
+
+- **"Registrado por ata"** morava sozinho, pequeno, no topo da lista de
+  Atas. Pedido do usuário: mudou pro Painel · Execução, junto do resto
+  do "quem recebeu/registrou no exercício" — mesma função e mesmo dado
+  de sempre (`top_atas_saldo`), agora embutido em `dados_executivo` numa
+  chamada só (sem ida própria ao banco). `Api.grafico_atas` removido
+  (dead code).
+- **Altura mínima de 350px também no Banco de Preços** (boxplot, série
+  temporal, comparativo por município e os 3 gráficos de "Situação do
+  banco") — mesmo padrão aplicado ao Painel na v2.13.1.
+- 310 testes Python + 188 Playwright verdes.
+
 ## 2.13.1 — 2026-09-12
 
 **Correção — altura mínima dos gráficos sobe pra 350px**

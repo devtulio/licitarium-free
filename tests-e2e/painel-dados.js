@@ -43,4 +43,20 @@ dados.execucao.fornecedores.forEach((f, i) => {
     v => v.nome === f.fornecedor_nome)?.objeto ?? "Diversos";
 });
 
+// "Registrado por ata" mudou da lista de Atas pro Painel · Execução
+// (pedido do usuário, 2026-09-12) — sintético aqui pelo mesmo motivo do
+// bloco acima: não vinha do backend que gerou este fixture.
+dados.execucao.atas_saldo = [
+  { numero_controle: "Z-3", numero_ata: "02", ano_ata: 2025,
+    registrado: 610000, contratos: 5 },
+  { numero_controle: "Z-1", numero_ata: "13", ano_ata: 2026,
+    registrado: 340000, contratos: 3 },
+  { numero_controle: "Z-2", numero_ata: "07", ano_ata: 2026,
+    registrado: 95000, contratos: 1 },
+  { numero_controle: "Z-5", numero_ata: "30", ano_ata: 2026,
+    registrado: 20000, contratos: 2 },
+  { numero_controle: "Z-4", numero_ata: "22", ano_ata: 2026,
+    registrado: 12000, contratos: 0 },
+];
+
 module.exports = dados;

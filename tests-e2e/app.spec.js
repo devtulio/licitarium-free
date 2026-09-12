@@ -394,27 +394,6 @@ test("contratos e atas separam vigência inicial/final e status em colunas próp
     "Objeto", "Origem", "Itens", "Registrado", "Contratos", "Vence em"]);
 });
 
-test("atas: gráfico de registrado por ata só aparece na própria aba, ordenado por valor",
-    async ({ page }) => {
-  // a API de Ata do PNCP não traz "empenhado" nem "saldo" — o gráfico
-  // mostra o que existe (registrado, via itens da contratação de origem) e
-  // quantos contratos já saíram dali (fase 9 do handoff, tela 3d)
-  await page.locator('nav.abas button[data-tipo="contratos"]').click();
-  await expect(page.locator("#graf-atas-card")).toBeHidden();
-
-  await page.locator('nav.abas button[data-tipo="atas"]').click();
-  await expect(page.locator("#graf-atas-card")).toBeVisible();
-  const chamada = await page.evaluate(() => window.__chamadas
-    .filter(c => c.metodo === "grafico_atas").pop());
-  expect(chamada).toBeTruthy();
-  // a ata de maior registrado (Z-3, R$ 610 mil) some se cair na página 2
-  // da lista — o gráfico busca o topo à parte, não a página atual
-  await expect(page.locator("#graf-atas-saldo")).toContainText("610");
-  // ata sem contrato decorrente (Z-4) aparece no gráfico com "0 contratos",
-  // não escondida como se não existisse
-  await expect(page.locator("#graf-atas-saldo")).toContainText("0 contratos");
-});
-
 // achados testando o exe compilado com acervo real (2026-09-12)
 test.describe("Atas: fornecedor concatenado e ata-irmã compartilhada", () => {
   test("fornecedor com mais de 1 nome mostra só o 1º + contagem, sem o campo cru",

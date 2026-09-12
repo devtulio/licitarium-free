@@ -1029,6 +1029,13 @@ const DESENHO = {
   economia_familia: (el, l) => grafBarras(el, P.dados.economia.por_familia, {
     valor: f => f.economizado || 0, rotulo: f => f.nome ?? "–",
     exato: true}, l),
+  // "Registrado por ata" — pedido do usuário (2026-09-12): morava sozinho
+  // na lista de Atas; mudou pro Painel · Execução
+  atas_saldo: (el, l) => grafBarras(el, P.dados.execucao.atas_saldo, {
+    valor: it => it.registrado,
+    rotulo: it => `Ata ${it.numero_ata ?? "–"}/${it.ano_ata ?? ""}`,
+    sub: it => it.contratos === 1 ? "1 contrato" : `${it.contratos} contratos`,
+  }, l),
 };
 
 function desenharGraficos(raiz) {
@@ -1102,7 +1109,11 @@ function vistaExecucao(d) {
            `<span class="so-tela">Clicar leva à aba correspondente.</span>`)}
   ${cartao(`Onde o dinheiro foi — fornecedores de ${ano}`,
            tabelaFornecedores(d.execucao.fornecedores,
-                              d.execucao.fornecedores_valor_total))}`;
+                              d.execucao.fornecedores_valor_total))}
+  ${cartaoGraf("Registrado por ata — top 5 do exercício", "atas_saldo",
+    `<span class="so-tela">Atas cuja contratação de origem tem ata-irmã
+      (lote/grupo) não entram — sem vínculo item→ata, não dá pra separar
+      o registrado de cada uma.</span>`)}`;
 }
 
 function tabelaVencendo(itens) {

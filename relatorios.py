@@ -1211,9 +1211,15 @@ def dados_executivo(db, ano, orgao=None):
     cards["atas_vigentes"] = db.execute(
         f"SELECT COUNT(*) FROM atas WHERE date(vigencia_fim)"
         f">=date('now','localtime'){og}", og_args).fetchone()[0]
+    # "Registrado por ata" — pedido do usuário (2026-09-12): morava sozinho,
+    # pequeno, na lista de Atas; mudou pro Painel · Execução, junto do resto
+    # do "quanto/quem recebeu no exercício". Mesma função de sempre
+    # (`top_atas_saldo`), sem SQL nova.
+    atas_saldo = top_atas_saldo(db, ano, orgao)
     return {"ano": ano, "cards": cards, "modalidades": modalidades,
             "meses": meses, "fornecedores": fornecedores,
-            "fornecedores_valor_total": fornecedores_total, "vencendo": vencendo}
+            "fornecedores_valor_total": fornecedores_total, "vencendo": vencendo,
+            "atas_saldo": atas_saldo}
 
 
 def dados_fracionamento(db, ano, orgao=None, limites=None, janela=None):
@@ -1710,6 +1716,7 @@ def dados_painel(db, ano, orgao=None, limites=None, janela=None):
                      "fornecedores": executivo["fornecedores"],
                      "fornecedores_valor_total": executivo["fornecedores_valor_total"],
                      "vencendo": executivo["vencendo"],
+                     "atas_saldo": executivo["atas_saldo"],
                      "homologado_anterior": anterior["homologado"],
                      "n_anterior": anterior["n"]},
         "analise": {"series": {str(a): v for a, v in series.items()},

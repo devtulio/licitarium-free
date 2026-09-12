@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.13.1"
+VERSAO = "2.13.2"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1504,15 +1504,6 @@ class Api:
                 {"compras": cfg.get("limite_dispensa_compras"),
                  "obras": cfg.get("limite_dispensa_obras")},
                 janela=cfg.get("frac_janela"))
-        finally:
-            db.close()
-
-    def grafico_atas(self, ano=None, orgao=None):
-        """5 atas de maior valor registrado, pro gráfico da tela Atas
-        (handoff Claude Design, fase 9, tela 3d)."""
-        db = abrir_db()
-        try:
-            return {"itens": relatorios.top_atas_saldo(db, ano, orgao)}
         finally:
             db.close()
 

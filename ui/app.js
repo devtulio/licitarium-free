@@ -920,20 +920,6 @@ async function carregarLista() {
   $("pag-info").textContent = `${estado.pagina}/${paginas} · ${r.total} registros`;
   $("pag-ant").disabled = estado.pagina <= 1;
   $("pag-prox").disabled = estado.pagina >= paginas;
-  // "Registrado por ata" (handoff Claude Design, fase 9, tela 3d): topo por
-  // valor, não a página atual — senão as 5 maiores atas do exercício
-  // poderiam nunca aparecer se caírem na página 2. `grafBarras` (não
-  // `desenharBarrasEcharts`) porque é o motor de tela — a outra função só
-  // serve o SVG oculto de impressão e usa a paleta fixa do papel; aqui é a
-  // tela viva, com o tema ativo (`var(--s1)`).
-  if (estado.tipo === "atas") {
-    const g = await api.grafico_atas(filtros.ano, filtros.orgao);
-    grafBarras($("graf-atas-saldo"), g.itens, {
-      valor: it => it.registrado,
-      rotulo: it => `Ata ${it.numero_ata ?? "–"}/${it.ano_ata ?? ""}`,
-      sub: it => it.contratos === 1 ? "1 contrato" : `${it.contratos} contratos`,
-    });
-  }
 }
 
 // Estado de aba/visibilidade só, sem consultar o banco — quem chama decide
@@ -974,8 +960,6 @@ function mudarAba(tipo) {
   // "vence em 60 dias" contam coisas diferentes — bug real documentado
   // no DASHBOARD.md (25 no alerta, 50 na lista), daí a explicação fixa
   $("aviso-vigencia").classList.toggle("oculto", !ehVigencia);
-  // "Saldo por ata" (fase 9, tela 3d) só existe na aba Atas
-  $("graf-atas-card").classList.toggle("oculto", tipo !== "atas");
   $("f-busca").placeholder = "Buscar no objeto…";
   $("f-propostas").checked = false;
   $("f-vigentes").checked = false;
@@ -2624,7 +2608,7 @@ function serieTemporalHtml(s) {
   if (datas.size < 2) return "";
   return `<div class="disp"><b>Ao longo do tempo:</b> preço de cada item
     pela data do resultado.</div>
-    <div id="precos-serie" style="height:220px"></div>`;
+    <div id="precos-serie" style="height:350px"></div>`;
 }
 
 // Comparativo "onde está mais barato": mediana por município, mais barato
@@ -2709,7 +2693,7 @@ function desenharBoxplotPreco(el, s) {
           fontWeight: r.forte ? 600 : 400, color: r.forte ? texto : muted } })) }
   ];
 
-  el.style.height = itens.length ? "240px" : "150px";
+  el.style.height = "350px";
 
   if (itens.length) {
     const ordenados = [...itens].sort((a, b) => a.valor - b.valor);
@@ -2791,7 +2775,7 @@ function desenharGraficoMunicipio(el, s) {
   const val = s.por_conteudo ? dinheiroFino : dinheiro;
   const s1 = _corTemaEchart("--s1", "#2a78d6");
   const muted = _corTemaEchart("--muted", "#5b6066");
-  el.style.height = `${40 + s.por_municipio.length * 34}px`;
+  el.style.height = `${Math.max(350, 40 + s.por_municipio.length * 34)}px`;
   if (el.__echart) { el.__echart.dispose(); el.__echart = null; }
   const chart = echarts.init(el, null, { renderer: "svg" });
   el.__echart = chart;
@@ -2937,7 +2921,7 @@ async function mostrarResumoPrecos() {
       <button class="btn ghost" id="pr-relatorio" style="align-self:center">Relatório</button>
     </div>
     ${correcaoHtml(s)}${semConversaoHtml(s)}
-    <div id="precos-boxplot" class="oculto" style="height:150px"></div>
+    <div id="precos-boxplot" class="oculto" style="height:350px"></div>
     ${dispersaoHtml(s)}${foraDaCurvaHtml(s)}
     ${serieTemporalHtml(s)}
     ${porMunicipioHtml(s)}

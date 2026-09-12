@@ -211,12 +211,6 @@ function scriptPonte(temaBanco = "portal") {
           itens = itens.filter(i => !filtros.excluidos.includes(String(i.id)));
         return { itens, total: itens.length, total_base: itens.length };
       },
-      grafico_atas: async (ano, orgao) => {
-        window.__chamadas.push({ metodo: "grafico_atas", ano, orgao });
-        const itens = [...DADOS.atas].sort((a, b) => b.registrado - a.registrado)
-          .slice(0, 5);
-        return { itens };
-      },
       estatisticas_preco: async (busca, ano, origem, excluidos,
                                  porConteudo, corrigir, incluidos, unidade) => {
         window.__chamadas.push({ metodo: "estatisticas_preco", busca, ano,

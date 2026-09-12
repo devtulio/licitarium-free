@@ -150,6 +150,10 @@ def test_lista_de_atas_traz_origem_itens_registrado_e_contratos(api):
 
 
 def test_grafico_atas_ordena_pelas_de_maior_registrado(api):
+    # "Registrado por ata" mudou da lista de Atas pro Painel · Execução
+    # (pedido do usuário, 2026-09-12) — `top_atas_saldo` continua a mesma
+    # função, só que chamada de dentro de `dados_executivo` agora, não
+    # mais de um método de Api próprio.
     db = licitarium.abrir_db()
     db.executemany(
         "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
@@ -157,7 +161,8 @@ def test_grafico_atas_ordena_pelas_de_maior_registrado(api):
         [("G1",), ("G2",)])
     db.executemany(
         "INSERT INTO atas (numero_controle, contratacao_controle,"
-        " numero_ata, ano_ata, vigencia_fim) VALUES (?,?,'1',2026,?)",
+        " numero_ata, ano_ata, vigencia_inicio, vigencia_fim) VALUES"
+        " (?,?,'1',2026,'2026-01-01',?)",
         [("A-G1", "G1", date.today().isoformat()),
          ("A-G2", "G2", date.today().isoformat())])
     db.executemany(
@@ -167,8 +172,9 @@ def test_grafico_atas_ordena_pelas_de_maior_registrado(api):
     db.commit()
     db.close()
 
-    r = api.grafico_atas()
-    assert [i["numero_controle"] for i in r["itens"][:2]] == ["A-G2", "A-G1"]
+    r = api.painel(2026)
+    itens = r["execucao"]["atas_saldo"]
+    assert [i["numero_controle"] for i in itens[:2]] == ["A-G2", "A-G1"]
 
 
 # achados testando o exe com acervo real (2026-09-12)
@@ -184,7 +190,8 @@ def test_grafico_atas_exclui_atas_irmas_da_mesma_contratacao(api):
         " modalidade_nome, objeto) VALUES ('H',2026,1,'Pregão','Obj')")
     db.executemany(
         "INSERT INTO atas (numero_controle, contratacao_controle,"
-        " numero_ata, ano_ata, vigencia_fim) VALUES (?,'H','1',2026,?)",
+        " numero_ata, ano_ata, vigencia_inicio, vigencia_fim) VALUES"
+        " (?,'H','1',2026,'2026-01-01',?)",
         [("A-H1", date.today().isoformat()),
          ("A-H2", date.today().isoformat())])
     db.execute(
@@ -193,9 +200,10 @@ def test_grafico_atas_exclui_atas_irmas_da_mesma_contratacao(api):
     db.commit()
     db.close()
 
-    r = api.grafico_atas()
-    assert "A-H1" not in [i["numero_controle"] for i in r["itens"]]
-    assert "A-H2" not in [i["numero_controle"] for i in r["itens"]]
+    r = api.painel(2026)
+    itens = r["execucao"]["atas_saldo"]
+    assert "A-H1" not in [i["numero_controle"] for i in itens]
+    assert "A-H2" not in [i["numero_controle"] for i in itens]
 
 
 def test_lista_de_atas_marca_compartilhada_quando_tem_ata_irma(api):

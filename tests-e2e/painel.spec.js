@@ -200,6 +200,22 @@ test("as três vistas trocam e ficam lembradas", async ({ page }) => {
   expect(salvo.v).toBe("analise");
 });
 
+// "Registrado por ata" mudou da lista de Atas pro Painel · Execução
+// (pedido do usuário, 2026-09-12) — mesmo dado de sempre (`top_atas_saldo`),
+// só que embutido em `dados_executivo`, sem ida própria ao banco.
+test("execução traz o gráfico de registrado por ata",
+    async ({ page }) => {
+  const v = page.locator("#p-execucao");
+  await expect(v).toContainText("Registrado por ata");
+  // a ata de maior registrado (Z-3, R$ 610 mil) aparece — não é a página
+  // atual de uma lista, é o topo por valor direto do fixture
+  const graf = v.locator('[data-graf="atas_saldo"]');
+  await expect(graf).toContainText("610");
+  // ata sem contrato decorrente (Z-4) aparece com "0 contratos", não
+  // escondida como se não existisse
+  await expect(graf).toContainText("0 contratos");
+});
+
 test("execução mostra hero, colunas mensais e modalidades",
     async ({ page }) => {
   const v = page.locator("#p-execucao");
