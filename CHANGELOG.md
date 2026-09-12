@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.12.4 — 2026-09-12
+
+**Correção — etapa "Propostas" da ficha rica de contratação, para Dispensa/inexigibilidade**
+
+- Usuário comparou o modal real com o mockup do handoff e notou o
+  andamento torto: Dispensa/inexigibilidade não têm fase de propostas, e
+  o código marcava "Propostas" como etapa `futuro` (bolinha vazia) por
+  falta de data — sentada ENTRE "Publicado" e "Homologado", ambos
+  preenchidos. Parecia regressão no progresso.
+- "Sem data" ali não é "ainda não aconteceu", é "essa etapa não existe
+  pra esse rito". Agora reusa o mesmo sinal que já rotula isso na linha
+  de tags acima do andamento (`modoDisputaNome === "Não se aplica"`):
+  quando é o caso, a etapa vem preenchida com o rótulo "não se aplica"
+  em vez de vazia.
+- 304 testes Python + 185 Playwright verdes (1 novo, cobrindo o caso).
+
 ## 2.12.3 — 2026-09-12
 
 **Correção — Situação do banco (Preços) vira 1 coluna; altura dos gráficos de largura total recalibrada**

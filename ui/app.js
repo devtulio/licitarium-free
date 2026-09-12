@@ -1226,10 +1226,19 @@ function renderDetalheRicoContratacao(d, dc) {
   // andamento: 4 marcos reais (não 5) — o PNCP não expõe julgamento nem
   // quantidade de licitantes pra este endpoint; inventar seria o
   // programa afirmando o que a fonte não sabe
+  //
+  // Dispensa/inexigibilidade não têm fase de propostas — "sem data" ali
+  // não é "ainda não aconteceu" (bolinha futuro), é "essa etapa não
+  // existe pra esse rito". Antes disso virava bolinha vazia ENTRE duas
+  // preenchidas (Publicado e Homologado), regressão visual absurda.
+  // `modoDisputa === "Não se aplica"` é o mesmo sinal que já rotula essa
+  // ausência na linha de tags acima — reusar em vez de inventar 2ª regra.
+  const semDisputa = modoDisputa === "Não se aplica";
   const passos = [
     { rotulo: "Publicado", data: c.data_publicacao, ok: !!c.data_publicacao },
     { rotulo: "Propostas", data: c.data_encerramento_proposta,
-      ok: !!c.data_encerramento_proposta },
+      ok: !!c.data_encerramento_proposta || semDisputa,
+      semData: semDisputa ? "não se aplica" : "–" },
     { rotulo: "Homologado", data: dc.homologado_em,
       ok: c.valor_homologado != null },
     { rotulo: "Contrato", data: dc.contrato?.data_assinatura,

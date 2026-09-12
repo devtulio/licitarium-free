@@ -192,6 +192,37 @@ test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
     await expect(page.locator("#det-meta")).toBeVisible();
   });
 
+  test("Dispensa/inexigibilidade: etapa Propostas fica preenchida com \"não se aplica\", não vazia entre 2 preenchidas",
+      async ({ page }) => {
+    // achado do usuário comparando modal real × mockup (2026-09-12): pra
+    // Dispensa, "Propostas" virava bolinha "futuro" (vazia) sentada ENTRE
+    // Publicado e Homologado, os dois preenchidos — parecia regressão. A
+    // etapa não é "ainda não aconteceu", é "não existe pra esse rito".
+    await page.evaluate(() => {
+      window.pywebview.api.detalhe = async () => ({
+        numero_controle: "X-1", objeto: "Contratação por dispensa",
+        raw: { modoDisputaNome: "Não se aplica" },
+      });
+      window.pywebview.api.detalhe_contratacao = async () => ({
+        contratacao: { numero_controle: "X-1", ano: 2026, sequencial: 45,
+          objeto: "Contratação por dispensa", modalidade_nome: "Dispensa",
+          orgao_nome: "Município de Orindiúva",
+          valor_estimado: 24388.31, valor_homologado: 24000,
+          data_publicacao: "2026-08-26" },
+        itens: [],
+        contrato: { data_assinatura: "2026-08-21" },
+        homologado_em: "2026-07-01",
+        vencedor: { ni: "08475002000101", nome: "M C ENGENHARIA LTDA",
+          perfil: { n_contratos: 5, recebido_no_ano: 300000 } },
+      });
+    });
+    await abrirLista(page);
+    await page.locator('.linha[data-nc="X-1"]').click();
+    const propostas = page.locator("#det-andamento .det-passo").nth(1);
+    await expect(propostas).not.toHaveClass(/futuro/);
+    await expect(propostas).toContainText("não se aplica");
+  });
+
   test("descrição de item bem comprida não empurra o cartão Vencedor pra fora do modal",
       async ({ page }) => {
     // achado testando o exe com acervo real (2026-09-12): a tabela de
