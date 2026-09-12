@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.8.0"
+VERSAO = "2.9.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1365,6 +1365,44 @@ class Api:
                             f"{k['modalidade_nome'].split(' ')[0]} "
                             f"{int(k['sequencial']):03d}/{k['ano']}"
                         ) if k and k["modalidade_nome"] and k["sequencial"] else None
+            # Origem/Itens/Registrado/Contratos da lista de Atas (handoff
+            # Claude Design, fase 9, tela 3d) — mesmo cuidado de enriquecer
+            # DEPOIS de paginar que a fase 8 usou pra Contratos, e pelo mesmo
+            # motivo (JOIN no SELECT principal ambiguaria orgao_cnpj/objeto
+            # entre atas e contratacoes). "Registrado"/"Contratos" não são
+            # "empenhado"/"saldo" do mockup — a API de Ata do PNCP não traz
+            # NENHUM valor monetário (ver relatorios.top_atas_saldo).
+            if tipo == "atas" and itens:
+                ids = list({d["contratacao_controle"] for d in itens
+                           if d.get("contratacao_controle")})
+                if ids:
+                    marcadores = ",".join("?" * len(ids))
+                    info = {r[0]: r for r in db.execute(
+                        f"""SELECT numero_controle, modalidade_nome,
+                               sequencial, ano
+                           FROM contratacoes
+                           WHERE numero_controle IN ({marcadores})""", ids)}
+                    agregados = {r[0]: r for r in db.execute(
+                        f"""SELECT contratacao_controle,
+                               COUNT(*) itens,
+                               COALESCE(SUM(valor_total_homologado),0) registrado
+                           FROM itens WHERE contratacao_controle IN ({marcadores})
+                           GROUP BY contratacao_controle""", ids)}
+                    n_contratos = {r[0]: r[1] for r in db.execute(
+                        f"""SELECT contratacao_controle, COUNT(*)
+                           FROM contratos WHERE contratacao_controle IN ({marcadores})
+                           GROUP BY contratacao_controle""", ids)}
+                    for d in itens:
+                        cc = d.get("contratacao_controle")
+                        k = info.get(cc)
+                        d["origem"] = (
+                            f"{k['modalidade_nome'].split(' ')[0]} "
+                            f"{int(k['sequencial']):03d}/{k['ano']}"
+                        ) if k and k["modalidade_nome"] and k["sequencial"] else None
+                        ag = agregados.get(cc)
+                        d["itens"] = ag["itens"] if ag else 0
+                        d["registrado"] = ag["registrado"] if ag else 0
+                        d["contratos"] = n_contratos.get(cc, 0)
             # aba Preços: a linha guarda só o código IBGE — resolve o nome
             # aqui (mesmo dicionário de ORDENAVEIS["itens"]["municipio"]),
             # para a tela mostrar "Olímpia" em vez do código
@@ -1433,6 +1471,15 @@ class Api:
                 {"compras": cfg.get("limite_dispensa_compras"),
                  "obras": cfg.get("limite_dispensa_obras")},
                 janela=cfg.get("frac_janela"))
+        finally:
+            db.close()
+
+    def grafico_atas(self, ano=None, orgao=None):
+        """5 atas de maior valor registrado, pro gráfico da tela Atas
+        (handoff Claude Design, fase 9, tela 3d)."""
+        db = abrir_db()
+        try:
+            return {"itens": relatorios.top_atas_saldo(db, ano, orgao)}
         finally:
             db.close()
 

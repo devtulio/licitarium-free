@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.9.0 — 2026-09-11
+
+**Adição — Fase 9 do handoff "Dashboard de Licitações Públicas" (Claude Design): lista de Atas**
+
+- **Achado de grounding, antes de codar**: a API de Ata de Registro de
+  Preço do PNCP não traz NENHUM valor monetário — nem "registrado", nem
+  "empenhado" (checado no schema de `atas`, em `pncp._upsert_ata` e no
+  payload real). O mockup 3d pede um gráfico "registrado × empenhado" e
+  uma coluna "Saldo" que a fonte simplesmente não tem como preencher,
+  honesta ou desonestamente.
+- **Substituto groundado**: "Registrado" é a soma do valor homologado
+  dos itens da MESMA contratação de origem (o que a ata de fato
+  registrou); "Contratos" é quantos contratos já saíram dessa
+  contratação. Não é "quanto sobra até o vencimento" do mockup, mas não
+  inventa número — ata sem contrato decorrente ganha selo "sem contrato
+  decorrente" em vez de fingir "0% empenhado".
+- **Tabela** ganha Fornecedor, Origem (modalidade + processo), Itens,
+  Registrado e Contratos — mesmo enriquecimento pós-página das fases
+  3/4/8 (`orgao_cnpj`/`objeto`/`numero_controle` ficariam ambíguos num
+  JOIN dentro do `Api.listar` compartilhado).
+- **Gráfico novo "Registrado por ata"** (5 maiores do exercício, não a
+  página atual) na própria tela de Atas — motor é `painel.js:grafBarras`
+  (o de tela, com o tema ativo), não `desenharBarrasEcharts` (esse é só
+  o SVG oculto de impressão, com paleta fixa de papel).
+- **Os 2 chips do mockup** ("atas vencem em 60 dias" / "atas sem nenhum
+  empenho") não ganharam linha própria na tela de Atas: o primeiro já é
+  o chip global do Painel (mesma contagem, o próprio mockup confirma
+  isso na nota de design); o segundo não tem como existir sem o dado de
+  empenho — o que dá pra saber (contratos decorrentes) já aparece linha
+  a linha na tabela, sem duplicar num resumo.
+- 296 pytest + 169 Playwright verdes.
+
 ## 2.8.0 — 2026-09-11
 
 **Adição — Fase 8 do handoff "Dashboard de Licitações Públicas" (Claude Design): lista de Contratos**

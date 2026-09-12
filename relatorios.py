@@ -814,6 +814,37 @@ def dados_atas(db, ano=None, vigentes=False, orgao=None):
     return {"linhas": linhas, "totais": {"n": total_atas}}
 
 
+# "Saldo por ata" (handoff Claude Design, fase 9, tela 3d) — o mockup pede
+# registrado × empenhado, mas a API de Ata de Registro de Preço do PNCP não
+# devolve NENHUM valor monetário (nem registrado, nem empenhado — checado no
+# schema de `atas`, em pncp._upsert_ata e no payload real): "empenhado" não
+# existe pra ser mostrado, honesto ou não. Substituto groundado: "registrado"
+# é a soma do homologado dos itens da MESMA contratação de origem (é o que a
+# ata registrou de fato) e "contratos" é quantos contratos já saíram dessa
+# mesma contratação — não é "quanto sobra", mas não inventa número que a
+# fonte não tem.
+def top_atas_saldo(db, ano=None, orgao=None, limite=5):
+    where, args = [], []
+    if ano:
+        where.append("substr(a.vigencia_inicio,1,4)=?")
+        args.append(str(ano))
+    if orgao:
+        where.append("a.orgao_cnpj=?")
+        args.append(orgao)
+    sql_where = (" WHERE " + " AND ".join(where)) if where else ""
+    return [dict(r) for r in db.execute(
+        f"""SELECT a.numero_controle, a.numero_ata, a.ano_ata, a.objeto,
+                   a.vigencia_fim,
+                   (SELECT COUNT(*) FROM itens i
+                      WHERE i.contratacao_controle=a.contratacao_controle) itens,
+                   (SELECT COALESCE(SUM(i.valor_total_homologado),0) FROM itens i
+                      WHERE i.contratacao_controle=a.contratacao_controle) registrado,
+                   (SELECT COUNT(*) FROM contratos c
+                      WHERE c.contratacao_controle=a.contratacao_controle) contratos
+            FROM atas a{sql_where}
+            ORDER BY registrado DESC LIMIT ?""", args + [limite])]
+
+
 def dados_perfil_fornecedor(db, fornecedor_ni, ano):
     """Ficha de 1 fornecedor: quanto recebeu, quantos contratos, deságio
     médio que ofereceu (contra a média do município), dispensas no ano e o

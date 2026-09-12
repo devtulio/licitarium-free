@@ -449,9 +449,10 @@ const COLUNAS = {
                  ["Objeto","objeto"], ["Órgão",null], ["Origem",null],
                  ["Valor","valor"], ["Vigência inicial","vigencia_inicio"],
                  ["Vigência final","vigencia_fim"], ["Vence em","status"]],
-  atas:         [["Ata","numero"], ["Contratação de origem","origem"],
-                 ["Objeto","objeto"], ["Vigência inicial","vigencia_inicio"],
-                 ["Vigência final","vigencia_fim"], ["Status","status"]],
+  atas:         [["Ata","numero"], ["Fornecedor","fornecedor"],
+                 ["Objeto","objeto"], ["Origem","origem"],
+                 ["Itens","itens"], ["Registrado","registrado"],
+                 ["Contratos","contratos"], ["Vence em","status"]],
   pca:          [["Item","item"], ["Descrição","descricao"],
                  ["Categoria","categoria"], ["Qtde","quantidade"],
                  ["Valor","valor"]],
@@ -593,12 +594,23 @@ function renderLinha(tipo, d) {
       <span class="dim">${esc(d.categoria ?? "–")}</span>
       <span class="num">${d.quantidade ?? "–"}</span>
       <span class="num">${dinheiro(d.valor_total)}</span>`;
+  // Fornecedor não é link pro perfil aqui, mesma razão de Contratos (fase
+  // 8): a linha inteira já é <button>, <a> dentro dele é HTML inválido.
+  // "Registrado"/"Contratos" não são "empenhado"/"saldo" do mockup — a API
+  // de Ata do PNCP não traz nenhum valor de empenho (ver
+  // relatorios.top_atas_saldo); "0 contratos" ganha selo honesto em vez de
+  // fingir que é "nada empenhado" sobre um dado que não existe.
   return `<span class="dim">${esc(d.numero_ata ?? "–")}/${esc(d.ano_ata ?? "")}</span>
-    <span class="dim">${esc(d.contratacao_controle ?? "–")}</span>
+    <span class="dim" title="${esc(d.fornecedor_nome ?? "")}">${
+      esc(fornecedorCurto(d.fornecedor_nome) ?? "–")}</span>
     <span class="obj">${esc(d.objeto ?? "–")}</span>
-    <span class="dim">${dataBr(d.vigencia_inicio)}</span>
-    <span class="dim">${dataBr(d.vigencia_fim)}</span>
-    <span>${celulaStatusVigencia(d)}</span>`;
+    <span class="dim">${esc(d.origem ?? "–")}</span>
+    <span class="num">${d.itens ?? 0}</span>
+    <span class="num">${dinheiro(d.registrado)}</span>
+    <span class="num">${d.contratos
+      ? d.contratos
+      : `<span class="badge mut">sem contrato decorrente</span>`}</span>
+    <span style="justify-self:end">${celulaStatusVigencia(d)}</span>`;
 }
 
 // paleta fixa do papel — mesma paleta que relatorios.py usa no documento
@@ -891,6 +903,20 @@ async function carregarLista() {
   $("pag-info").textContent = `${estado.pagina}/${paginas} · ${r.total} registros`;
   $("pag-ant").disabled = estado.pagina <= 1;
   $("pag-prox").disabled = estado.pagina >= paginas;
+  // "Registrado por ata" (handoff Claude Design, fase 9, tela 3d): topo por
+  // valor, não a página atual — senão as 5 maiores atas do exercício
+  // poderiam nunca aparecer se caírem na página 2. `grafBarras` (não
+  // `desenharBarrasEcharts`) porque é o motor de tela — a outra função só
+  // serve o SVG oculto de impressão e usa a paleta fixa do papel; aqui é a
+  // tela viva, com o tema ativo (`var(--s1)`).
+  if (estado.tipo === "atas") {
+    const g = await api.grafico_atas(filtros.ano, filtros.orgao);
+    grafBarras($("graf-atas-saldo"), g.itens, {
+      valor: it => it.registrado,
+      rotulo: it => `Ata ${it.numero_ata ?? "–"}/${it.ano_ata ?? ""}`,
+      sub: it => it.contratos === 1 ? "1 contrato" : `${it.contratos} contratos`,
+    });
+  }
 }
 
 // Estado de aba/visibilidade só, sem consultar o banco — quem chama decide
@@ -931,6 +957,8 @@ function mudarAba(tipo) {
   // "vence em 60 dias" contam coisas diferentes — bug real documentado
   // no DASHBOARD.md (25 no alerta, 50 na lista), daí a explicação fixa
   $("aviso-vigencia").classList.toggle("oculto", !ehVigencia);
+  // "Saldo por ata" (fase 9, tela 3d) só existe na aba Atas
+  $("graf-atas-card").classList.toggle("oculto", tipo !== "atas");
   $("f-busca").placeholder = "Buscar no objeto…";
   $("f-propostas").checked = false;
   $("f-vigentes").checked = false;

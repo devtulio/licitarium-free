@@ -330,7 +330,8 @@ nav.abas button.on { color:var(--accent); font-weight:600;
   80px minmax(0,1fr) 140px 115px 115px 80px 130px); }
 .g-contratos    { grid-template-columns:var(--cols,
   90px 140px minmax(0,1fr) 130px 115px 105px 100px 100px 130px); }
-.g-atas         { grid-template-columns:var(--cols, 90px 210px 1fr 100px 100px 110px); }
+.g-atas         { grid-template-columns:var(--cols,
+  90px 160px minmax(0,1fr) 120px 70px 120px 130px 110px); }
 .g-pca          { grid-template-columns:var(--cols, 60px 1fr 150px 80px 110px); }
 .g-itens        { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 118px 212px 96px 88px); }
 .g-itens:not(.cab) { cursor:pointer; }
@@ -420,6 +421,7 @@ body.redimensionando { cursor:col-resize; user-select:none; }
 .g-contratos > :nth-child(1),
 .g-atas > :nth-child(1), .g-atas > :nth-child(2),
 .g-atas > :nth-child(4), .g-atas > :nth-child(5), .g-atas > :nth-child(6),
+.g-atas > :nth-child(7), .g-atas > :nth-child(8),
 .g-pca > :nth-child(1), .g-pca > :nth-child(3),
 .g-itens > :nth-child(3), .g-itens > :nth-child(4),
 .g-itens > :nth-child(6), .g-itens > :nth-child(7),

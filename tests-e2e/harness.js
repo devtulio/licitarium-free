@@ -63,15 +63,30 @@ const DADOS = {
     { numero_controle: "Z-1", numero_ata: "13", ano_ata: 2026,
       objeto: "Registro de preços de óleos lubrificantes para a frota",
       contratacao_controle: "45148970000177-1-000061/2025",
+      fornecedor_nome: "LUBRIFICANTES BRASIL LTDA",
+      origem: "Pregão 061/2025", itens: 12, registrado: 340000, contratos: 3,
       vigencia_inicio: "2026-04-10", vigencia_fim: emDias(250) },
     { numero_controle: "Z-2", numero_ata: "07", ano_ata: 2026,
       objeto: "Registro de preços de material de limpeza",
       contratacao_controle: "45148970000177-1-000044/2025",
+      fornecedor_nome: "HIGIENE TOTAL COMERCIO LTDA",
+      origem: "Pregão 044/2025", itens: 8, registrado: 95000, contratos: 1,
       vigencia_inicio: "2026-01-15", vigencia_fim: emDias(12) },
     { numero_controle: "Z-3", numero_ata: "02", ano_ata: 2025,
       objeto: "Registro de preços para eventual e futura aquisição parcelada de gêneros alimentícios destinados ao preparo da merenda escolar das unidades da rede municipal de ensino, incluindo creches e pré-escolas, conforme quantitativos e especificações do termo de referência",
       contratacao_controle: "45148970000177-1-000028/2025",
+      fornecedor_nome: "MERENDA CERTA ALIMENTOS LTDA",
+      origem: "Pregão 028/2025", itens: 40, registrado: 610000, contratos: 5,
       vigencia_inicio: "2025-03-01", vigencia_fim: emDias(-90) },
+    // sem contrato decorrente ainda — honestidade (fase 9): não existe
+    // "empenhado" no PNCP, então 0 contratos ganha selo em vez de fingir
+    // um percentual que a fonte não tem
+    { numero_controle: "Z-4", numero_ata: "22", ano_ata: 2026,
+      objeto: "Registro de preços de produtos químicos de laboratório",
+      contratacao_controle: "45148970000177-1-000070/2026",
+      fornecedor_nome: "QUIMICA INDUSTRIAL LTDA",
+      origem: "Pregão 070/2026", itens: 3, registrado: 12000, contratos: 0,
+      vigencia_inicio: "2026-06-01", vigencia_fim: emDias(200) },
   ],
   pca: [],
   itens: [
@@ -176,6 +191,12 @@ function scriptPonte(temaBanco = "portal") {
         if (tipo === "itens" && filtros && filtros.excluidos)
           itens = itens.filter(i => !filtros.excluidos.includes(String(i.id)));
         return { itens, total: itens.length, total_base: itens.length };
+      },
+      grafico_atas: async (ano, orgao) => {
+        window.__chamadas.push({ metodo: "grafico_atas", ano, orgao });
+        const itens = [...DADOS.atas].sort((a, b) => b.registrado - a.registrado)
+          .slice(0, 5);
+        return { itens };
       },
       estatisticas_preco: async (busca, ano, origem, excluidos,
                                  porConteudo, corrigir, incluidos, unidade) => {

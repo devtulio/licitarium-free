@@ -115,6 +115,62 @@ def test_lista_de_contratos_traz_orgao_e_origem(api):
     assert ct["origem"] == "Pregão 031/2026"
 
 
+def test_lista_de_atas_traz_origem_itens_registrado_e_contratos(api):
+    # handoff Claude Design (2026-09-11, fase 9, tela 3d): a API de Ata do
+    # PNCP não traz valor nenhum (nem registrado, nem empenhado) — "Registrado"
+    # aqui é o homologado dos itens da MESMA contratação de origem, e
+    # "Contratos" é quantos contratos já saíram dela; não é "saldo" do
+    # mockup, mas é o que a fonte de fato tem.
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " modalidade_nome, objeto) VALUES"
+        " ('KA',2026,40,'Pregão eletrônico','Obj')")
+    db.execute(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, objeto, vigencia_fim) VALUES"
+        " ('ATA-K','KA','5',2026,'Material',?)",
+        ((date.today() + timedelta(days=10)).isoformat(),))
+    db.executemany(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " valor_total_homologado) VALUES (?,?,?,?)",
+        [("KA#1", "KA", 1, 1000.0), ("KA#2", "KA", 2, 500.0)])
+    db.execute(
+        "INSERT INTO contratos (numero_controle, contratacao_controle,"
+        " objeto) VALUES ('CT-KA','KA','Fornecimento')")
+    db.commit()
+    db.close()
+
+    r = api.listar("atas", {})
+    a = next(i for i in r["itens"] if i["numero_controle"] == "ATA-K")
+    assert a["origem"] == "Pregão 040/2026"
+    assert a["itens"] == 2
+    assert a["registrado"] == 1500.0
+    assert a["contratos"] == 1
+
+
+def test_grafico_atas_ordena_pelas_de_maior_registrado(api):
+    db = licitarium.abrir_db()
+    db.executemany(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " modalidade_nome, objeto) VALUES (?,2026,1,'Pregão','Obj')",
+        [("G1",), ("G2",)])
+    db.executemany(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, vigencia_fim) VALUES (?,?,'1',2026,?)",
+        [("A-G1", "G1", date.today().isoformat()),
+         ("A-G2", "G2", date.today().isoformat())])
+    db.executemany(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " valor_total_homologado) VALUES (?,?,1,?)",
+        [("G1#1", "G1", 100.0), ("G2#1", "G2", 900.0)])
+    db.commit()
+    db.close()
+
+    r = api.grafico_atas()
+    assert [i["numero_controle"] for i in r["itens"][:2]] == ["A-G2", "A-G1"]
+
+
 def test_listar_e_detalhe_pca(api):
     r = api.listar("pca", {"ord": "valor", "dir": "desc"})
     assert [i["descricao"] for i in r["itens"]] == ["Toner", "Papel"]
