@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.12.0 — 2026-09-12
+
+**Adição — Fase 12 (última) do handoff "Dashboard de Licitações Públicas" (Claude Design): detalhe rico da contratação**
+
+- **Ficha da contratação** (dentro do modal existente, não uma página de
+  rota nova) ganha **Andamento** (4 marcos — Publicado, Propostas,
+  Homologado, Contrato —, não os 5 do mockup: o endpoint de
+  Contratações do PNCP não expõe data de julgamento nem quantidade de
+  licitantes; inventar um dos dois seria o programa afirmando o que a
+  fonte não sabe), **itens homologados comparados à mediana do
+  acervo** (mesma estatística da aba Preços, reaproveitando o radical
+  de agrupamento que o Montar PCA já calcula — item sem comparável no
+  acervo diz isso em vez de fingir "na mediana"), e um cartão
+  **Vencedor** (reusa o perfil de fornecedor da fase 2 — mesma ficha,
+  mesma honestidade: sem sanção, porque o acervo não tem esse dado).
+- **Achado técnico**: a comparação de item usava `UPPER(descricao)
+  LIKE` como pré-filtro, mas o `UPPER()`/`LIKE` do SQLite só dobra
+  maiúscula/minúscula em ASCII — um item cuja 1ª palavra do radical
+  tem acento (ex. "ÁGUA") perdia até ele mesmo na comparação. Trocado
+  pelo `itens_fts` (tokenizador unicode61, já usado na busca da aba
+  Preços pelo mesmo motivo).
+- Outros tipos (Contratos, Atas, Itens, PCA) continuam com a ficha
+  genérica de sempre — a rica é só de Contratações.
+- **Fim do handoff "Dashboard de Licitações Públicas"** — as 12 fases
+  planejadas estão implementadas. Nenhuma versão foi lançada ainda
+  (tag/release só quando o usuário pedir).
+- 301 pytest + 177 Playwright verdes.
+
 ## 2.11.0 — 2026-09-12
 
 **Adição — Fase 11 do handoff "Dashboard de Licitações Públicas" (Claude Design): tela de Relatórios**

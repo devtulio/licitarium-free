@@ -250,12 +250,50 @@
 <!-- ═══ DETALHE ═══ -->
 <div id="veu-detalhe" class="veu oculto" role="dialog" aria-modal="true"
      aria-labelledby="det-titulo">
-  <div class="card modal">
+  <div class="card modal" id="det-modal">
     <div class="mhead">
       <div><h1 id="det-titulo"></h1><div class="dim" id="det-sub"></div></div>
       <button class="fechar" data-fecha="veu-detalhe" aria-label="Fechar">×</button>
     </div>
+    <!-- cabeçalho rico só de Contratações (handoff Claude Design,
+         2026-09-12, fase 12, tela 1d) -->
+    <div class="mhead det-rico oculto" id="det-mhead-rico">
+      <div style="flex:1">
+        <div class="dim" id="det-migalha"></div>
+        <div id="det-titulo-rico"
+             style="font-size:20px;font-weight:400;line-height:1.35;
+                    max-width:600px;margin-top:6px"></div>
+        <div class="dim" id="det-info-linha"
+             style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px"></div>
+      </div>
+      <div id="det-homologado" style="text-align:right;white-space:nowrap"></div>
+      <button class="fechar" data-fecha="veu-detalhe" aria-label="Fechar">×</button>
+    </div>
     <div class="meta" id="det-meta"></div>
+    <div class="det-rico oculto det-rico-corpo" id="det-corpo-rico">
+      <div class="det-rico-col">
+        <div class="card" style="padding:18px 20px">
+          <div class="rot-filtros">Andamento</div>
+          <div class="det-andamento" id="det-andamento"></div>
+        </div>
+        <div class="card" style="overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:16px 20px 12px">
+            <div class="rot-filtros">Itens homologados</div>
+            <div style="flex:1"></div>
+            <div class="dim" style="font-size:11.5px">preço unitário comparado
+              à mediana do acervo</div>
+          </div>
+          <div id="det-itens"></div>
+        </div>
+      </div>
+      <div class="det-rico-col">
+        <div class="card" id="det-vencedor" style="padding:18px 20px"></div>
+        <div class="card" style="padding:18px 20px">
+          <div class="rot-filtros">Procedência do dado</div>
+          <div class="dim" id="det-procedencia" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
     <div class="macoes">
       <button class="btn" id="det-pncp">Ver no PNCP ↗</button>
       <button class="btn ghost" id="det-imprimir"><span data-icone="imprimir"></span> Imprimir</button>

@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.11.0"
+VERSAO = "2.12.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1599,6 +1599,14 @@ class Api:
         db = abrir_db()
         try:
             return relatorios.dados_perfil_fornecedor(db, fornecedor_ni, ano)
+        finally:
+            db.close()
+
+    def detalhe_contratacao(self, numero_controle):
+        """Ficha rica da contratação — handoff Claude Design 2026-09-12 (1d)."""
+        db = abrir_db()
+        try:
+            return relatorios.dados_detalhe_contratacao(db, numero_controle)
         finally:
             db.close()
 

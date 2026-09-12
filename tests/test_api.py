@@ -446,6 +446,114 @@ def test_filtro_ano_pca(api):
     assert api.listar("pca", {"ano": 2024})["total"] == 0
 
 
+# handoff Claude Design (2026-09-12, fase 12, tela 1d): detalhe rico da
+# contratação — andamento, itens x mediana do acervo, vencedor.
+def test_detalhe_contratacao_compara_item_com_mediana_do_acervo(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, objeto,"
+        " valor_estimado, valor_homologado, data_publicacao)"
+        " VALUES ('D',2026,'Seringas',100,90,'2026-01-01')")
+    # 2 itens de MESMA descrição em OUTRAS contratações — formam a
+    # mediana do acervo; o próprio item de D entra também na conta (é a
+    # mesma estatística da aba Preços, que não se exclui). chave_agrupamento
+    # é sensível à ORDEM das palavras (desenhada pro PCA agrupar item
+    # recorrente, não pra achar sinônimo/reordenação — isso é trabalho de
+    # `_agrupar_por_similaridade`, outra função), então o teste usa o
+    # mesmo texto, não uma reescrita.
+    db.executemany(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " descricao, valor_unitario_homologado) VALUES (?,?,?,?,?)",
+        [("D#1", "D", 1, "Seringa descartável 5 ml", 0.38),
+         ("X#1", "X", 1, "Seringa descartável 5 ml", 0.40),
+         ("Y#1", "Y", 1, "Seringa descartável 5 ml", 0.50)])
+    db.commit()
+    db.close()
+
+    d = api.detalhe_contratacao("D")
+    item = d["itens"][0]
+    # mediana de [0.38, 0.40, 0.50] = 0.40
+    assert item["mediana_acervo"] == 0.40
+    assert item["n_comparaveis"] == 3
+
+
+def test_detalhe_contratacao_sem_comparavel_nao_inventa_mediana(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, objeto)"
+        " VALUES ('E',2026,'Item único')")
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " descricao, valor_unitario_homologado)"
+        " VALUES ('E#1','E',1,'Peça rara sem igual',5.0)")
+    db.commit()
+    db.close()
+
+    item = api.detalhe_contratacao("E")["itens"][0]
+    assert item["mediana_acervo"] is None
+    assert item["n_comparaveis"] == 1
+
+
+def test_detalhe_contratacao_vencedor_vem_do_contrato_quando_existe(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, objeto)"
+        " VALUES ('F',2026,'Obj')")
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " fornecedor_ni, fornecedor_nome, valor_unitario_homologado)"
+        " VALUES ('F#1','F',1,'111','Fornecedor dos Itens',10.0)")
+    db.execute(
+        "INSERT INTO contratos (numero_controle, contratacao_controle,"
+        " fornecedor_ni, fornecedor_nome, data_publicacao)"
+        " VALUES ('CT-F','F','222','Fornecedor do Contrato','2026-03-01')")
+    db.commit()
+    db.close()
+
+    v = api.detalhe_contratacao("F")["vencedor"]
+    # o contrato assinado manda, não o fornecedor que apareceu nos itens
+    assert v["ni"] == "222"
+    assert v["nome"] == "Fornecedor do Contrato"
+    # tem 1 contrato (o que acabou de ser inserido) -> perfil existe
+    assert v["perfil"]["n_contratos"] == 1
+
+
+def test_detalhe_contratacao_vencedor_cai_pros_itens_sem_contrato_ainda(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, objeto)"
+        " VALUES ('G',2026,'Obj')")
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " fornecedor_ni, fornecedor_nome, valor_unitario_homologado)"
+        " VALUES ('G#1','G',1,'333','Fornecedor Único',10.0)")
+    db.commit()
+    db.close()
+
+    v = api.detalhe_contratacao("G")["vencedor"]
+    assert v["ni"] == "333"
+    assert v["nome"] == "Fornecedor Único"
+    # nenhum contrato ASSINADO ainda no acervo inteiro -> sem perfil, sem
+    # fingir que já existe uma ficha de fornecedor pra abrir
+    assert v["perfil"] is None
+
+
+def test_detalhe_contratacao_homologado_em_usa_data_resultado_dos_itens(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, objeto)"
+        " VALUES ('H',2026,'Obj')")
+    db.executemany(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " valor_unitario_homologado, data_resultado) VALUES (?,?,?,?,?)",
+        [("H#1", "H", 1, 10.0, "2026-05-01"),
+         ("H#2", "H", 2, 20.0, "2026-05-06")])
+    db.commit()
+    db.close()
+
+    assert api.detalhe_contratacao("H")["homologado_em"] == "2026-05-06"
+
+
 def test_asset_do_auto_update_aceita_todos_os_nomes_ja_publicados():
     """O nome do exe mudou duas vezes: ganhou a versão (1.2.4) e o "Free"
     (1.35.0). O casamento é por padrão porque a checagem roda contra

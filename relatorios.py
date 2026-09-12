@@ -921,6 +921,103 @@ def dados_perfil_fornecedor(db, fornecedor_ni, ano):
     }
 
 
+# Mediana do preço unitário homologado entre itens de descrição PARECIDA
+# (mesmo radical de pca_builder.chave_agrupamento), em qualquer contratação
+# do acervo — mesma estatística da aba Preços, trazida pro detalhe da
+# contratação (handoff Claude Design, fase 12, tela 1d). Pré-filtro pela
+# 1ª palavra do radical via `itens_fts` (não `UPPER(descricao) LIKE`) evita
+# rodar chave_agrupamento em cada item do acervo inteiro em Python — e não
+# é só performance: `UPPER()`/`LIKE` do SQLite só dobram maiúscula/minúscula
+# em ASCII ("PEÇA" não bate com "Peça", o Ç fica intocado), então a 1ª
+# palavra acentuada perdia o próprio item na comparação. `itens_fts` já
+# existe pra busca da aba Preços e usa o tokenizador unicode61, que dobra
+# acento certo — mesmo motivo de já ser ele o escolhido lá. A comparação
+# exata (chave igual) depois filtra os falsos positivos do prefixo.
+def _mediana_unitario_do_acervo(db, descricao):
+    chave = pca_builder.chave_agrupamento(descricao)
+    palavras = chave.split()
+    if not palavras:
+        return None, 0
+    candidatos = db.execute(
+        "SELECT descricao, valor_unitario_homologado FROM itens"
+        " WHERE valor_unitario_homologado IS NOT NULL"
+        "   AND rowid IN (SELECT rowid FROM itens_fts"
+        "                 WHERE descricao MATCH ?)",
+        (f'"{palavras[0]}"*',)).fetchall()
+    valores = sorted(
+        c["valor_unitario_homologado"] for c in candidatos
+        if pca_builder.chave_agrupamento(c["descricao"]) == chave)
+    # 1 valor só é o próprio item comparado com ele mesmo — não é
+    # comparação nenhuma, é o programa fingindo saber "está na mediana"
+    if len(valores) < 2:
+        return None, len(valores)
+    return _quantil(valores, 0.5), len(valores)
+
+
+def dados_detalhe_contratacao(db, numero_controle):
+    """Ficha rica da contratação (handoff Claude Design, fase 12, tela
+    1d): andamento, itens comparados à mediana do acervo, vencedor
+    (reusa o perfil de fornecedor da fase 2, `dados_perfil_fornecedor` —
+    mesmas contas, sem sanção nem endereço, pelo mesmo motivo de lá).
+
+    Andamento tem 4 marcos, não os 5 do mockup: "Julgamento" some porque
+    o endpoint de Contratações do PNCP não devolve data de julgamento
+    nem quantidade de licitantes — inventar um dos dois seria o programa
+    afirmando o que a fonte não sabe. "Homologado" usa o MAX(data_resultado)
+    dos itens como data aproximada (não existe uma dataHomologacao própria
+    na contratação).
+    """
+    c = db.execute("SELECT * FROM contratacoes WHERE numero_controle=?",
+                   (numero_controle,)).fetchone()
+    if not c:
+        return None
+    c = dict(c)
+
+    itens = [dict(r) for r in db.execute(
+        """SELECT numero_item, descricao, unidade, quantidade_homologada,
+                  valor_unitario_homologado
+           FROM itens WHERE contratacao_controle=?
+                 AND valor_unitario_homologado IS NOT NULL
+           ORDER BY numero_item""", (numero_controle,))]
+    for it in itens:
+        mediana, n = _mediana_unitario_do_acervo(db, it["descricao"])
+        it["mediana_acervo"] = mediana
+        it["n_comparaveis"] = n
+
+    linha_contrato = db.execute(
+        """SELECT numero_controle, data_assinatura, vigencia_inicio,
+                  fornecedor_ni, fornecedor_nome
+           FROM contratos WHERE contratacao_controle=?
+           ORDER BY data_assinatura LIMIT 1""", (numero_controle,)).fetchone()
+    contrato = dict(linha_contrato) if linha_contrato else None
+
+    homologado_em = db.execute(
+        "SELECT MAX(data_resultado) FROM itens WHERE contratacao_controle=?",
+        (numero_controle,)).fetchone()[0]
+
+    # vencedor: fornecedor do contrato já assinado; sem contrato ainda,
+    # o que mais aparece nos itens com resultado
+    ni_vencedor = nome_vencedor = None
+    if contrato:
+        ni_vencedor = contrato["fornecedor_ni"]
+        nome_vencedor = contrato["fornecedor_nome"]
+    else:
+        linha = db.execute(
+            """SELECT fornecedor_ni, fornecedor_nome FROM itens
+               WHERE contratacao_controle=? AND fornecedor_ni IS NOT NULL
+               GROUP BY fornecedor_ni ORDER BY COUNT(*) DESC LIMIT 1""",
+            (numero_controle,)).fetchone()
+        if linha:
+            ni_vencedor, nome_vencedor = linha["fornecedor_ni"], linha["fornecedor_nome"]
+    vencedor = None
+    if ni_vencedor:
+        vencedor = {"ni": ni_vencedor, "nome": nome_vencedor,
+                    "perfil": dados_perfil_fornecedor(db, ni_vencedor, c["ano"])}
+
+    return {"contratacao": c, "itens": itens, "contrato": contrato,
+            "homologado_em": homologado_em, "vencedor": vencedor}
+
+
 def dados_executivo(db, ano, orgao=None):
     ano = int(ano)
     og = " AND orgao_cnpj=?" if orgao else ""

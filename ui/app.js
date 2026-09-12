@@ -337,14 +337,18 @@ async function iniciarApp(e) {
   });
 }
 
-function mostrarUltimaSync(iso) {
-  if (!iso) { $("sync-msg").textContent = "nunca sincronizado"; return; }
+function fraseSincronizado(iso) {
   const d = new Date(iso);
   const hora = d.toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"});
   const hoje = new Date().toDateString() === d.toDateString();
-  $("sync-msg").textContent = hoje
-    ? `Sincronizado hoje às ${hora}`
-    : `Sincronizado em ${d.toLocaleDateString("pt-BR")} às ${hora}`;
+  return hoje ? `sincronizado hoje às ${hora}`
+              : `sincronizado em ${d.toLocaleDateString("pt-BR")} às ${hora}`;
+}
+
+function mostrarUltimaSync(iso) {
+  if (!iso) { $("sync-msg").textContent = "nunca sincronizado"; return; }
+  const frase = fraseSincronizado(iso);
+  $("sync-msg").textContent = frase[0].toUpperCase() + frase.slice(1);
 }
 
 function renderKpis(k) {
@@ -1152,10 +1156,139 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
       return `<div><div class="k">${rotulo}</div><div class="v">${esc(v)}</div></div>`;
     }).join("");
   $("det-raw").innerHTML = jsonColorido(d.raw);
+  // ficha rica (handoff Claude Design, fase 12, tela 1d) só pra
+  // Contratações — os outros tipos continuam com o cabeçalho/grade
+  // genéricos de sempre (título/sub e Ver no PNCP/Imprimir seguem
+  // populados do mesmo jeito, então a impressão não muda)
+  const rico = tipo === "contratacoes" && api.detalhe_contratacao;
+  $("det-modal").classList.toggle("largo", !!rico);
+  document.querySelector("#det-modal > .mhead:not(.det-rico)")
+    .classList.toggle("oculto", !!rico);
+  $("det-mhead-rico").classList.toggle("oculto", !rico);
+  $("det-meta").classList.toggle("oculto", !!rico);
+  $("det-corpo-rico").classList.toggle("oculto", !rico);
+  if (rico) {
+    const dc = await api.detalhe_contratacao(nc);
+    if (dc) renderDetalheRicoContratacao(d, dc);
+  }
   abrirModal("veu-detalhe");
+}
+
+// ── ficha rica de contratação (handoff Claude Design, 2026-09-12, fase
+// 12, tela 1d): andamento, itens x mediana do acervo, vencedor,
+// procedência do dado. `d` é o detalhe genérico (raw/objeto/etc., já
+// buscado por abrirDetalhe); `dc` é o extra desta fase.
+const MES_ABREV_2D = s => dataBr(s).slice(0, 5);   // "DD/MM/AAAA" -> "DD/MM"
+
+function celulaPosicao(diferenca) {
+  if (diferenca == null)
+    return `<span class="det-posicao mut">sem comparável no acervo</span>`;
+  if (Math.abs(diferenca) < 1)
+    return `<span class="det-posicao mediana">na mediana</span>`;
+  const cl = diferenca < 0 ? "abaixo" : "acima";
+  return `<span class="det-posicao ${cl}">${pct(Math.abs(diferenca), 0)} ${cl}</span>`;
+}
+
+function renderDetalheRicoContratacao(d, dc) {
+  const c = dc.contratacao;
+  $("det-migalha").textContent =
+    `Contratações · processo ${c.sequencial ?? "–"}/${c.ano ?? ""}`;
+  $("det-titulo-rico").textContent = c.objeto || "–";
+  const modoDisputa = d.raw?.modoDisputaNome;
+  $("det-info-linha").innerHTML = [
+    c.modalidade_nome, modoDisputa, c.orgao_nome,
+    c.data_encerramento_proposta &&
+      `Encerramento das propostas ${MES_ABREV_2D(c.data_encerramento_proposta)}`,
+  ].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join("");
+  const desagio = (c.valor_estimado && c.valor_homologado != null)
+    ? (1 - c.valor_homologado / c.valor_estimado) * 100 : null;
+  $("det-homologado").innerHTML = c.valor_homologado != null
+    ? `<div style="font:600 11px/1 system-ui;letter-spacing:.08em;color:var(--muted)">HOMOLOGADO</div>
+       <div style="font-size:22px;font-weight:700;margin-top:6px">${dinheiro(c.valor_homologado)}</div>
+       ${desagio != null ? `<div style="font-size:12px;margin-top:4px;color:${
+         desagio >= 0 ? "var(--ok)" : "var(--warn)"}">${pct(Math.abs(desagio))}
+         ${desagio >= 0 ? "abaixo" : "acima"} do estimado</div>` : ""}`
+    : `<span class="badge mut">Sem homologação ainda</span>`;
+
+  // andamento: 4 marcos reais (não 5) — o PNCP não expõe julgamento nem
+  // quantidade de licitantes pra este endpoint; inventar seria o
+  // programa afirmando o que a fonte não sabe
+  const passos = [
+    { rotulo: "Publicado", data: c.data_publicacao, ok: !!c.data_publicacao },
+    { rotulo: "Propostas", data: c.data_encerramento_proposta,
+      ok: !!c.data_encerramento_proposta },
+    { rotulo: "Homologado", data: dc.homologado_em,
+      ok: c.valor_homologado != null },
+    { rotulo: "Contrato", data: dc.contrato?.data_assinatura,
+      ok: !!dc.contrato, semData: "aguardando assinatura" },
+  ];
+  $("det-andamento").innerHTML = passos.map(p => `
+    <div class="det-passo ${p.ok ? "" : "futuro"}">
+      <div class="trilho"><span class="bola"></span><span class="linha"></span></div>
+      <div class="rotulo">${esc(p.rotulo)}</div>
+      <div class="data">${p.data ? MES_ABREV_2D(p.data) : esc(p.semData ?? "–")}</div>
+    </div>`).join("");
+
+  $("det-itens").innerHTML = !dc.itens.length
+    ? `<div class="vazio" style="padding:20px">Nenhum item homologado ainda.</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr class="dim" style="text-align:left;background:var(--surface2)">
+          <th style="padding:10px 16px">Item</th>
+          <th style="padding:10px 8px;text-align:right">Qtd</th>
+          <th style="padding:10px 8px;text-align:right">Unitário</th>
+          <th style="padding:10px 8px;text-align:right">Mediana</th>
+          <th style="padding:10px 16px">Posição</th></tr>
+        ${dc.itens.map(it => `<tr>
+          <td style="padding:10px 16px;border-top:1px solid var(--border)"
+              title="${esc(it.descricao)}">${esc(it.descricao)}</td>
+          <td style="padding:10px 8px;border-top:1px solid var(--border);
+              text-align:right">${it.quantidade_homologada ?? "–"}
+              ${esc(it.unidade ?? "")}</td>
+          <td style="padding:10px 8px;border-top:1px solid var(--border);
+              text-align:right">${dinheiro(it.valor_unitario_homologado)}</td>
+          <td class="dim" style="padding:10px 8px;border-top:1px solid var(--border);
+              text-align:right">${dinheiro(it.mediana_acervo)}</td>
+          <td style="padding:10px 16px;border-top:1px solid var(--border)">
+            ${celulaPosicao(it.mediana_acervo == null ? null
+              : (it.valor_unitario_homologado / it.mediana_acervo - 1) * 100)}</td>
+        </tr>`).join("")}
+      </table>`;
+
+  const v = dc.vencedor;
+  $("det-vencedor").innerHTML = !v
+    ? `<div class="rot-filtros">Vencedor</div>
+       <div class="dim" style="margin-top:10px">Ainda sem resultado.</div>`
+    : `<div class="rot-filtros">Vencedor</div>
+       <div style="font-weight:600;font-size:14px;margin-top:10px">
+         ${v.perfil ? `<a href="#" class="link" data-fornecedor="${esc(v.ni)}"
+                         data-ano="${c.ano}">${esc(v.nome)}</a>`
+                     : esc(v.nome ?? "–")}</div>
+       <div class="dim" style="font-size:12px;margin-top:6px">
+         ${v.ni ? `CNPJ/CPF ${esc(mascararDocumento(v.ni))}` : ""}</div>
+       <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+         <div class="det-vencedor-linha"><span class="r">Contratos no acervo</span>
+           <b>${v.perfil ? v.perfil.n_contratos : "0"}</b></div>
+         <div class="det-vencedor-linha"><span class="r">Total recebido em ${c.ano}</span>
+           <b>${dinheiro(v.perfil?.recebido_no_ano ?? 0)}</b></div>
+         <div class="det-vencedor-linha"><span class="r">Sanções</span>
+           <span class="dim">sem dado no acervo</span></div>
+       </div>`;
+
+  $("det-procedencia").textContent = c.sync_em
+    ? `Espelho local do PNCP, ${fraseSincronizado(c.sync_em)}. Nada foi
+       editado no acervo.`
+    : "Espelho local do PNCP. Nada foi editado no acervo.";
 }
 $("det-pncp").addEventListener("click", () =>
   api.abrir_pncp(detalheTipo, detalheAtual));
+// mesmo padrão de delegação de ligarCliquesFornecedor (painel.js): um
+// listener só, sobrevive a #det-vencedor ser reescrito a cada abertura
+$("veu-detalhe").addEventListener("click", (evt) => {
+  const marca = evt.target.closest("[data-fornecedor]");
+  if (!marca) return;
+  evt.preventDefault();
+  abrirPerfilFornecedor(marca.dataset.fornecedor, +marca.dataset.ano);
+});
 // pedido do usuário (2026-08-12): na ficha impressa, "Contratação de
 // origem" vira link pro edital no PNCP — só na impressão, não na tela:
 // um <a href> de verdade dentro da modal pywebview navegaria a própria

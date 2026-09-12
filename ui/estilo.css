@@ -528,6 +528,37 @@ body.travado { overflow:hidden; }
   padding:16px; background:repeating-linear-gradient(135deg,
     var(--surface2) 0 6px, var(--surface) 6px 12px); }
 #rel-folha-nome { font-weight:600; font-size:13px; }
+
+/* Detalhe rico da contratação (handoff Claude Design, 2026-09-12,
+   fase 12, tela 1d) */
+.det-rico-corpo { display:grid; grid-template-columns:1fr 300px; gap:16px;
+                   padding:0 20px 20px; align-items:start; }
+.det-rico-col { display:flex; flex-direction:column; gap:16px; }
+.det-andamento { display:grid; grid-template-columns:repeat(4,1fr); gap:0;
+                  margin-top:16px; }
+.det-passo { display:flex; flex-direction:column; gap:9px; }
+.det-passo .trilho { display:flex; align-items:center; }
+.det-passo .bola { width:12px; height:12px; border-radius:99px;
+                    background:var(--accent); flex:none; }
+.det-passo.futuro .bola { background:var(--surface);
+                           box-shadow:inset 0 0 0 2px var(--border); }
+.det-passo .linha { flex:1; height:2px; background:var(--accent); }
+.det-passo.futuro .linha, .det-passo:last-child .linha { background:var(--border); }
+.det-passo .rotulo { font-size:12px; font-weight:600; }
+.det-passo.futuro .rotulo { color:var(--muted); }
+.det-passo .data { font-size:11.5px; color:var(--muted); }
+.det-vencedor-linha { display:flex; justify-content:space-between; gap:10px;
+                       font-size:12.5px; }
+.det-vencedor-linha .r { color:var(--muted); }
+.det-posicao.abaixo { color:var(--ok); font-weight:600; }
+.det-posicao.acima  { color:var(--warn); font-weight:600; }
+.det-posicao.mediana, .det-posicao.mut { color:var(--muted); font-weight:600; }
+/* a tabela de itens tem coluna própria (não é o par chave/valor genérico
+   que `.veu table` foi desenhado pra mostrar) — "sem comparável no
+   acervo" não cabe na largura fixa/reticências herdada de lá */
+#det-itens table { table-layout:auto; }
+#det-itens td:first-child { width:auto; }
+#det-itens td:last-child { overflow:visible; white-space:normal; }
 .meta { display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
         background:var(--border); border-top:1px solid var(--border); }
 .meta > div { background:var(--surface); padding:11px 18px; }

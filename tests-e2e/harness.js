@@ -273,6 +273,34 @@ function scriptPonte(temaBanco = "portal") {
         const d = (DADOS[tipo] || []).find(x => String(x[chave]) === nc);
         return d && { ...d, raw: { exemplo: true } };
       },
+      // ficha rica de Contratações (handoff Claude Design, 2026-09-12,
+      // fase 12, tela 1d)
+      detalhe_contratacao: async (nc) => {
+        window.__chamadas.push({ metodo: "detalhe_contratacao", nc });
+        if (nc !== "X-1") return null;
+        return {
+          contratacao: { numero_controle: "X-1", ano: 2026, sequencial: 12,
+            objeto: "Aquisição de gêneros alimentícios para merenda escolar",
+            modalidade_nome: "Dispensa", orgao_nome: "Sec. de Educação",
+            valor_estimado: 52000, valor_homologado: 48230,
+            data_publicacao: "2026-03-14",
+            data_encerramento_proposta: "2026-03-20",
+            sync_em: "2026-09-11T14:32:00" },
+          itens: [
+            { numero_item: 1, descricao: "Arroz tipo 1", unidade: "KG",
+              quantidade_homologada: 500, valor_unitario_homologado: 4.2,
+              mediana_acervo: 4.9, n_comparaveis: 5 },
+            { numero_item: 2, descricao: "Feijão carioca", unidade: "KG",
+              quantidade_homologada: 300, valor_unitario_homologado: 7.5,
+              mediana_acervo: null, n_comparaveis: 1 },
+          ],
+          contrato: null,
+          homologado_em: "2026-03-25",
+          vencedor: { ni: "09475002000101",
+            nome: "DANILO HENRIQUE NUNES CONSULTORIA",
+            perfil: { n_contratos: 3, recebido_no_ano: 120000 } },
+        };
+      },
       descartes: async (busca) => {
         window.__chamadas.push({ metodo: "descartes", busca });
         return window.__descartes?.[String(busca).toLowerCase().trim()] ?? [];

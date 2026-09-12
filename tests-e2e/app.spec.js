@@ -132,6 +132,67 @@ test("abas trocam colunas e detalhe abre ao clicar na linha",
   await expect(page.locator("#veu-detalhe")).toBeHidden();
 });
 
+// handoff Claude Design (2026-09-12, fase 12, tela 1d): ficha rica só de
+// Contratações — andamento, itens x mediana do acervo, vencedor.
+test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
+  test("abre com andamento, itens comparados à mediana e vencedor",
+      async ({ page }) => {
+    await abrirLista(page);
+    await page.locator('.linha[data-nc="X-1"]').click();
+    await expect(page.locator("#veu-detalhe")).toBeVisible();
+    await expect(page.locator("#det-modal")).toHaveClass(/largo/);
+    // cabeçalho genérico (título/sub) some, o rico assume
+    await expect(page.locator("#det-mhead-rico")).toBeVisible();
+    await expect(page.locator("#det-migalha"))
+      .toContainText("Contratações · processo 12/2026");
+    await expect(page.locator("#det-homologado")).toContainText("R$ 48.230,00");
+    await expect(page.locator("#det-homologado")).toContainText("abaixo do estimado");
+
+    // 4 marcos, não 5 — sem "Julgamento" (o PNCP não expõe essa data)
+    const passos = page.locator("#det-andamento .det-passo .rotulo");
+    await expect(passos).toHaveText(
+      ["Publicado", "Propostas", "Homologado", "Contrato"]);
+    // sem contrato assinado ainda -> selo honesto, não data inventada
+    await expect(page.locator("#det-andamento .det-passo").last())
+      .toContainText("aguardando assinatura");
+
+    const linhas = page.locator("#det-itens tr:not(:first-child)");
+    await expect(linhas).toHaveCount(2);
+    await expect(linhas.first()).toContainText("Arroz tipo 1");
+    await expect(linhas.first()).toContainText("R$ 4,90");   // mediana
+    await expect(linhas.first().locator(".det-posicao")).toHaveClass(/abaixo/);
+    // item sem comparável no acervo não inventa posição
+    await expect(linhas.nth(1)).toContainText("sem comparável no acervo");
+
+    await expect(page.locator("#det-vencedor")).toContainText(
+      "DANILO HENRIQUE NUNES CONSULTORIA");
+    await expect(page.locator("#det-vencedor")).toContainText("R$ 120.000,00");
+    // sanção não vira "nenhuma" — o acervo não tem esse dado
+    await expect(page.locator("#det-vencedor")).toContainText("sem dado no acervo");
+  });
+
+  test("nome do vencedor abre o perfil do fornecedor (fase 2)",
+      async ({ page }) => {
+    await abrirLista(page);
+    await page.locator('.linha[data-nc="X-1"]').click();
+    await page.locator('#det-vencedor a[data-fornecedor]').click();
+    await expect(page.locator("#veu-fornecedor")).toBeVisible();
+    const chamada = await page.evaluate(() => window.__chamadas
+      .filter(c => c.metodo === "perfil_fornecedor").pop());
+    expect(chamada.ni).toBe("09475002000101");
+  });
+
+  test("outros tipos continuam com a ficha genérica de sempre",
+      async ({ page }) => {
+    await page.locator('nav.abas button[data-tipo="contratos"]').click();
+    await page.locator(".linha:not(.cab)").first().click();
+    await expect(page.locator("#veu-detalhe")).toBeVisible();
+    await expect(page.locator("#det-modal")).not.toHaveClass(/largo/);
+    await expect(page.locator("#det-mhead-rico")).toBeHidden();
+    await expect(page.locator("#det-meta")).toBeVisible();
+  });
+});
+
 test("contratos e atas separam vigência inicial/final e status em colunas próprias",
     async ({ page }) => {
   // pedido do usuário (2026-08-12): "Vigência" combinada (duas datas + selo
