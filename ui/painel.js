@@ -214,6 +214,14 @@ function _iniciarEchart(el) {
 }
 
 // ── colunas pareadas: estimado (claro) × homologado (cheio) ────────────────
+// 260px é a altura padrão de todo gráfico de largura total do app (linha,
+// área, curva) — média das 5 alturas que esses gráficos já usavam (196 a
+// 230px) arredondada pra cima. Motivo do arredondamento pra cima, não só a
+// média: 2 delas (aqui e grafConcentracao) ficaram largura total só depois
+// da correção de layout de 2026-09-12 — antes dividiam a linha com outro
+// gráfico, então a altura tinha sido calibrada pra card ~metade da largura.
+// Card 2x mais largo com a MESMA altura fica achatado; aumentar era a
+// correção certa, não só "manter o que já tinha".
 function grafMeses(el, meses, ano, larg = 660) {
   // Mês sem contratação é informação: filtrá-lo comprimia o eixo e escondia
   // o buraco — no acervo do piloto, março sumia entre fevereiro e abril.
@@ -226,7 +234,7 @@ function grafMeses(el, meses, ano, larg = 660) {
   const hoje = new Date();
   const mesCorrente = ano === hoje.getFullYear() ? hoje.getMonth() + 1 : 0;
   const dados = meses.slice(0, Math.max(ultimo + 1, mesCorrente));
-  el.innerHTML = `<div class="graf-echart" style="height:196px"></div>
+  el.innerHTML = `<div class="graf-echart" style="height:260px"></div>
     <div class="leg"><span><i style="background:var(--s1);opacity:.32"></i>Estimado</span>
     <span><i style="background:var(--s1)"></i>Homologado</span>
     <span class="nota" style="margin:0">valor rotulado é o homologado do mês</span></div>`;
@@ -356,7 +364,7 @@ function grafSeries(el, series, anoAtual) {
   }
   const ultimoMesAtual = Math.min(new Date().getMonth(), 11);
   el.innerHTML = `<div class="graf-par" style="position:relative">
-    <div class="graf-echart" style="height:220px"></div>
+    <div class="graf-echart" style="height:260px"></div>
     <svg data-overlay aria-hidden="true"
       style="position:absolute;inset:0"></svg></div>`;
   const alvoChart = el.querySelector(".graf-echart");
@@ -551,8 +559,11 @@ function grafConcentracao(el, curva, total) {
   // destacar o último ponto seria dizer "todos os fornecedores = 100%", que
   // não informa nada — e o rótulo cairia em cima do fim da curva
   const dez = Math.min(9, Math.max(0, curva.length - 2));
+  // 260px: mesma altura padrão de largura total, ver comentário em
+  // grafMeses — este também só virou largura total na correção de layout
+  // de 2026-09-12 (antes dividia linha com "Deságio por modalidade")
   el.innerHTML = `<div class="graf-par" style="position:relative">
-    <div class="graf-echart" style="height:190px"></div>
+    <div class="graf-echart" style="height:260px"></div>
     <svg data-overlay aria-hidden="true"
       style="position:absolute;inset:0"></svg></div>`;
   const alvoChart = el.querySelector(".graf-echart");
@@ -656,7 +667,7 @@ function grafCurvaABC(el, itens, larg = 660) {
   const nC = validos.length - nA - nB;
   const fimA = Math.max(0, nA - 1), fimB = Math.max(fimA, nA + nB - 1);
 
-  el.innerHTML = `<div class="graf-echart" style="height:230px"></div>
+  el.innerHTML = `<div class="graf-echart" style="height:260px"></div>
     <div class="leg" style="display:grid;grid-template-columns:${
       (((fimA + 1) / validos.length) * 100).toFixed(1)}% ${
       ((nB / validos.length) * 100).toFixed(1)}% 1fr;gap:0;margin-top:2px">
@@ -716,7 +727,7 @@ function grafValorPorAno(el, porAno, anoAtual) {
     el.innerHTML = `<div class="vazio">Sem contratos em anos anteriores.</div>`;
     return;
   }
-  el.innerHTML = `<div class="graf-echart" style="height:230px"></div>`;
+  el.innerHTML = `<div class="graf-echart" style="height:260px"></div>`;
   const alvo = el.querySelector(".graf-echart");
   const chart = _iniciarEchart(alvo);
   chart.setOption({

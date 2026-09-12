@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.12.3 — 2026-09-12
+
+**Correção — Situação do banco (Preços) vira 1 coluna; altura dos gráficos de largura total recalibrada**
+
+- **Situação do banco** (aba Preços) ainda usava `.grade-painel` (grid de
+  2 colunas) — pedido do usuário: 1 coluna, mesmo padrão do resto do
+  app. Os 4 pares (Itens por ano/Material×serviço, Concentração/lista,
+  Municípios/Itens frequentes, Fornecedores/Unidades) empilham agora.
+- **Altura dos gráficos de largura total recalibrada para 260px** — os
+  5 gráficos de linha/curva/barra que já eram (ou acabaram de virar)
+  largura total usavam alturas entre 196 e 230px, herdadas de quando
+  vários deles dividiam a linha com outro gráfico (2 colunas). Card 2×
+  mais largo com a mesma altura fica achatado. 260px é a média das 5
+  alturas antigas arredondada pra cima — mês×modalidade (Execução) e
+  concentração de fornecedores (Análise) viraram largura total só na
+  correção da v2.12.2, então a altura antiga nunca tinha sido calibrada
+  pra esse contexto. Os 3 novos gráficos da Situação do banco entram
+  direto com 260px.
+- 304 pytest + 184 Playwright verdes.
+
 ## 2.12.2 — 2026-09-12
 
 **Correção — Painel · Execução e Análise voltam a ser 1 coluna, de verdade**

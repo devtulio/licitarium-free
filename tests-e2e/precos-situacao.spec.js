@@ -34,6 +34,21 @@ test("concentração de fornecedores desenha curva e lista pro item selecionado"
   await expect(page.locator(".barra-concentracao")).toHaveCount(2);
 });
 
+test("cartões dos gráficos ficam empilhados em 1 coluna, não lado a lado",
+    async ({ page }) => {
+  // achado do usuário (2026-09-12): esta tela ainda usava o grid de 2
+  // colunas antigo (.grade-painel) enquanto o resto do app (Painel) já
+  // tinha virado 1 coluna — mesmo espírito da correção de Execução/
+  // Análise, mesmo dia.
+  await page.locator('button[data-vista-precos="situacao"]').click();
+  const anoBox = await page.locator("#painel-grafico-ano").boundingBox();
+  const tipoBox = await page.locator("#painel-grafico-tipo").boundingBox();
+  // em 1 coluna, o 2º cartão fica ABAIXO do 1º (mesmo x, y maior), não
+  // ao lado (mesmo y, x maior)
+  expect(tipoBox.y).toBeGreaterThan(anoBox.y + anoBox.height - 5);
+  expect(anoBox.width).toBeGreaterThan(600);   // largura cheia, não metade
+});
+
 test("voltar pra Pesquisar mantém a busca de preços intacta",
     async ({ page }) => {
   await page.locator('button[data-vista-precos="situacao"]').click();
