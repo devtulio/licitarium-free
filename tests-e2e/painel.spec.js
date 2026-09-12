@@ -208,6 +208,24 @@ test("execução mostra hero, colunas mensais e modalidades",
   await expect(v).toContainText("Por modalidade");
 });
 
+// achado do usuário (2026-09-12): o changelog da fase 3 do handoff dizia
+// "uma coluna, largura total, seguindo o mockup 1a", mas o código nunca
+// tirou o grid de 2 colunas herdado do Painel antigo (.faixa.f-21/.f-11)
+// — mockup 1a é explícito: "cada gráfico e cada tabela ocupa a largura
+// inteira". Mesmo desvio existia em Análise (fase 4, mockup 3a) no par
+// Deságio/Concentração — mantendo os dois gráficos, só tirando o par.
+test("execução e análise não têm mais gráficos/tabelas pareados em 2 colunas",
+    async ({ page }) => {
+  await expect(page.locator("#p-execucao .faixa.f-21")).toHaveCount(0);
+  await expect(page.locator("#p-execucao .faixa.f-11")).toHaveCount(0);
+  await page.locator('.subabas button[data-vista="analise"]').click();
+  await expect(page.locator("#p-analise .faixa.f-11")).toHaveCount(0);
+  // os dois gráficos continuam na tela, só que cada um em largura total
+  const v = page.locator("#p-analise");
+  await expect(v).toContainText("Deságio por modalidade");
+  await expect(v).toContainText("Concentração de fornecedores");
+});
+
 test("fornecedor truncado carrega o nome completo no title",
     async ({ page }) => {
   // achado da auditoria de design (2026-08-08): a tabela corta o nome com

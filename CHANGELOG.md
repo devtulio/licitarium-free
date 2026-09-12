@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.12.2 — 2026-09-12
+
+**Correção — Painel · Execução e Análise voltam a ser 1 coluna, de verdade**
+
+- O changelog da fase 3 (v2.3.0) dizia "Uma coluna, largura total,
+  seguindo o mockup 1a" — mas isso nunca foi verdade: o código manteve o
+  grid de 2 colunas herdado do Painel anterior ao handoff (`.faixa.f-21`
+  para os gráficos de mês/modalidade, `.faixa.f-11` para as 2 tabelas).
+  O mockup 1a é explícito: "cada gráfico e cada tabela ocupa a largura
+  inteira". Achado pelo usuário comparando um print da tela com o que eu
+  tinha acabado de descrever do mockup.
+- Mesmo desvio existia em Análise (fase 4, mockup 3a), pareando "Deságio
+  por modalidade" com "Concentração de fornecedores" — este último nem
+  está no mockup 3a dessa tela (é sobra do Painel anterior). Por pedido
+  do usuário, o gráfico continua na tela — só saiu do par de 2 colunas,
+  cada um agora em largura total.
+- Vigilância (fase 5) e Economia (fase 6) já eram 1 coluna de verdade;
+  conferido, sem alteração.
+- Classes `.f-21`/`.f-11` removidas do CSS (ficaram sem nenhum uso).
+- 304 pytest + 183 Playwright verdes.
+
 ## 2.12.1 — 2026-09-12
 
 **Correção — 5 achados testando o exe compilado com o acervo real (não o

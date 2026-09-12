@@ -1092,17 +1092,13 @@ function vistaExecucao(d) {
       <div class="r" style="margin-top:8px">${c.atas_vigentes} atas vigentes</div>
     </div>
   </div>
-  <div class="faixa f-21">
-    ${cartaoGraf(`Contratações por mês — estimado × homologado`, "meses")}
-    ${cartaoGraf("Por modalidade — valor homologado", "modalidades")}
-  </div>
-  <div class="faixa f-11">
-    ${cartao("Vence nos próximos 90 dias", tabelaVencendo(d.execucao.vencendo),
-             `<span class="so-tela">Clicar leva à aba correspondente.</span>`)}
-    ${cartao(`Onde o dinheiro foi — fornecedores de ${ano}`,
-             tabelaFornecedores(d.execucao.fornecedores,
-                                d.execucao.fornecedores_valor_total))}
-  </div>`;
+  ${cartaoGraf(`Contratações por mês — estimado × homologado`, "meses")}
+  ${cartaoGraf("Por modalidade — valor homologado", "modalidades")}
+  ${cartao("Vence nos próximos 90 dias", tabelaVencendo(d.execucao.vencendo),
+           `<span class="so-tela">Clicar leva à aba correspondente.</span>`)}
+  ${cartao(`Onde o dinheiro foi — fornecedores de ${ano}`,
+           tabelaFornecedores(d.execucao.fornecedores,
+                              d.execucao.fornecedores_valor_total))}`;
 }
 
 function tabelaVencendo(itens) {
@@ -1156,13 +1152,11 @@ function vistaAnalise(d) {
   ${cartaoGraf(`Valor homologado acumulado — ${d.ano - 2} a ${d.ano}`, "series",
            `O ano corrente em destaque; os anteriores ficam como contexto — a
             comparação é com o mesmo mês, não com o total do ano.`)}
-  <div class="faixa f-11">
-    ${cartaoGraf("Deságio por modalidade — quanto o certame economizou",
-                 "desagio")}
-    ${cartaoGraf(`Concentração de fornecedores — ${d.ano}`, "concentracao",
-             `A linha tracejada é a distribuição perfeitamente igual — quanto
-              mais a curva se afasta dela, mais concentrado é o mercado.`)}
-  </div>
+  ${cartaoGraf("Deságio por modalidade — quanto o certame economizou",
+               "desagio")}
+  ${cartaoGraf(`Concentração de fornecedores — ${d.ano}`, "concentracao",
+           `A linha tracejada é a distribuição perfeitamente igual — quanto
+            mais a curva se afasta dela, mais concentrado é o mercado.`)}
   ${cartaoGraf("Quando o município compra — processos por mês e modalidade",
                "calor")}
   ${cartao(`Onde concentra — por órgão`, tabelaPorOrgao(a.por_orgao))}`;
