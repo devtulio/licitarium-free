@@ -171,6 +171,83 @@ def test_grafico_atas_ordena_pelas_de_maior_registrado(api):
     assert [i["numero_controle"] for i in r["itens"][:2]] == ["A-G2", "A-G1"]
 
 
+# achados testando o exe com acervo real (2026-09-12)
+def test_grafico_atas_exclui_atas_irmas_da_mesma_contratacao(api):
+    # uma contratação de RP pode gerar VÁRIAS atas (uma por lote/grupo de
+    # item) — sem vínculo item->ata no schema, o "registrado" de cada
+    # irmã sairia idêntico e inflado (a soma da contratação toda, não da
+    # ata individual). Melhor não entrar no gráfico do que mostrar um
+    # número que parece exato e não é.
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " modalidade_nome, objeto) VALUES ('H',2026,1,'Pregão','Obj')")
+    db.executemany(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, vigencia_fim) VALUES (?,'H','1',2026,?)",
+        [("A-H1", date.today().isoformat()),
+         ("A-H2", date.today().isoformat())])
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " valor_total_homologado) VALUES ('H#1','H',1,900.0)")
+    db.commit()
+    db.close()
+
+    r = api.grafico_atas()
+    assert "A-H1" not in [i["numero_controle"] for i in r["itens"]]
+    assert "A-H2" not in [i["numero_controle"] for i in r["itens"]]
+
+
+def test_lista_de_atas_marca_compartilhada_quando_tem_ata_irma(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " modalidade_nome, objeto) VALUES ('I',2026,1,'Pregão','Obj')")
+    db.executemany(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, vigencia_fim) VALUES (?,'I','1',2026,?)",
+        [("A-I1", date.today().isoformat()),
+         ("A-I2", date.today().isoformat())])
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " valor_total_homologado) VALUES ('I#1','I',1,900.0)")
+    db.commit()
+    db.close()
+
+    itens = api.listar("atas", {})["itens"]
+    for it in itens:
+        if it["numero_controle"] in ("A-I1", "A-I2"):
+            assert it["compartilhada"] is True
+            assert it["itens"] is None
+            assert it["registrado"] is None
+            assert it["contratos"] is None
+
+
+def test_lista_de_atas_separa_fornecedores_concatenados(api):
+    # a ata (ARP) não traz fornecedor no próprio JSON do PNCP — quando
+    # itens diferentes da mesma ata têm vencedores diferentes,
+    # pncp._atualizar_fornecedor_ata concatena os nomes com
+    # SEPARADOR_FORNECEDOR (\x1f). A lista mostra só o 1º + contagem do
+    # resto, SEM mexer no campo original (exportar_planilha depende dele
+    # inteiro pra virar 1 linha por fornecedor na planilha).
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO atas (numero_controle, fornecedor_ni, fornecedor_nome,"
+        " vigencia_fim) VALUES ('J', ?, ?, ?)",
+        (f"111{pncp.SEPARADOR_FORNECEDOR}222",
+         f"FORNECEDOR A{pncp.SEPARADOR_FORNECEDOR}FORNECEDOR B",
+         date.today().isoformat()))
+    db.commit()
+    db.close()
+
+    d = next(i for i in api.listar("atas", {})["itens"]
+              if i["numero_controle"] == "J")
+    assert d["fornecedor_display"] == "FORNECEDOR A"
+    assert d["fornecedor_extra"] == 1
+    # o campo original continua intacto pra quem mais usa (planilha)
+    assert d["fornecedor_nome"] == f"FORNECEDOR A{pncp.SEPARADOR_FORNECEDOR}FORNECEDOR B"
+
+
 def test_listar_e_detalhe_pca(api):
     r = api.listar("pca", {"ord": "valor", "dir": "desc"})
     assert [i["descricao"] for i in r["itens"]] == ["Toner", "Papel"]

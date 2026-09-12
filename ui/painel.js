@@ -1246,6 +1246,8 @@ function vistaEconomia(d) {
     ? (e.economizado / e.economizado_anterior - 1) * 100 : null;
   const varDesagio = e.pct_anterior != null && e.pct != null
     ? e.pct - e.pct_anterior : null;
+  const deltaEcon = e.economizado_anterior == null
+    ? null : e.economizado - e.economizado_anterior;
   const nSemPar = (e.n || 0) - (e.n_pares || 0);
   const familias = P.dados.economia.por_familia;
   const somaFamilias = familias.reduce((s, f) => s + (f.economizado || 0), 0);
@@ -1270,11 +1272,11 @@ function vistaEconomia(d) {
               varDesagio >= 0 ? "▲" : "▼"} ${pct(Math.abs(varDesagio), 1)
               } p.p.</span> sobre ${ano - 1}`}</div></div>
     <div class="card kpiv"><div class="v">${
-        e.economizado_anterior == null ? "–"
-          : dinheiro(e.economizado - e.economizado_anterior)}</div>
-      <div class="r">economia a mais que ${ano - 1}</div>
+        deltaEcon == null ? "–" : dinheiro(Math.abs(deltaEcon))}</div>
+      <div class="r">economia a ${deltaEcon != null && deltaEcon < 0
+        ? "menos" : "mais"} que ${ano - 1}</div>
       <div class="r" style="margin-top:8px">${
-        e.economizado_anterior == null ? `sem ${ano - 1} para comparar`
+        deltaEcon == null ? `sem ${ano - 1} para comparar`
           : `mesmo período, ${dinheiro(e.economizado_anterior)} em ${ano - 1}`
         }</div></div>
     <div class="card kpiv"><div class="v">${e.n_pares ?? "–"}</div>

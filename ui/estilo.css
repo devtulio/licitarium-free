@@ -533,7 +533,12 @@ body.travado { overflow:hidden; }
    fase 12, tela 1d) */
 .det-rico-corpo { display:grid; grid-template-columns:1fr 300px; gap:16px;
                    padding:0 20px 20px; align-items:start; }
-.det-rico-col { display:flex; flex-direction:column; gap:16px; }
+/* min-width:0 é o que trava a coluna na largura do grid — sem isso, o
+   min-content da tabela de itens (table-layout:auto mais embaixo) vaza
+   pra fora do modal inteiro quando a descrição do item é bem comprida
+   (achado testando o exe com acervo real, 2026-09-12: cartão Vencedor
+   aparecia fora do cartão do modal, sobre o fundo escurecido) */
+.det-rico-col { display:flex; flex-direction:column; gap:16px; min-width:0; }
 .det-andamento { display:grid; grid-template-columns:repeat(4,1fr); gap:0;
                   margin-top:16px; }
 .det-passo { display:flex; flex-direction:column; gap:9px; }
@@ -555,9 +560,15 @@ body.travado { overflow:hidden; }
 .det-posicao.mediana, .det-posicao.mut { color:var(--muted); font-weight:600; }
 /* a tabela de itens tem coluna própria (não é o par chave/valor genérico
    que `.veu table` foi desenhado pra mostrar) — "sem comparável no
-   acervo" não cabe na largura fixa/reticências herdada de lá */
-#det-itens table { table-layout:auto; }
-#det-itens td:first-child { width:auto; }
+   acervo" não cabe na largura fixa/reticências herdada de lá, e um
+   `table-layout:auto` pra resolver isso (tentado antes) tinha um efeito
+   colateral pior: com a descrição de um item bem comprida, a tabela
+   inteira virava mais larga que o cartão e o modal (achado testando o
+   exe com acervo real, 2026-09-12) — os cartões Vencedor/Procedência
+   apareciam por cima do fundo escurecido, fora do modal. A largura de
+   cada coluna agora vem de <col> explícito (table-layout:fixed) — a
+   última cabe a frase inteira sem depender do conteúdo pra decidir. */
+#det-itens td:first-child { overflow:visible; white-space:normal; }
 #det-itens td:last-child { overflow:visible; white-space:normal; }
 .meta { display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
         background:var(--border); border-top:1px solid var(--border); }

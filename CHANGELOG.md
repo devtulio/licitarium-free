@@ -1,5 +1,45 @@
 # Changelog
 
+## 2.12.1 — 2026-09-12
+
+**Correção — 5 achados testando o exe compilado com o acervo real (não o
+mock de teste), a pedido do usuário**
+
+- **Economia (Painel)**: quando o exercício economizou MENOS que o ano
+  anterior (delta negativo), o rótulo fixo "economia a mais que" ficava
+  lendo "-R$ ... a mais que" — valor e palavra se contradiziam. Rótulo
+  agora troca pra "a menos que" e o valor mostrado é o módulo (o sinal já
+  está na palavra). Bug da própria fase 6.
+- **Atas — fornecedor concatenado**: uma ata sem fornecedor próprio no
+  JSON do PNCP herda o(s) vencedor(es) dos itens da contratação de
+  origem; com mais de um vencedor, os nomes vêm concatenados por um
+  separador invisível (`\x1f`). A lista de Atas não separava esse campo
+  — os nomes apareciam grudados ("EMPRESA AEMPRESA B..."). Mostra agora
+  só o 1º nome + contagem do resto, sem mexer no campo original (do qual
+  `exportar_planilha` depende pra virar 1 linha por fornecedor).
+- **Atas — irmãs da mesma contratação**: uma contratação de registro de
+  preços pode gerar várias atas (uma por lote/grupo de item). Sem vínculo
+  item→ata no schema do PNCP, itens/registrado/contratos calculados por
+  contratação saíam IDÊNTICOS e inflados em cada ata-irmã (a soma da
+  contratação inteira, repetida em cada uma). Marcado como
+  "compartilhado" — mais honesto que um número que parece exato e não é
+  — e essas atas saem do gráfico "Registrado por ata" (não dá pra
+  ranquear o que não dá pra separar).
+- **Detalhe da contratação — tabela de itens**: um item com descrição
+  bem comprida (comum em objeto de licitação real) esticava a tabela
+  inteira além do cartão e do modal — o cartão Vencedor aparecia fora do
+  modal, sobre o fundo escurecido. A tabela agora usa `table-layout:
+  fixed` com largura de coluna explícita; a descrição quebra linha em
+  vez de esticar a tabela.
+- **Montar PCA — curva ABC em branco na 1ª abertura**: o botão "Montar
+  PCA" carregava a minuta (e desenhava o gráfico) ANTES de abrir o
+  modal — o ECharts media a largura do container com o modal inteiro
+  ainda oculto (`display:none`) e nascia com largura zero. Só reaparecia
+  depois de clicar em "Gerar" de novo (modal já visível dessa vez), o
+  que mascarava o bug em todo teste existente (todos clicam Gerar antes
+  de checar o resultado). Ordem trocada: modal abre primeiro.
+- 304 pytest + 182 Playwright verdes.
+
 ## 2.12.0 — 2026-09-12
 
 **Adição — Fase 12 (última) do handoff "Dashboard de Licitações Públicas" (Claude Design): detalhe rico da contratação**

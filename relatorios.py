@@ -824,14 +824,25 @@ def dados_atas(db, ano=None, vigentes=False, orgao=None):
 # mesma contratação — não é "quanto sobra", mas não inventa número que a
 # fonte não tem.
 def top_atas_saldo(db, ano=None, orgao=None, limite=5):
-    where, args = [], []
+    # achado ao testar com acervo real (2026-09-12): uma contratação de
+    # registro de preços pode gerar VÁRIAS atas (uma por lote/grupo de
+    # item) — sem um vínculo item→ata no schema (só item→contratação), o
+    # "registrado" de cada ata-irmã saía como a SOMA de TODOS os itens da
+    # contratação, duplicada e idêntica em cada uma delas (4 atas
+    # mostrando "R$ 6,9 mi" cada, quando é o total da contratação toda).
+    # Sem como separar por ata de verdade, o gráfico só entra com atas
+    # cuja contratação de origem NÃO tem irmã — mostrar um número
+    # inflado seria pior que não mostrar nenhum.
+    where = ["""(SELECT COUNT(*) FROM atas a2
+                 WHERE a2.contratacao_controle=a.contratacao_controle)=1"""]
+    args = []
     if ano:
         where.append("substr(a.vigencia_inicio,1,4)=?")
         args.append(str(ano))
     if orgao:
         where.append("a.orgao_cnpj=?")
         args.append(orgao)
-    sql_where = (" WHERE " + " AND ".join(where)) if where else ""
+    sql_where = " WHERE " + " AND ".join(where)
     return [dict(r) for r in db.execute(
         f"""SELECT a.numero_controle, a.numero_ata, a.ano_ata, a.objeto,
                    a.vigencia_fim,

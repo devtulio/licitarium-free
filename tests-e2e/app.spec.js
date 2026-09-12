@@ -191,6 +191,51 @@ test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
     await expect(page.locator("#det-mhead-rico")).toBeHidden();
     await expect(page.locator("#det-meta")).toBeVisible();
   });
+
+  test("descrição de item bem comprida não empurra o cartão Vencedor pra fora do modal",
+      async ({ page }) => {
+    // achado testando o exe com acervo real (2026-09-12): a tabela de
+    // itens usava table-layout:auto pra caber "sem comparável no acervo"
+    // — com uma descrição de item bem longa (comum em objeto de
+    // licitação real), a tabela inteira ficava mais larga que o cartão e
+    // o modal, e o cartão Vencedor aparecia fora do modal, sobre o fundo
+    // escurecido. A tabela agora usa table-layout:fixed com <col>
+    // explícito; a descrição quebra linha em vez de esticar a tabela.
+    const descricaoLonga = "Contratação de empresa especializada em "
+      + "prestação de serviços de engenharia para a execução de serviços "
+      + "de recuperação da estrutura metálica e o alambrado da quadra "
+      + "poliesportiva localizada na Rua Lucianelli, no município de "
+      + "Orindiúva-SP.";
+    await page.evaluate((descricao) => {
+      window.pywebview.api.detalhe_contratacao = async () => ({
+        contratacao: { numero_controle: "X-1", ano: 2026, sequencial: 12,
+          objeto: descricao, modalidade_nome: "Dispensa",
+          orgao_nome: "Município de Orindiúva",
+          valor_estimado: 24388.31, valor_homologado: 24000,
+          data_publicacao: "2026-08-01" },
+        itens: [{ numero_item: 1, descricao, unidade: "UN",
+          quantidade_homologada: 1, valor_unitario_homologado: 24000,
+          mediana_acervo: null, n_comparaveis: 1 }],
+        contrato: { data_assinatura: "2026-08-21" },
+        homologado_em: "2026-08-07",
+        vencedor: { ni: "08475002000101",
+          nome: "M C ENGENHARIA E CONSTRUÇÕES ORINDIUVA LTDA",
+          perfil: { n_contratos: 5, recebido_no_ano: 300000 } },
+      });
+    }, descricaoLonga);
+    await abrirLista(page);
+    await page.locator('.linha[data-nc="X-1"]').click();
+    await expect(page.locator("#det-vencedor")).toBeVisible();
+
+    const modalBox = await page.locator("#det-modal").boundingBox();
+    const vencedorBox = await page.locator("#det-vencedor").boundingBox();
+    const tableBox = await page.locator("#det-itens table").boundingBox();
+    // tolerância de 1px por arredondamento de subpixel
+    expect(vencedorBox.x + vencedorBox.width)
+      .toBeLessThanOrEqual(modalBox.x + modalBox.width + 1);
+    expect(tableBox.width).toBeLessThanOrEqual(
+      (await page.locator("#det-itens").boundingBox()).width + 1);
+  });
 });
 
 test("contratos e atas separam vigência inicial/final e status em colunas próprias",
@@ -236,6 +281,27 @@ test("atas: gráfico de registrado por ata só aparece na própria aba, ordenado
   // ata sem contrato decorrente (Z-4) aparece no gráfico com "0 contratos",
   // não escondida como se não existisse
   await expect(page.locator("#graf-atas-saldo")).toContainText("0 contratos");
+});
+
+// achados testando o exe compilado com acervo real (2026-09-12)
+test.describe("Atas: fornecedor concatenado e ata-irmã compartilhada", () => {
+  test("fornecedor com mais de 1 nome mostra só o 1º + contagem, sem o campo cru",
+      async ({ page }) => {
+    await page.locator('nav.abas button[data-tipo="atas"]').click();
+    const linha = page.locator('.linha[data-nc="Z-5"]');
+    await expect(linha).toContainText("GRAFICA MODELO");
+    await expect(linha).toContainText("+1");
+    // o \x1f do backend real não aparece nem gruda os dois nomes
+    await expect(linha).not.toContainText("PAPELARIA");
+  });
+
+  test("ata cuja contratação de origem tem ata-irmã mostra \"compartilhado\", não um número inflado",
+      async ({ page }) => {
+    await page.locator('nav.abas button[data-tipo="atas"]').click();
+    const linha = page.locator('.linha[data-nc="Z-6"]');
+    const compartilhados = linha.locator("text=compartilhado");
+    await expect(compartilhados).toHaveCount(3);   // Itens, Registrado, Contratos
+  });
 });
 
 test("Configurações abre no clique e busca os dados em paralelo, não em fila",
@@ -491,6 +557,41 @@ test.describe("Relatórios em cartões (fase 11 do handoff)", () => {
     expect(chamada.tamanhos.map(v => v[0])).toEqual(
       ["execucao", "analise", "vigilancia", "economia"]);
   });
+});
+
+test("curva ABC desenha na 1ª abertura do modal, sem precisar clicar em Gerar de novo",
+    async ({ page }) => {
+  // achado testando o exe com acervo real (2026-09-12): #btn-pca chamava
+  // carregarMinuta() (que desenha a curva ABC) ANTES de abrirModal("veu-pca")
+  // — o ECharts media a largura do container com o modal inteiro ainda
+  // `oculto` (display:none) e nascia com 0px, então o gráfico saía em
+  // branco na 1ª abertura. Só reaparecia depois de clicar em "Gerar" de
+  // novo (modal já visível dessa vez) — o que mascarava o bug em todo
+  // teste existente, já que todos clicam Gerar antes de checar o KPI.
+  // Simula "já existe minuta salva pra esse exercício": o modal precisa
+  // desenhar a curva já na abertura, sem clique nenhum.
+  await page.evaluate(() => {
+    window.__minuta = [
+      { id: 1, chave: "A", familia: "A", abc: "A", descricao: "Item A",
+        unidade: "UN", categoria: "Material", quantidade: 1,
+        valor_unitario: 500000, margem: 10, incluir: 1, valor_total: 500000 },
+      { id: 2, chave: "B", familia: "B", abc: "B", descricao: "Item B",
+        unidade: "UN", categoria: "Material", quantidade: 1,
+        valor_unitario: 22000, margem: 10, incluir: 1, valor_total: 22000 },
+      { id: 3, chave: "C", familia: "C", abc: "C", descricao: "Item C",
+        unidade: "UN", categoria: "Material", quantidade: 1,
+        valor_unitario: 3000, margem: 10, incluir: 1, valor_total: 3000 },
+    ];
+  });
+  await page.locator("#btn-pca").click();
+  await expect(page.locator("#veu-pca")).toBeVisible();
+  await expect(page.locator("#pca-abc-caixa")).toBeVisible();
+  // o SVG do ECharts precisa ter path/rect de verdade, não um container vazio
+  const chartSvg = page.locator("#pca-abc .graf-echart svg");
+  await expect(chartSvg).toBeVisible();
+  const box = await chartSvg.boundingBox();
+  expect(box.width).toBeGreaterThan(100);
+  await expect(page.locator("#pca-abc .graf-echart path")).not.toHaveCount(0);
 });
 
 test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {

@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.12.0"
+VERSAO = "2.12.1"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1373,6 +1373,26 @@ class Api:
             # "empenhado"/"saldo" do mockup — a API de Ata do PNCP não traz
             # NENHUM valor monetário (ver relatorios.top_atas_saldo).
             if tipo == "atas" and itens:
+                # a ata (ARP) não traz fornecedor no próprio JSON do PNCP —
+                # quando vários itens da mesma ata têm vencedores diferentes,
+                # pncp._atualizar_fornecedor_ata concatena os nomes com
+                # SEPARADOR_FORNECEDOR (\x1f); sem separar aqui, os nomes
+                # saíam grudados na tela (achado com acervo real:
+                # "IMPORTACORAOCENTRAL..." — dois nomes emendados, o \x1f não
+                # aparece). Roda pra TODA linha (não só as que têm
+                # contratacao_controle, ao contrário do bloco abaixo) —
+                # `fornecedor_nome` PRECISA continuar com a string original:
+                # `exportar_planilha` chama `self.listar` e depois
+                # `pncp.separar_fornecedores` nesse MESMO campo pra virar 1
+                # linha por fornecedor na planilha; sobrescrever aqui já
+                # cortava pra 1 nome só antes disso rodar. O 1º nome pra
+                # tela vai num campo à parte.
+                for d in itens:
+                    if d.get("fornecedor_nome"):
+                        nomes = [n for n in d["fornecedor_nome"]
+                                 .split(pncp.SEPARADOR_FORNECEDOR) if n]
+                        d["fornecedor_display"] = nomes[0] if nomes else None
+                        d["fornecedor_extra"] = len(nomes) - 1
                 ids = list({d["contratacao_controle"] for d in itens
                            if d.get("contratacao_controle")})
                 if ids:
@@ -1392,6 +1412,18 @@ class Api:
                         f"""SELECT contratacao_controle, COUNT(*)
                            FROM contratos WHERE contratacao_controle IN ({marcadores})
                            GROUP BY contratacao_controle""", ids)}
+                    # achado com acervo real (2026-09-12): uma contratação de
+                    # RP pode gerar várias atas-irmãs (uma por lote/grupo de
+                    # item) — sem vínculo item→ata no schema, itens/registrado/
+                    # contratos calculados por contratacao_controle saem
+                    # IDÊNTICOS e inflados em cada irmã (a soma da contratação
+                    # inteira, não da ata individual). Marcado como
+                    # "compartilhado" em vez de um número que parece exato
+                    # e não é.
+                    irmas = {r[0]: r[1] for r in db.execute(
+                        f"""SELECT contratacao_controle, COUNT(*)
+                           FROM atas WHERE contratacao_controle IN ({marcadores})
+                           GROUP BY contratacao_controle""", ids)}
                     for d in itens:
                         cc = d.get("contratacao_controle")
                         k = info.get(cc)
@@ -1399,10 +1431,11 @@ class Api:
                             f"{k['modalidade_nome'].split(' ')[0]} "
                             f"{int(k['sequencial']):03d}/{k['ano']}"
                         ) if k and k["modalidade_nome"] and k["sequencial"] else None
+                        d["compartilhada"] = irmas.get(cc, 1) > 1
                         ag = agregados.get(cc)
-                        d["itens"] = ag["itens"] if ag else 0
-                        d["registrado"] = ag["registrado"] if ag else 0
-                        d["contratos"] = n_contratos.get(cc, 0)
+                        d["itens"] = None if d["compartilhada"] else (ag["itens"] if ag else 0)
+                        d["registrado"] = None if d["compartilhada"] else (ag["registrado"] if ag else 0)
+                        d["contratos"] = None if d["compartilhada"] else n_contratos.get(cc, 0)
             # aba Preços: a linha guarda só o código IBGE — resolve o nome
             # aqui (mesmo dicionário de ORDENAVEIS["itens"]["municipio"]),
             # para a tela mostrar "Olímpia" em vez do código

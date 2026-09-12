@@ -600,20 +600,33 @@ function renderLinha(tipo, d) {
       <span class="num">${dinheiro(d.valor_total)}</span>`;
   // Fornecedor não é link pro perfil aqui, mesma razão de Contratos (fase
   // 8): a linha inteira já é <button>, <a> dentro dele é HTML inválido.
-  // "Registrado"/"Contratos" não são "empenhado"/"saldo" do mockup — a API
-  // de Ata do PNCP não traz nenhum valor de empenho (ver
+  // Uma ata pode ter mais de 1 fornecedor (itens diferentes, vencedores
+  // diferentes) — o backend já separou pelo SEPARADOR_FORNECEDOR e manda só
+  // o 1º nome + a contagem do resto (fornecedor_extra).
+  // "Registrado"/"Itens"/"Contratos" não são "empenhado"/"saldo" do
+  // mockup — a API de Ata do PNCP não traz nenhum valor de empenho (ver
   // relatorios.top_atas_saldo); "0 contratos" ganha selo honesto em vez de
-  // fingir que é "nada empenhado" sobre um dado que não existe.
+  // fingir que é "nada empenhado" sobre um dado que não existe. Quando a
+  // contratação de origem tem mais de uma ata-irmã (um edital de RP vira
+  // várias atas por lote), não dá pra separar itens/registrado por ata —
+  // "compartilhado" é mais honesto que um número que parece exato e não é.
+  const nomeFornecedor = d.fornecedor_display ?? d.fornecedor_nome;
+  const fornecedorTxt = fornecedorCurto(nomeFornecedor) ?? "–";
+  const fornecedorTitulo = nomeFornecedor
+    + (d.fornecedor_extra ? ` e mais ${d.fornecedor_extra}` : "");
+  const compartilhado = `<span class="dim" title="A contratação de origem
+    gerou mais de uma ata — não dá para separar por ata individual">
+    compartilhado</span>`;
   return `<span class="dim">${esc(d.numero_ata ?? "–")}/${esc(d.ano_ata ?? "")}</span>
-    <span class="dim" title="${esc(d.fornecedor_nome ?? "")}">${
-      esc(fornecedorCurto(d.fornecedor_nome) ?? "–")}</span>
+    <span class="dim" title="${esc(fornecedorTitulo)}">${esc(fornecedorTxt)}${
+      d.fornecedor_extra ? ` <span class="dim">+${d.fornecedor_extra}</span>` : ""}</span>
     <span class="obj">${esc(d.objeto ?? "–")}</span>
     <span class="dim">${esc(d.origem ?? "–")}</span>
-    <span class="num">${d.itens ?? 0}</span>
-    <span class="num">${dinheiro(d.registrado)}</span>
-    <span class="num">${d.contratos
+    <span class="num">${d.compartilhada ? compartilhado : (d.itens ?? 0)}</span>
+    <span class="num">${d.compartilhada ? compartilhado : dinheiro(d.registrado)}</span>
+    <span class="num">${d.compartilhada ? compartilhado : (d.contratos
       ? d.contratos
-      : `<span class="badge mut">sem contrato decorrente</span>`}</span>
+      : `<span class="badge mut">sem contrato decorrente</span>`)}</span>
     <span style="justify-self:end">${celulaStatusVigencia(d)}</span>`;
 }
 
@@ -1231,7 +1244,9 @@ function renderDetalheRicoContratacao(d, dc) {
 
   $("det-itens").innerHTML = !dc.itens.length
     ? `<div class="vazio" style="padding:20px">Nenhum item homologado ainda.</div>`
-    : `<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+    : `<table style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">
+        <colgroup><col><col style="width:70px"><col style="width:100px">
+          <col style="width:100px"><col style="width:170px"></colgroup>
         <tr class="dim" style="text-align:left;background:var(--surface2)">
           <th style="padding:10px 16px">Item</th>
           <th style="padding:10px 8px;text-align:right">Qtd</th>
@@ -1239,7 +1254,8 @@ function renderDetalheRicoContratacao(d, dc) {
           <th style="padding:10px 8px;text-align:right">Mediana</th>
           <th style="padding:10px 16px">Posição</th></tr>
         ${dc.itens.map(it => `<tr>
-          <td style="padding:10px 16px;border-top:1px solid var(--border)"
+          <td style="padding:10px 16px;border-top:1px solid var(--border);
+              overflow-wrap:break-word"
               title="${esc(it.descricao)}">${esc(it.descricao)}</td>
           <td style="padding:10px 8px;border-top:1px solid var(--border);
               text-align:right">${it.quantidade_homologada ?? "–"}
@@ -1322,8 +1338,16 @@ $("btn-pca").addEventListener("click", async () => {
     $("pca-status").textContent =
       "Sincronize os itens antes: a minuta vem do que já foi contratado.";
   }
-  await carregarMinuta();
+  // o modal precisa estar visível ANTES de carregarMinuta() desenhar a
+  // curva ABC: ECharts mede a largura do container no momento do init, e
+  // um ancestral ainda `oculto` (display:none) mede 0 — achado testando
+  // o exe com acervo real (2026-09-12): a curva nascia em branco na
+  // primeira abertura e só aparecia depois de clicar em "Gerar" de novo
+  // (aí sim com o modal já visível). A MESMA ordem trocada já valia pra
+  // #pca-abc-caixa (comentário logo acima de grafCurvaABC), só faltava
+  // valer pro #veu-pca inteiro.
   abrirModal("veu-pca");
+  await carregarMinuta();
 });
 
 function parametrosPca() {

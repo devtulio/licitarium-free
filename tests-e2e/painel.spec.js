@@ -253,6 +253,28 @@ test("economia mostra o total do ano e os quatro KPIs", async ({ page }) => {
   await expect(v.locator('[data-graf="economia_fornecedor"]')).toHaveCount(0);
 });
 
+test("economia: quando economizou MENOS que o ano anterior, o rótulo diz \"a menos\"",
+    async ({ page }) => {
+  // achado ao testar o exe real (2026-09-12): com economizado <
+  // economizado_anterior, o delta é negativo, mas o rótulo fixo
+  // "economia a mais que" ficava lendo "-R$ ... a mais que" — o valor e
+  // a palavra se contradiziam. Bug introduzido na própria fase 6.
+  await page.evaluate(() => {
+    window.__painel = { ...window.PAINEL_DADOS,
+      economia: { ...window.PAINEL_DADOS.economia,
+        economizado: 3910082.29, economizado_anterior: 23578654.86 } };
+  });
+  await page.locator("#p-ano").selectOption({ index: 0 });
+  await page.locator('.subabas button[data-vista="economia"]').click();
+  const v = page.locator("#p-economia");
+  await expect(v).toContainText("economia a menos que 2025");
+  await expect(v).not.toContainText("a mais que");
+  // valor mostrado é a diferença em módulo, não negativo — o sinal já
+  // está dito pela palavra "menos"
+  await expect(v).toContainText("R$ 19.668.572,57");
+  await expect(v).not.toContainText("-R$");
+});
+
 test("economia fica lembrada como as outras subabas", async ({ page }) => {
   await page.locator('.subabas button[data-vista="economia"]').click();
   const salvo = await page.evaluate(() => window.__chamadas

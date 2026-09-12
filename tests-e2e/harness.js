@@ -87,6 +87,24 @@ const DADOS = {
       fornecedor_nome: "QUIMICA INDUSTRIAL LTDA",
       origem: "Pregão 070/2026", itens: 3, registrado: 12000, contratos: 0,
       vigencia_inicio: "2026-06-01", vigencia_fim: emDias(200) },
+    // achados testando o exe com acervo real (2026-09-12): fornecedor
+    // concatenado (\x1f no backend real; aqui já vem separado pelo mock,
+    // como Api.listar devolveria) e ata-irmã da mesma contratação (RP por
+    // lote) — "compartilhado" em vez de um número inflado e idêntico
+    { numero_controle: "Z-5", numero_ata: "30", ano_ata: 2026,
+      objeto: "Registro de preços de material de escritório",
+      contratacao_controle: "45148970000177-1-000080/2026",
+      fornecedor_nome: "GRAFICA MODELO LTDA\x1fPAPELARIA CENTRAL LTDA",
+      fornecedor_display: "GRAFICA MODELO LTDA", fornecedor_extra: 1,
+      origem: "Pregão 080/2026", itens: 5, registrado: 20000, contratos: 2,
+      vigencia_inicio: "2026-06-01", vigencia_fim: emDias(150) },
+    { numero_controle: "Z-6", numero_ata: "31", ano_ata: 2026,
+      objeto: "Registro de preços — lote 2",
+      contratacao_controle: "45148970000177-1-000090/2026",
+      fornecedor_nome: "COMERCIAL FENIX LTDA",
+      origem: "Pregão 090/2026", compartilhada: true,
+      itens: null, registrado: null, contratos: null,
+      vigencia_inicio: "2026-06-01", vigencia_fim: emDias(150) },
   ],
   pca: [],
   itens: [
