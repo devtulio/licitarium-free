@@ -223,7 +223,7 @@ main { max-width:max(50vw, 1000px); margin:0 auto; padding:18px 22px 30px; }
    do texto, e o alinhamento vem do flex do próprio chip. `flex:none` porque
    sem ele o SVG encolhe quando o rótulo é longo. */
 .ico { width:1.05em; height:1.05em; flex:none; vertical-align:-.16em; }
-.chip .ico, .btn .ico { margin-right:.1em; }
+.chip .ico, .btn .ico, .badge .ico { margin-right:.1em; }
 .chip.info { background:color-mix(in srgb, var(--accent) 12%, transparent);
              color:var(--accent); border-color:
              color-mix(in srgb, var(--accent) 35%, transparent); }
@@ -272,6 +272,28 @@ nav.abas button.on { color:var(--accent); font-weight:600;
 .filtros { display:flex; column-gap:8px; row-gap:14px; margin-bottom:12px;
            flex-wrap:wrap; align-items:center; }
 .filtros input[type=search] { flex:1; min-width:170px; }
+/* pílula, não caixa — mesmo visual dos filtros do handoff Claude Design
+   (2026-09-11, fase 7, tela 1c): --surface2 já É o #f1f3f5 do mockup */
+.rot-filtros { font:600 11px/1 var(--font-ui); letter-spacing:.08em;
+              text-transform:uppercase; color:var(--muted); }
+.filtros select { border-radius:99px; background:var(--surface2);
+                  border-color:transparent; padding:9px 13px; }
+/* caixa de marcar vira chip quando ativa: fechado é toggle discreto,
+   marcado pega o mesmo azul do chip de alerta do Painel — "filtros que
+   somam" já mostra o que está ligado sem precisar ler texto cinza */
+.check-filtro:has(:checked) {
+  background:color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color:var(--accent); border-radius:99px; padding:9px 13px; font-weight:600;
+}
+.check-filtro:has(:checked)::after { content:"×"; opacity:.7; margin-left:2px; }
+.filtro-alerta { display:flex; align-items:center; gap:6px; font-size:12.5px;
+                 font-weight:600; color:var(--accent); cursor:pointer;
+                 background:color-mix(in srgb, var(--accent) 10%, var(--surface));
+                 border-radius:99px; padding:9px 13px; white-space:nowrap;
+                 border:0; font-family:var(--font-ui); }
+.filtro-alerta span { opacity:.7; }
+.filtros-espaco { flex:1; }
+#contador-lista b { color:var(--text); font-weight:700; }
 #btn-limpar { white-space:nowrap; }
 
 .lista { overflow:hidden; }
@@ -298,7 +320,8 @@ nav.abas button.on { color:var(--accent); font-weight:600;
        color:var(--muted); cursor:default; background:var(--surface2); }
 .cab:hover { background:var(--surface2); }
 /* larguras padrão; o usuário pode ajustar arrastando (var --cols) */
-.g-contratacoes { grid-template-columns:var(--cols, 80px 135px 1fr 120px 120px); }
+.g-contratacoes { grid-template-columns:var(--cols,
+  80px minmax(0,1fr) 140px 115px 115px 80px 130px); }
 .g-contratos    { grid-template-columns:var(--cols, 110px 1fr 100px 100px 110px 110px); }
 .g-atas         { grid-template-columns:var(--cols, 90px 210px 1fr 100px 100px 110px); }
 .g-pca          { grid-template-columns:var(--cols, 60px 1fr 150px 80px 110px); }
@@ -386,8 +409,7 @@ body.redimensionando { cursor:col-resize; user-select:none; }
 .est { font-style:italic; color:var(--muted); }
 .est small { font-size:11px; letter-spacing:.04em; }
 /* colunas curtas centralizadas (mesmo tratamento dos relatórios) */
-.g-contratacoes > :nth-child(1), .g-contratacoes > :nth-child(2),
-.g-contratacoes > :nth-child(5),
+.g-contratacoes > :nth-child(1),
 .g-contratos > :nth-child(1), .g-contratos > :nth-child(3),
 .g-contratos > :nth-child(4), .g-contratos > :nth-child(5),
 .g-atas > :nth-child(1), .g-atas > :nth-child(2),

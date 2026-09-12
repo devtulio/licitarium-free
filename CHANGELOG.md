@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.7.0 — 2026-09-11
+
+**Adição — Fase 7 do handoff "Dashboard de Licitações Públicas" (Claude Design): lista de Contratações**
+
+- **Filtros viram pílulas**: seletores (exercício, modalidade, situação,
+  órgão) ganham visual de pílula; caixa marcada (Propostas abertas, Sem
+  resultado) e o filtro de um alerta do Painel viram **chips azuis
+  removíveis** com ×, sem perder o toggle nativo (clicar de novo desliga).
+- **Contador "N de M"** acima da tabela ("28 de 131 contratações") —
+  `total_base` vem na mesma resposta de `Api.listar` (uma consulta a
+  mais no backend, não uma segunda chamada: duas chamadas já causaram
+  corrida antes, no filtro de vencimento do Painel).
+- **Tabela de Contratações** ganha colunas: Estimado e Homologado
+  separados (o backend já suportava ordenar por cada um desde
+  2026-09-10 — só a tela não usava), e Deságio. Coluna Situação reusa
+  ícone/cor do alerta quando a linha se encaixa em "Sem resultado
+  (90+ dias)" ou "Perto do limite anual" — sem nenhum dos dois, mostra
+  a situação do PNCP. "Acima do limite" (mockup) não entrou: por linha
+  só dá pra saber que o objeto está no grupo de ≥75%, não se já passou
+  de 100%, e afirmar "acima" seria o programa dizer o que o dado não
+  garante.
+- "Exportar planilha" muda de lugar: da barra de filtros para o rodapé,
+  junto da paginação.
+- 293 pytest + 168 Playwright verdes.
+
 ## 2.6.0 — 2026-09-11
 
 **Adição/Mudança — Fase 6 do handoff "Dashboard de Licitações Públicas" (Claude Design): Painel · Economia**

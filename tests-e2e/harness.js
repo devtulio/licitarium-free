@@ -23,7 +23,10 @@ const DADOS = {
     { numero_controle: "X-2", ano: 2026, sequencial: 4,
       modalidade_nome: "Pregão - Eletrônico", objeto: "Contratação de empresa para manutenção de vias públicas",
       valor_estimado: 200000, valor_homologado: null,
-      situacao: "Divulgada no PNCP", data_publicacao: "2026-05-02" },
+      // dentro dos 90 dias, relativo a hoje — fixo, um dia essa data cairia
+      // no critério de "sem resultado" (fase 7 do handoff) e o badge de
+      // "Divulgada" que este registro serve pra testar sumiria sozinho
+      situacao: "Divulgada no PNCP", data_publicacao: emDias(-30) },
     { numero_controle: "X-3", ano: 2025, sequencial: 50,
       modalidade_nome: "Pregão - Eletrônico", objeto: "Registro de preços para medicamentos básicos",
       valor_estimado: 261115, valor_homologado: 261115,
@@ -163,7 +166,7 @@ function scriptPonte(temaBanco = "portal") {
           itens = itens.filter(i => !i.referencia);
         if (tipo === "itens" && filtros && filtros.excluidos)
           itens = itens.filter(i => !filtros.excluidos.includes(String(i.id)));
-        return { itens, total: itens.length };
+        return { itens, total: itens.length, total_base: itens.length };
       },
       estatisticas_preco: async (busca, ano, origem, excluidos,
                                  porConteudo, corrigir, incluidos, unidade) => {

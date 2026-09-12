@@ -437,9 +437,13 @@ function limparFiltros() {
 }
 $("btn-limpar").addEventListener("click", limparFiltros);
 
+const NOME_TIPO = { contratacoes: "contratações", contratos: "contratos",
+                    atas: "atas", pca: "itens do PCA" };
+
 const COLUNAS = {
-  contratacoes: [["Número","numero"], ["Modalidade","modalidade"],
-                 ["Objeto","objeto"], ["Valor","valor"],
+  contratacoes: [["Processo","numero"], ["Objeto","objeto"],
+                 ["Modalidade","modalidade"], ["Estimado","estimado"],
+                 ["Homologado","homologado"], ["Deságio",null],
                  ["Situação","situacao"]],
   contratos:    [["Contrato","numero"], ["Objeto / Fornecedor","objeto"],
                  ["Vigência inicial","vigencia_inicio"],
@@ -485,6 +489,36 @@ function badgeSituacao(s) {
   return `<span class="badge ${cl}" title="${esc(s)}">${esc(curto)}</span>`;
 }
 
+// mesma conta de `paradas` no Painel (relatorios.dados_painel): publicada
+// há mais de 90 dias e sem homologação é pendência — o dia é calculado por
+// string ISO, não por Date() bruto, porque Date("2026-01-01") lê meia-noite
+// UTC e no nosso fuso cai no dia anterior (mesmo achado de statusVigencia)
+function diasDesdePublicacao(pub) {
+  if (!pub) return null;
+  const dia = String(pub).slice(0, 10);
+  return Math.round((Date.parse(`${hojeISO()}T00:00:00Z`)
+    - Date.parse(`${dia}T00:00:00Z`)) / 864e5);
+}
+
+// Situação na lista de contratações (handoff Claude Design, 2026-09-11,
+// fase 7, tela 1c): reusa ícone e cor do alerta que sinalizaria esta
+// contratação — "perto do limite" (não "acima": por linha só dá pra saber
+// que o objeto está no grupo de ≥75%, não se já passou de 100%, e afirmar
+// "acima" sem saber seria o programa dizendo o que o dado não garante) e
+// "sem resultado" (mesma fórmula do card de Vigilância). Sem nenhum dos
+// dois, cai na situação simples do PNCP.
+function badgeSituacaoContratacao(d) {
+  if (!d.valor_homologado) {
+    const dias = diasDesdePublicacao(d.data_publicacao);
+    if (dias != null && dias > 90)
+      return `<span class="badge mut" title="Publicada há ${dias} dias, sem
+        homologação registrada">${ICONE.parado} Sem resultado · ${dias} d</span>`;
+  }
+  if (estado.objetosAlvo?.includes(d.numero_controle))
+    return `<span class="badge err">${ICONE.limite} Perto do limite anual</span>`;
+  return badgeSituacao(d.situacao);
+}
+
 // Situação da vigência de contratos e atas. O limiar de 60 dias é o mesmo
 // do chip de alerta e do KPI do topo — dois números diferentes para "vence
 // logo" na mesma tela confundiriam mais do que ajudariam.
@@ -520,23 +554,19 @@ function celulaStatusVigencia(d) {
     + `${dataBr(d.vigencia_fim)}">${s.txt}</span>`;
 }
 
-// valor da contratação: homologado é definitivo, estimado é estimativa —
-// exibir os dois igual faria um processo em andamento parecer fechado
-function valorContratacao(d) {
-  if (d.valor_homologado != null) return dinheiro(d.valor_homologado);
-  if (d.valor_estimado != null)
-    return `<span class="est" title="Valor estimado — sem homologação
-      registrada no PNCP">${dinheiro(d.valor_estimado)} <small>est.</small></span>`;
-  return "–";
-}
-
 function renderLinha(tipo, d) {
-  if (tipo === "contratacoes")
+  if (tipo === "contratacoes") {
+    const desagio = (d.valor_estimado && d.valor_homologado != null)
+      ? (1 - d.valor_homologado / d.valor_estimado) * 100 : null;
     return `<span class="dim">${d.sequencial ?? "–"}/${d.ano ?? ""}</span>
-      <span class="dim">${esc(d.modalidade_nome ?? "–")}</span>
       <span class="obj">${esc(d.objeto ?? "–")}</span>
-      <span class="num">${valorContratacao(d)}</span>
-      <span style="justify-self:center">${badgeSituacao(d.situacao)}</span>`;
+      <span class="dim">${esc(d.modalidade_nome ?? "–")}</span>
+      <span class="num">${dinheiro(d.valor_estimado)}</span>
+      <span class="num">${d.valor_homologado != null
+        ? dinheiro(d.valor_homologado) : "–"}</span>
+      <span class="num">${desagio == null ? "–" : pct(desagio, 1)}</span>
+      <span style="justify-self:center">${badgeSituacaoContratacao(d)}</span>`;
+  }
   if (tipo === "contratos")
     return `<span class="dim">${esc(numContrato(d))}</span>
       <span><span class="obj" title="${esc(d.objeto ?? "")}">${
@@ -676,7 +706,7 @@ function desenharColunasEcharts(el, meses, corVar) {
 // A coluna elástica de cada aba (objeto/descrição) absorve a sobra e por
 // isso não tem alça: alargar qualquer outra encolhe ela, que é o que se
 // espera ao puxar "fornecedor" para ver o nome inteiro.
-const COL_FLEX = { contratacoes:2, contratos:1, atas:2, pca:1 };
+const COL_FLEX = { contratacoes:1, contratos:1, atas:2, pca:1 };
 const LARGURA_MIN = 44;
 const FLEX_MIN = 170;       // espaço que a coluna elástica nunca cede
 let larguras = {};
@@ -792,7 +822,8 @@ function restaurarLarguras() {
 }
 
 async function carregarLista() {
-  const r = await api.listar(estado.tipo, filtrosAtuais(), estado.pagina);
+  const filtros = filtrosAtuais();
+  const r = await api.listar(estado.tipo, filtros, estado.pagina);
   const g = `g-${estado.tipo}`;
   const cab = `<div class="linha cab ${g}">` +
     colunasDe(estado.tipo).map(([rotulo, chave]) => {
@@ -810,6 +841,14 @@ async function carregarLista() {
   const comFiltro = temFiltroAtivo();
   $("btn-limpar").classList.toggle("oculto", !comFiltro);
   $("filtro-alerta").classList.toggle("oculto", !estado.objetosAlvo);
+  // "N de M": `total_base` vem na MESMA resposta de listar() — contagem
+  // extra no backend, não uma segunda chamada (handoff Claude Design,
+  // 2026-09-11, fase 7, tela 1c: "contador sempre visível", sem repetir o
+  // achado de corrida já registrado acima em "vigentes"/"vencendo")
+  const nome = NOME_TIPO[estado.tipo] ?? estado.tipo;
+  $("contador-lista").innerHTML = comFiltro
+    ? `<b>${r.total}</b> de ${r.total_base} ${nome}`
+    : `<b>${r.total}</b> ${nome}`;
   const vazio = comFiltro
     ? `<div class="vazio"><svg viewBox="0 0 64 64" aria-hidden="true">${SELO}</svg>
         <p>Nenhum registro para estes filtros.</p>
@@ -895,6 +934,13 @@ document.querySelectorAll("nav.abas button").forEach(b =>
 ["f-propostas", "f-vigentes", "f-vence60", "f-parada"].forEach(id =>
   $(id).addEventListener("change",
     () => { estado.pagina = 1; carregarLista(); }));
+// filtro do alerta de limite não tem caixa própria (é uma lista de objetos,
+// não um liga/desliga) — o próprio chip funciona como o × dos demais
+$("filtro-alerta").addEventListener("click", () => {
+  estado.objetosAlvo = null;
+  estado.pagina = 1;
+  carregarLista();
+});
 
 // navegação programática (KPIs e alertas). Cada campo é sempre escrito, não
 // só quando presente em `ajustes` — meio-termo já rendeu bug: o alerta de

@@ -201,6 +201,7 @@
       </div>
     </section>
     <div class="filtros" id="filtros-lista">
+      <span class="rot-filtros">Filtros</span>
       <select id="f-ano" aria-label="Ano"><option value="">Todos os anos</option></select>
       <select id="f-modalidade" aria-label="Modalidade">
         <option value="">Todas as modalidades</option></select>
@@ -220,10 +221,11 @@
         <input type="checkbox" id="f-vence60"> Vence em 60 dias</label>
       <input type="search" id="f-busca" placeholder="Buscar no objeto…"
              aria-label="Buscar">
-      <span class="filtro-alerta oculto" id="filtro-alerta">🔔 Só os objetos
-        do alerta de limite anual</span>
-      <button class="btn ghost oculto" id="btn-limpar">✕ Limpar filtros</button>
-      <button class="btn ghost" id="btn-csv">Exportar planilha</button>
+      <button class="filtro-alerta oculto" id="filtro-alerta">Só os objetos
+        do alerta de limite anual <span aria-hidden="true">×</span></button>
+      <div class="filtros-espaco"></div>
+      <span class="dim" id="contador-lista"></span>
+      <button class="btn ghost oculto" id="btn-limpar">Limpar filtros</button>
     </div>
     <div class="card lista" id="lista"></div>
     <div class="rodape" id="rodape-lista">
@@ -231,6 +233,7 @@
         <button class="btn ghost" id="pag-ant" aria-label="Página anterior">‹</button>
         <span id="pag-info" class="dim"></span>
         <button class="btn ghost" id="pag-prox" aria-label="Próxima página">›</button>
+        <button class="btn ghost" id="btn-csv">Exportar planilha</button>
       </div>
     </div>
   </main>

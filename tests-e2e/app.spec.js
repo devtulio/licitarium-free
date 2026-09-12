@@ -271,22 +271,22 @@ test("arrastar a alça redimensiona a coluna e persiste", async ({ page }) => {
   const larguraDe = i => page.evaluate(n => parseFloat(
     getComputedStyle(document.querySelector(".lista .cab"))
       .gridTemplateColumns.split(" ")[n]), i);
-  const antes = await larguraDe(1);                 // coluna Modalidade
-  const alca = page.locator(".cab > span").nth(1).locator(".alca");
+  const antes = await larguraDe(2);                 // coluna Modalidade
+  const alca = page.locator(".cab > span").nth(2).locator(".alca");
   const cx = await alca.boundingBox();
   await page.mouse.move(cx.x + cx.width / 2, cx.y + cx.height / 2);
   await page.mouse.down();
   await page.mouse.move(cx.x + cx.width / 2 + 40, cx.y + cx.height / 2,
                         { steps: 5 });
   await page.mouse.up();
-  const depois = await larguraDe(1);
+  const depois = await larguraDe(2);
   expect(depois).toBeGreaterThan(antes + 30);
-  // a coluna elástica (Objeto, índice 2) cedeu espaço, mas não abaixo do mínimo
-  expect(await larguraDe(2)).toBeGreaterThanOrEqual(160);
+  // a coluna elástica (Objeto, índice 1) cedeu espaço, mas não abaixo do mínimo
+  expect(await larguraDe(1)).toBeGreaterThanOrEqual(160);
   // largura salva para voltar na próxima abertura
   const salvo = await page.evaluate(() => window.__chamadas.filter(
     c => c.metodo === "set_config" && c.k === "colunas").pop());
-  expect(JSON.parse(salvo.v)["contratacoes"][1]).toBeGreaterThan(antes + 30);
+  expect(JSON.parse(salvo.v)["contratacoes"][2]).toBeGreaterThan(antes + 30);
   // ordenação não dispara ao arrastar sobre o cabeçalho
   const chamadas = await page.evaluate(() => window.__chamadas.filter(
     c => c.metodo === "listar" && c.filtros && c.filtros.ord));
@@ -295,7 +295,7 @@ test("arrastar a alça redimensiona a coluna e persiste", async ({ page }) => {
 
 test("restaurar larguras volta ao padrão", async ({ page }) => {
   await page.locator('nav.abas button[data-tipo="contratacoes"]').click();
-  await page.locator(".cab > span").nth(1).locator(".alca").dblclick();
+  await page.locator(".cab > span").nth(2).locator(".alca").dblclick();
   await expect(page.locator("#lista")).toHaveAttribute("style", /--cols/);
   await page.locator("#btn-config").click();
   await page.locator("#btn-restaurar-colunas").click();

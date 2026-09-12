@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.6.0"
+VERSAO = "2.7.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1235,15 +1235,22 @@ class Api:
                 coluna = "vigencia_inicio" if tipo == "atas" else "data_publicacao"
                 where.append(f"substr({coluna},1,4)=?")
                 args.append(str(f["ano"]))
+        if f.get("orgao"):
+            where.append("orgao_cnpj=?")
+            args.append(f["orgao"])
+        # ano+órgão são CONTEXTO (o que o usuário está olhando); o resto é
+        # RECORTE — snapshot aqui pra "N de M" da lista (fase 7 do handoff,
+        # tela 1c) comparar contra a mesma base, sem outra ida ao banco:
+        # um único SELECT COUNT a mais, não uma segunda chamada de listar()
+        # (essa sim já causou corrida — mesmo cuidado do achado registrado
+        # acima de "vigentes"/"vencendo")
+        where_base, args_base = list(where), list(args)
         if f.get("modalidade") and tipo == "contratacoes":
             where.append("modalidade_id=?")
             args.append(f["modalidade"])
         if f.get("situacao") and tipo == "contratacoes":
             where.append("situacao=?")
             args.append(f["situacao"])
-        if f.get("orgao"):
-            where.append("orgao_cnpj=?")
-            args.append(f["orgao"])
         if f.get("vigentes") and tipo in ("contratos", "atas"):
             where.append("date(vigencia_fim) >= date('now')")
         if f.get("vencendo") and tipo in ("contratos", "atas"):
@@ -1317,9 +1324,13 @@ class Api:
         if coluna_ord:
             direcao = "ASC" if f.get("dir") == "asc" else "DESC"
             ordem = f"{coluna_ord} {direcao}"
+        sql_where_base = (" WHERE " + " AND ".join(where_base)) if where_base else ""
         try:
             total = db.execute(
                 f"SELECT COUNT(*) FROM {tabela}{sql_where}", args).fetchone()[0]
+            total_base = (total if where_base == where else db.execute(
+                f"SELECT COUNT(*) FROM {tabela}{sql_where_base}",
+                args_base).fetchone()[0])
             linhas = db.execute(
                 f"SELECT * FROM {tabela}{sql_where} ORDER BY {ordem} "
                 f"LIMIT 50 OFFSET ?", args + [(max(1, pagina) - 1) * 50])
@@ -1358,7 +1369,7 @@ class Api:
                             d.get("corrigido") if f.get("corrigir")
                             else d.get("valor_unitario_homologado"),
                             d.get("descricao"), d.get("unidade"))
-            return {"itens": itens, "total": total}
+            return {"itens": itens, "total": total, "total_base": total_base}
         finally:
             db.close()
 

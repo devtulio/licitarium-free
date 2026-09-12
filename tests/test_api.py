@@ -328,6 +328,21 @@ def test_filtro_por_orgao(api):
     assert api.listar("contratacoes", {"orgao": "999"})["total"] == 0
 
 
+def test_total_base_ignora_recorte_mas_nao_contexto(api):
+    # "N de M" da lista (handoff Claude Design, fase 7, tela 1c): ano/órgão
+    # são o CONTEXTO que o usuário escolheu (entram no "M"); o resto — aqui,
+    # a busca — é RECORTE e só afeta o "N". Vem na mesma resposta de
+    # listar(), sem 2ª consulta (achado de corrida já registrado no filtro
+    # de vencimento do Painel).
+    r = api.listar("contratacoes", {"orgao": "111", "busca": "Arroz"})
+    assert r["total"] == 1        # só B
+    assert r["total_base"] == 2   # A e B, os dois do órgão 111
+    # sem recorte nenhum, total e total_base coincidem (a mesma contagem
+    # não precisa de duas queries)
+    r2 = api.listar("contratacoes", {"orgao": "111"})
+    assert r2["total"] == r2["total_base"] == 2
+
+
 
 
 
