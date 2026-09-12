@@ -547,8 +547,14 @@ body.travado { overflow:hidden; }
                     background:var(--accent); flex:none; }
 .det-passo.futuro .bola { background:var(--surface);
                            box-shadow:inset 0 0 0 2px var(--border); }
-.det-passo .linha { flex:1; height:2px; background:var(--accent); }
-.det-passo.futuro .linha, .det-passo:last-child .linha { background:var(--border); }
+/* nome próprio (não ".linha") — ".linha" já é a linha de LISTA em todo o
+   app (grid, padding 11px 16px, zebra por nth-child(even)); como este
+   conector é sempre o 2º filho do .trilho (par), a zebra bate nele com
+   especificidade maior e vence: virava caixa de 22px quase branca em vez
+   de traço fino azul de 2px (achado do usuário comparando com o mockup) */
+.det-passo .trilho-linha { flex:1; height:2px; background:var(--accent); }
+.det-passo.futuro .trilho-linha,
+.det-passo:last-child .trilho-linha { background:var(--border); }
 .det-passo .rotulo { font-size:12px; font-weight:600; }
 .det-passo.futuro .rotulo { color:var(--muted); }
 .det-passo .data { font-size:11.5px; color:var(--muted); }

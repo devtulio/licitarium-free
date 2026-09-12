@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.12.5 — 2026-09-12
+
+**Correção — cabeçalho e conector do andamento na ficha rica de contratação**
+
+- Usuário comparou o modal real lado a lado com o mockup do handoff e
+  achou 3 diferenças:
+  - **Objeto em caixa alta** — `#det-titulo-rico` não tinha
+    `text-transform:uppercase`, diferente do `#det-titulo`/`.obj` do
+    modal genérico.
+  - **Título travado em 600px** — `max-width:600px` inline sobrava
+    espaço vazio à direita, entre o fim do texto e a caixa de valor.
+    Removido: o título agora usa toda a largura que o `flex:1` do
+    cabeçalho já reservava.
+  - **Linha do andamento sumida** — o conector `<span class="linha">`
+    entre as bolinhas colidia de nome com a classe genérica `.linha` de
+    LISTA (`display:grid; padding:11px 16px`, com zebra por
+    `nth-child(even)`). Como o conector é sempre o 2º filho do
+    `.trilho` (par), a zebra batia nele com especificidade maior e
+    vencia: virava uma caixa de ~22px quase branca em vez de um traço
+    fino de 2px — por isso não aparecia nenhuma linha ligando as
+    bolinhas (só o último passo escapava, por sorte de uma regra
+    `:last-child` empatada em especificidade). Renomeado para
+    `.trilho-linha`, sem colisão.
+- 304 testes Python + 185 Playwright verdes (1 test estendido, cobrindo
+  os 3 achados).
+
 ## 2.12.4 — 2026-09-12
 
 **Correção — etapa "Propostas" da ficha rica de contratação, para Dispensa/inexigibilidade**

@@ -156,6 +156,22 @@ test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
     await expect(page.locator("#det-andamento .det-passo").last())
       .toContainText("aguardando assinatura");
 
+    // objeto em caixa alta (achado do usuário comparando com o mockup)
+    await expect(page.locator("#det-titulo-rico")).toHaveCSS(
+      "text-transform", "uppercase");
+    // o conector entre as bolinhas é um traço fino, não a linha de LISTA
+    // (".linha" colidia de nome com a classe genérica de lista — zebra de
+    // nth-child(even) vencia por especificidade e inflava pra 22px quase
+    // branco, sumindo visualmente; achado do usuário comparando com o
+    // mockup, que mostra uma linha conectando cada bolinha)
+    const linhaConector = page.locator(
+      "#det-andamento .det-passo").first().locator(".trilho-linha");
+    const alturaConector = await linhaConector.evaluate(
+      el => el.getBoundingClientRect().height);
+    expect(alturaConector).toBeLessThan(6);
+    await expect(linhaConector).toHaveCSS(
+      "background-color", "rgb(19, 81, 180)");
+
     const linhas = page.locator("#det-itens tr:not(:first-child)");
     await expect(linhas).toHaveCount(2);
     await expect(linhas.first()).toContainText("Arroz tipo 1");

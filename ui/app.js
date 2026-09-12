@@ -1246,7 +1246,7 @@ function renderDetalheRicoContratacao(d, dc) {
   ];
   $("det-andamento").innerHTML = passos.map(p => `
     <div class="det-passo ${p.ok ? "" : "futuro"}">
-      <div class="trilho"><span class="bola"></span><span class="linha"></span></div>
+      <div class="trilho"><span class="bola"></span><span class="trilho-linha"></span></div>
       <div class="rotulo">${esc(p.rotulo)}</div>
       <div class="data">${p.data ? MES_ABREV_2D(p.data) : esc(p.semData ?? "–")}</div>
     </div>`).join("");
