@@ -374,49 +374,63 @@
   </div>
 </div>
 
-<!-- ═══ RELATÓRIOS ═══ -->
+<!-- ═══ RELATÓRIOS (handoff Claude Design, 2026-09-12, fase 11, tela 1g) ═══ -->
 <div id="veu-relatorios" class="veu oculto" role="dialog" aria-modal="true"
      aria-label="Relatórios">
-  <div class="card modal" style="max-width:480px">
+  <div class="card modal largo">
     <div class="mhead">
-      <h1>Relatórios</h1>
+      <div><h1>Relatórios</h1>
+        <div class="dim">Saem sempre em papel institucional do município —
+          branco, paleta fixa, com o estandarte no rodapé. A escolha de tema
+          da tela não acompanha o documento.</div></div>
       <button class="fechar" data-fecha="veu-relatorios" aria-label="Fechar">×</button>
     </div>
-    <div style="padding:0 20px 20px">
-      <label for="rel-tipo">Relatório</label>
-      <select id="rel-tipo" style="width:100%">
-        <option value="contratacoes">Relação de Contratações (TCE)</option>
-        <option value="contratos">Relação de Contratos</option>
-        <option value="atas">Relação de Atas de Registro de Preços</option>
-        <option value="executivo">Resumo Executivo Anual</option>
-        <option value="economia">Economia e Comparativos por Modalidade e Categoria</option>
-        <option value="fracionamento">Alerta de Fracionamento (uso interno)</option>
-        <option value="precos">Pesquisa de Preços</option>
-      </select>
-      <div id="rel-termo-caixa" class="oculto">
-        <label for="rel-termo">O que pesquisar</label>
-        <input type="text" id="rel-termo" style="width:100%"
-               placeholder="ex.: papel A4, óleo lubrificante, pneu">
-      </div>
-      <label for="rel-ano">Período</label>
-      <select id="rel-ano" style="width:100%"></select>
-      <div id="rel-mod-caixa">
-        <label for="rel-modalidade">Modalidade (opcional)</label>
-        <select id="rel-modalidade" style="width:100%">
-          <option value="">Todas</option>
+    <div class="rel-corpo">
+      <div class="rel-cartoes" id="rel-cartoes"></div>
+      <div class="rel-lateral">
+        <div class="rot-filtros">Pré-visualização</div>
+        <!-- retângulo listrado com rótulo, não um desenho de página falso
+             (nota do próprio mockup) -->
+        <div class="rel-folha"><div id="rel-folha-nome"></div>
+          <div class="dim">papel institucional, paleta fixa</div></div>
+        <!-- estado interno (qual relatório está ativo); sem <select>
+             visível — quem escolhe é o clique no cartão. As <option> têm
+             de existir de verdade: setar .value num <select> sem a opção
+             correspondente é ignorado em silêncio pelo navegador. -->
+        <select id="rel-tipo" hidden>
+          <option value="executivo">Resumo executivo</option>
+          <option value="fracionamento">Fracionamento</option>
+          <option value="economia">Economia e comparativos</option>
+          <option value="precos">Pesquisa de preços</option>
+          <option value="contratacoes">Relação de Contratações</option>
+          <option value="contratos">Relação de Contratos</option>
+          <option value="atas">Relação de Atas</option>
         </select>
-      </div>
-      <label for="rel-orgao">Órgão (opcional)</label>
-      <select id="rel-orgao" style="width:100%">
-        <option value="">Todos os órgãos</option>
-      </select>
-      <div style="margin-top:16px; display:flex; gap:10px; align-items:center">
-        <button class="btn" id="rel-gerar">Gerar e abrir</button>
-        <span class="dim" id="rel-status" style="font-size:12px"></span>
-      </div>
-      <div class="dim" style="font-size:11.5px; margin-top:12px">
-        O relatório abre no navegador, pronto para imprimir ou salvar em PDF
-        (botão Imprimir). As relações também geram CSV na mesma pasta.
+        <div id="rel-termo-caixa" class="oculto">
+          <label for="rel-termo">O que pesquisar</label>
+          <input type="text" id="rel-termo" style="width:100%"
+                 placeholder="ex.: papel A4, óleo lubrificante, pneu">
+        </div>
+        <label for="rel-ano">Período</label>
+        <select id="rel-ano" style="width:100%"></select>
+        <div id="rel-mod-caixa">
+          <label for="rel-modalidade">Modalidade (opcional)</label>
+          <select id="rel-modalidade" style="width:100%">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <label for="rel-orgao">Órgão (opcional)</label>
+        <select id="rel-orgao" style="width:100%">
+          <option value="">Todos os órgãos</option>
+        </select>
+        <div style="margin-top:16px; display:flex; gap:10px; align-items:center">
+          <button class="btn" id="rel-gerar">Gerar e abrir</button>
+          <span class="dim" id="rel-status" style="font-size:12px"></span>
+        </div>
+        <div class="dim" style="font-size:11.5px; margin-top:12px">
+          Abre no navegador, pronto para imprimir ou salvar em PDF. As
+          relações também geram CSV na mesma pasta.
+        </div>
       </div>
     </div>
   </div>

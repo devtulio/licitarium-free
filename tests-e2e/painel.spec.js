@@ -265,7 +265,8 @@ test("a vista economia não repete o botão de relatório", async ({ page }) => 
   // inteiro na aba Relatórios, e é essa saída que não pode sumir junto
   await page.locator('.subabas button[data-vista="economia"]').click();
   await expect(page.locator("#economia-relatorio")).toHaveCount(0);
-  await expect(page.locator('#rel-tipo option[value="economia"]'))
+  await page.locator("#btn-relatorios").click();
+  await expect(page.locator('.rel-cartao[data-tipo="economia"]'))
     .toHaveCount(1);
 });
 

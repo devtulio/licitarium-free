@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.11.0 — 2026-09-12
+
+**Adição — Fase 11 do handoff "Dashboard de Licitações Públicas" (Claude Design): tela de Relatórios**
+
+- **Cartões em vez de formulário único**: cada relatório agora é um
+  cartão com o que o documento contém, não só o nome. **Usuário
+  escolheu manter os 3 relatórios de Relação (Contratações/Contratos/
+  Atas)** que já existiam, além dos 6 do mockup — removê-los tiraria a
+  função do app inteiro (diferente da fase 6, onde o que saiu da tela
+  continuava disponível no relatório impresso).
+- **Cartão de Fracionamento** mostra a contagem atual de objetos perto
+  do limite do art. 75 (mesma conta do chip do Painel).
+- **Minuta do PCA** e **Painel impresso** não duplicam a geração aqui:
+  abrem/disparam o fluxo que já existia (o modal de Montar PCA e o
+  botão de imprimir do Painel) — um 2º caminho pro mesmo resultado só
+  criaria chance de divergir.
+- **Achado da fase**: o cartão "Painel impresso" funciona mesmo sem a
+  aba Painel ter sido aberta antes nesta sessão — `carregarPainel()`
+  preenche os containers das 4 vistas mesmo com `#painel` oculto, e a
+  captura pro papel já clonava e redesenhava num palco à parte, então
+  nunca dependeu da tela estar visível.
+- Sem "Pré-visualizar" nem formato PDF/HTML/Planilha do mockup: o
+  backend sempre abre HTML no navegador (que já serve de pré-visualização
+  antes de imprimir/salvar em PDF) e não tem opção de formato — um
+  segundo botão ou seletor que não muda nada seria decoração, não
+  funcionalidade.
+- 296 pytest + 174 Playwright verdes.
+
 ## 2.10.0 — 2026-09-11
 
 **Adição — Fase 10 do handoff "Dashboard de Licitações Públicas" (Claude Design): caixa de Tukey em Preços**

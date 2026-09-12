@@ -1470,7 +1470,88 @@ async function abrirPerfilFornecedor(ni, ano) {
             : "–"}</td></tr>`).join("") + `</table>`;
 }
 
-// ── relatórios ────────────────────────────────────────────────────────────
+// ── relatórios (handoff Claude Design, 2026-09-12, fase 11, tela 1g) ──────
+// 6 cartões do mockup + os 3 relatórios de Relação (Contratações/Contratos/
+// Atas) que já existiam — usuário escolheu manter os 3 em vez de tirá-los
+// da tela (removê-los tiraria a função do app inteiro, diferente da
+// fase 6, onde o que saiu da tela continuava disponível no impresso).
+// "Minuta do PCA" e "Painel impresso" NÃO entram nesta lista: cada um já
+// tem seu próprio fluxo de verdade (o modal de Montar PCA e o botão dentro
+// do Painel) — duplicar a geração aqui seria um 2º caminho pro mesmo
+// resultado, com chance real de divergir. Os cartões deles abrem/disparam
+// o fluxo já existente, em vez de reimplementar.
+const RELATORIOS_CARTOES = [
+  { tipo: "executivo", titulo: "Resumo executivo",
+    desc: "Os mesmos gráficos do Painel · Execução, impressos: hero, mês × "
+      + "modalidade e as tabelas de detalhe completas." },
+  { tipo: "fracionamento", titulo: "Fracionamento",
+    desc: "Medidor do limite do art. 75 por objeto, com ×o limite "
+      + "acima de 100% e a tabela por unidade." },
+  { tipo: "economia", titulo: "Economia e comparativos",
+    desc: "O total do ano aberto por modalidade, família de item e "
+      + "categoria do PNCP, comparado ao mesmo período do ano anterior." },
+  { tipo: "precos", titulo: "Pesquisa de preços",
+    desc: "Caixa de Tukey, amostra selecionada e os descartes com motivo "
+      + "— a justificativa que o processo exige." },
+  { tipo: "contratacoes", titulo: "Relação de Contratações",
+    desc: "Lista no formato que o TCE pede, com CSV na mesma pasta." },
+  { tipo: "contratos", titulo: "Relação de Contratos",
+    desc: "Contratos firmados: fornecedor, valor e vigência." },
+  { tipo: "atas", titulo: "Relação de Atas",
+    desc: "Atas de registro de preços vigentes ou já encerradas." },
+];
+
+async function montarCartoesRelatorio() {
+  const dp = P.dados ?? (api.painel ? await api.painel() : null);
+  const pertoDoLimite = dp?.alertas?.perto_do_limite;
+  $("rel-cartoes").innerHTML = RELATORIOS_CARTOES.map(c => `
+    <button class="card rel-cartao" data-tipo="${c.tipo}">
+      <h3>${esc(c.titulo)}${c.tipo === "fracionamento" && pertoDoLimite
+        ? ` <span class="badge err">${pertoDoLimite}
+            objeto${pertoDoLimite === 1 ? "" : "s"}</span>` : ""}</h3>
+      <p>${esc(c.desc)}</p>
+      <span class="rel-acao">Gerar</span>
+    </button>`).join("") + `
+    <button class="card rel-cartao" id="rel-cartao-pca">
+      <h3>Minuta do PCA</h3>
+      <p>Itens do plano com curva ABC, classe por item e resumo por
+        classe.</p>
+      <span class="rel-acao">Montar / gerar</span>
+    </button>
+    <button class="card rel-cartao" id="rel-cartao-painel">
+      <h3>Painel impresso</h3>
+      <p>A3 paisagem, uma vista por página, com o mesmo gráfico que está
+        na tela.</p>
+      <span class="rel-acao" id="rel-cartao-painel-rotulo">
+        <span data-icone="imprimir"></span> Imprimir</span>
+    </button>`;
+  preencherIcones($("rel-cartoes"));
+  $("rel-cartoes").querySelectorAll(".rel-cartao[data-tipo]").forEach(b =>
+    b.addEventListener("click", () => selecionarCartaoRelatorio(b.dataset.tipo)));
+  // já tem fluxo próprio (modal de Montar PCA) — o cartão só abre lá
+  $("rel-cartao-pca").addEventListener("click", () => {
+    fecharModal("veu-relatorios");
+    $("btn-pca").click();
+  });
+  $("rel-cartao-painel").addEventListener("click", async () => {
+    const b = $("rel-cartao-painel"), r = $("rel-cartao-painel-rotulo");
+    const rotulo = r.innerHTML;
+    b.disabled = true; r.textContent = "Gerando…";
+    try { await imprimirPainelAgora(); }
+    finally { b.disabled = false; r.innerHTML = rotulo; }
+  });
+  await selecionarCartaoRelatorio("executivo");
+}
+
+async function selecionarCartaoRelatorio(tipo) {
+  $("rel-tipo").value = tipo;
+  $("rel-cartoes").querySelectorAll(".rel-cartao[data-tipo]").forEach(b =>
+    b.classList.toggle("on", b.dataset.tipo === tipo));
+  $("rel-folha-nome").textContent =
+    RELATORIOS_CARTOES.find(c => c.tipo === tipo)?.titulo ?? tipo;
+  await montarOpcoesRelatorio();
+}
+
 async function montarOpcoesRelatorio() {
   const tipo = $("rel-tipo").value;
   const f = await api.filtros_disponiveis();
@@ -1498,11 +1579,10 @@ async function montarOpcoesRelatorio() {
   f.orgaos.forEach(o => orgSel.add(new Option(o.nome ?? o.cnpj, o.cnpj)));
 }
 $("btn-relatorios").addEventListener("click", async () => {
-  await montarOpcoesRelatorio();
+  await montarCartoesRelatorio();
   $("rel-status").textContent = "";
   abrirModal("veu-relatorios");
 });
-$("rel-tipo").addEventListener("change", montarOpcoesRelatorio);
 $("rel-gerar").addEventListener("click", async () => {
   const periodo = $("rel-ano").value;
   const params = {
@@ -2561,9 +2641,8 @@ async function mostrarResumoPrecos() {
   if (s.por_municipio?.length)
     desenharGraficoMunicipio($("precos-municipio"), s);
   $("pr-relatorio").addEventListener("click", async () => {
-    await montarOpcoesRelatorio();
-    $("rel-tipo").value = "precos";
-    await montarOpcoesRelatorio();
+    await montarCartoesRelatorio();
+    await selecionarCartaoRelatorio("precos");
     $("rel-termo").value = termo;
     $("rel-status").textContent = "";
     abrirModal("veu-relatorios");

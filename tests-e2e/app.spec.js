@@ -332,7 +332,8 @@ test("relatório executivo manda os gráficos do Painel já desenhados pro papel
     async ({ page }) => {
   await page.locator("#btn-relatorios").click();
   await expect(page.locator("#veu-relatorios")).toBeVisible();
-  await page.locator("#rel-tipo").selectOption("executivo");
+  // "Resumo executivo" já vem selecionado por padrão ao abrir
+  await page.locator('.rel-cartao[data-tipo="executivo"]').click();
   await page.locator("#rel-gerar").click();
 
   const previa = await page.evaluate(() => window.__chamadas
@@ -351,7 +352,7 @@ test("relatório executivo manda os gráficos do Painel já desenhados pro papel
 test("relatório de economia manda os quatro gráficos já desenhados pro papel",
     async ({ page }) => {
   await page.locator("#btn-relatorios").click();
-  await page.locator("#rel-tipo").selectOption("economia");
+  await page.locator('.rel-cartao[data-tipo="economia"]').click();
   await page.locator("#rel-gerar").click();
 
   const chamada = await page.evaluate(() => window.__chamadas
@@ -371,7 +372,7 @@ test("relatório de economia manda os quatro gráficos já desenhados pro papel"
 test("barras dos gráficos capturados vêm no tamanho final, não no frame zerado da animação",
     async ({ page }) => {
   await page.locator("#btn-relatorios").click();
-  await page.locator("#rel-tipo").selectOption("executivo");
+  await page.locator('.rel-cartao[data-tipo="executivo"]').click();
   await page.locator("#rel-gerar").click();
   const html = await page.evaluate(() => window.__chamadas
     .filter(c => c.metodo === "gerar_relatorio").pop().params.graficos.modalidade);
@@ -381,6 +382,54 @@ test("barras dos gráficos capturados vêm no tamanho final, não no frame zerad
   // barra zerada teria início e fim quase no mesmo x (poucos px de raio
   // do cantinho arredondado); a maior modalidade real passa de 600px
   expect(largura).toBeGreaterThan(100);
+});
+
+// handoff Claude Design (2026-09-12, fase 11, tela 1g): a tela de
+// Relatórios virou cartões (6 do mockup + os 3 relatórios de Relação que
+// já existiam, mantidos a pedido do usuário — removê-los tiraria a função
+// do app inteiro).
+test.describe("Relatórios em cartões (fase 11 do handoff)", () => {
+  test("cartão de Fracionamento mostra a contagem de objetos perto do limite",
+      async ({ page }) => {
+    await page.locator("#btn-relatorios").click();
+    await expect(page.locator('.rel-cartao[data-tipo="fracionamento"] .badge'))
+      .toHaveText("8 objetos");
+  });
+
+  test("cartões de Relação de Contratos/Atas geram o tipo certo",
+      async ({ page }) => {
+    await page.locator("#btn-relatorios").click();
+    await page.locator('.rel-cartao[data-tipo="atas"]').click();
+    await page.locator("#rel-gerar").click();
+    const chamada = await page.evaluate(() => window.__chamadas
+      .filter(c => c.metodo === "gerar_relatorio").pop());
+    expect(chamada.tipo).toBe("atas");
+  });
+
+  test("cartão Minuta do PCA abre o montador em vez de duplicar o fluxo",
+      async ({ page }) => {
+    // já tem um caminho de verdade (o modal de Montar PCA) — o cartão só
+    // leva até lá, não reimplementa a geração aqui
+    await page.locator("#btn-relatorios").click();
+    await page.locator("#rel-cartao-pca").click();
+    await expect(page.locator("#veu-relatorios")).toBeHidden();
+    await expect(page.locator("#veu-pca")).toBeVisible();
+  });
+
+  test("cartão Painel impresso funciona sem a aba Painel ter sido aberta antes",
+      async ({ page }) => {
+    // achado da fase: carregarPainel() preenche os containers mesmo com
+    // #painel oculto — paraPapel() clona e redesenha num palco à parte,
+    // então não depende da tela do Painel já ter sido visitada
+    await page.locator("#btn-relatorios").click();
+    await page.locator("#rel-cartao-painel").click();
+    await expect(page.locator("#rel-cartao-painel")).toBeEnabled();
+    const chamada = await page.evaluate(() => window.__chamadas
+      .filter(c => c.metodo === "imprimir_painel").pop());
+    expect(chamada).toBeTruthy();
+    expect(chamada.tamanhos.map(v => v[0])).toEqual(
+      ["execucao", "analise", "vigilancia", "economia"]);
+  });
 });
 
 test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {

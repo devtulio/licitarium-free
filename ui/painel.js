@@ -1636,18 +1636,29 @@ function paraPapel(id) {
 
 // A impressão leva as quatro vistas, cada uma numa página A4 deitada: o SVG é
 // vetorial, então sai na resolução da impressora, não na da tela.
+// Chamável sem a aba Painel ter sido aberta ainda (handoff Claude Design,
+// 2026-09-12, fase 11, tela 1g: cartão "Painel impresso" nos Relatórios) —
+// `carregarPainel()` preenche `#p-execucao` etc. mesmo com `#painel` oculto
+// (display:none só barra a 1ª medição de largura da TELA; `paraPapel` clona
+// e redesenha num palco próprio, isolado disso — ver comentário lá).
+async function imprimirPainelAgora() {
+  if (!api.painel || !api.imprimir_painel) return;
+  if (!P.dados) await carregarPainel();
+  if (!P.dados) return;
+  const vistas = [["execucao", paraPapel("p-execucao")],
+                  ["analise", paraPapel("p-analise")],
+                  ["vigilancia", paraPapel("p-vigilancia")],
+                  ["economia", paraPapel("p-economia")]];
+  await api.imprimir_painel(vistas, P.dados.ano);
+}
+
 $("btn-imprimir-painel").addEventListener("click", async () => {
-  if (!P.dados || !api.imprimir_painel) return;
   const botao = $("btn-imprimir-painel");
   const rotulo = botao.textContent;
   botao.disabled = true;
   botao.textContent = "Gerando…";
   try {
-    const vistas = [["execucao", paraPapel("p-execucao")],
-                    ["analise", paraPapel("p-analise")],
-                    ["vigilancia", paraPapel("p-vigilancia")],
-                    ["economia", paraPapel("p-economia")]];
-    await api.imprimir_painel(vistas, P.dados.ano);
+    await imprimirPainelAgora();
   } finally {
     botao.disabled = false;
     botao.textContent = rotulo;
