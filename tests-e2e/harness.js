@@ -553,6 +553,12 @@ function scriptPonte(temaBanco = "portal") {
           titulo, subtitulo, meta_html, raw_html });
         return { ok: true, arquivo: "detalhe.html" };
       },
+      imprimir_detalhe_contratacao: async (nc, cabecalho_html, corpo_html,
+                                           raw_html) => {
+        window.__chamadas.push({ metodo: "imprimir_detalhe_contratacao", nc,
+          cabecalho_html, corpo_html, raw_html });
+        return { ok: true, arquivo: "detalhe.html" };
+      },
       sugerir_termo: async busca => {
         window.__chamadas.push({ metodo: "sugerir_termo", busca });
         if (window.__semSugestao) return null;

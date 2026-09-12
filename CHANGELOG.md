@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.12.6 — 2026-09-12
+
+**Correção — objeto justificado e ficha impressa da contratação**
+
+- **Objeto justificado** — `#det-titulo-rico` ganhou `text-align:justify`
+  e `hyphens:auto`, igual ao `.ficha-objeto`/`#det-titulo` do resto do
+  app.
+- **Botão Imprimir imprimia o layout antigo** — na ficha rica (fase 12),
+  `#det-titulo`/`.meta` (o que `imprimir_detalhe` lê) ficam ocultos e
+  vazios: a impressão saía em branco. Novo `Api.imprimir_detalhe_
+  contratacao` + `relatorios.render_detalhe_contratacao` capturam o
+  cabeçalho (migalha/objeto/tags/valor) e o corpo rico (andamento, itens
+  × mediana, vencedor, procedência) que a tela já montou — mesmo
+  princípio de sempre ("tela desenha, papel captura"), reaproveitando os
+  nomes de classe da tela (`.card`, `.det-andamento`, `.trilho-linha`)
+  com as variáveis CSS remapeadas pros tokens do papel, do mesmo jeito
+  que o Painel impresso já faz.
+- 305 testes Python + 186 Playwright verdes (2 novos, cobrindo os 2 achados).
+
 ## 2.12.5 — 2026-09-12
 
 **Correção — cabeçalho e conector do andamento na ficha rica de contratação**

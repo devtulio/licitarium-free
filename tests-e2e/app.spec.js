@@ -187,6 +187,28 @@ test.describe("Detalhe rico da contratação (fase 12 do handoff)", () => {
     await expect(page.locator("#det-vencedor")).toContainText("sem dado no acervo");
   });
 
+  test("Imprimir na ficha rica manda o cabeçalho e o corpo rico, não a ficha genérica vazia",
+      async ({ page }) => {
+    // achado do usuário (2026-09-12): o botão Imprimir chamava sempre
+    // `imprimir_detalhe`, que lê #det-titulo/.meta — ocultos e vazios na
+    // ficha rica, gerando folha em branco. Agora, na ficha rica, chama
+    // `imprimir_detalhe_contratacao` com o cabeçalho + #det-corpo-rico.
+    await abrirLista(page);
+    await page.locator('.linha[data-nc="X-1"]').click();
+    await page.locator("#det-imprimir").click();
+    const chamada = await page.evaluate(() => window.__chamadas
+      .filter(c => c.metodo === "imprimir_detalhe_contratacao").pop());
+    expect(chamada).toBeTruthy();
+    expect(chamada.nc).toBe("X-1");
+    expect(chamada.cabecalho_html).toContain("gêneros alimentícios");   // objeto do X-1
+    expect(chamada.corpo_html).toContain("det-andamento");
+    expect(chamada.corpo_html).toContain("Arroz tipo 1");   // item homologado
+    // a ficha genérica (vazia neste modo) não deve ter sido chamada
+    const generica = await page.evaluate(() => window.__chamadas
+      .filter(c => c.metodo === "imprimir_detalhe"));
+    expect(generica).toEqual([]);
+  });
+
   test("nome do vencedor abre o perfil do fornecedor (fase 2)",
       async ({ page }) => {
     await abrirLista(page);

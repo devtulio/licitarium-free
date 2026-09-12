@@ -3501,6 +3501,67 @@ def render_detalhe(titulo, subtitulo, meta_html, municipio, uf, brasao=None,
                    brasao=brasao)
 
 
+CSS_DET_RICO = """
+  :root { --surface:var(--superficie); --surface2:var(--cabecalho);
+    --muted:var(--suave); --text:var(--texto); --border:var(--borda);
+    --accent:var(--acento); --ok:#2f7d32; --warn:var(--atencao); }
+  .ficha-objeto { margin-bottom:4px; }
+  .det-rico-corpo { display:grid; grid-template-columns:1fr 260px;
+                     gap:14px; margin-top:16px; }
+  .det-rico-col { display:flex; flex-direction:column; gap:14px; }
+  .card { background:var(--surface); border:1px solid var(--border);
+          border-radius:6px; padding:14px 16px; break-inside:avoid; }
+  .rot-filtros { font:600 10.5px/1 'Segoe UI',system-ui,sans-serif;
+                 letter-spacing:.08em; text-transform:uppercase;
+                 color:var(--muted); }
+  .dim { color:var(--muted); font-size:11px; }
+  .det-andamento { display:grid; grid-template-columns:repeat(4,1fr);
+                    gap:0; margin-top:14px; }
+  .det-passo { display:flex; flex-direction:column; gap:7px; }
+  .det-passo .trilho { display:flex; align-items:center; }
+  .det-passo .bola { width:10px; height:10px; border-radius:99px;
+                      background:var(--accent); flex:none; }
+  .det-passo.futuro .bola { background:var(--surface);
+                             box-shadow:inset 0 0 0 2px var(--border); }
+  .det-passo .trilho-linha { flex:1; height:2px; background:var(--accent); }
+  .det-passo.futuro .trilho-linha,
+  .det-passo:last-child .trilho-linha { background:var(--border); }
+  .det-passo .rotulo { font-size:10.5px; font-weight:600; }
+  .det-passo.futuro .rotulo { color:var(--muted); }
+  .det-passo .data { font-size:9.5pt; color:var(--muted); }
+  .det-vencedor-linha { display:flex; justify-content:space-between;
+                         gap:10px; font-size:11px; }
+  .det-vencedor-linha .r { color:var(--muted); }
+  .det-posicao.abaixo { color:var(--ok); font-weight:600; }
+  .det-posicao.acima  { color:var(--warn); font-weight:600; }
+  .det-posicao.mediana, .det-posicao.mut { color:var(--muted); font-weight:600; }
+  .link { color:var(--accent); text-decoration:none; }
+  @media print { .det-rico-corpo { grid-template-columns:1fr 220px; } }
+"""
+
+
+def render_detalhe_contratacao(cabecalho_html, corpo_html, municipio, uf,
+                               brasao=None, raw_html="", titulo_doc=None,
+                               subtitulo=""):
+    """Ficha impressa da contratação — versão rica (fase 12 do handoff).
+
+    Mesmo princípio de `render_detalhe`: a tela desenha, o papel captura.
+    `cabecalho_html` é a migalha + objeto + tags + valor homologado;
+    `corpo_html` é o miolo de `#det-corpo-rico` (andamento, itens ×
+    mediana, vencedor, procedência) — os nomes de classe (`.card`,
+    `.det-andamento`, `.trilho-linha` etc.) são os MESMOS da tela; aqui só
+    remapeamos as variáveis CSS (`--surface`, `--accent`...) pros tokens
+    do papel, como o Painel impresso já faz (`CSS_PAINEL`).
+    """
+    corpo = cabecalho_html + f'<div class="det-rico-corpo">{corpo_html}</div>'
+    if raw_html:
+        corpo += (f'<div class="ficha-raw"><h2>Dados completos (JSON do '
+                  f'PNCP)</h2><pre>{raw_html}</pre></div>')
+    return _pagina(titulo_doc or f"{municipio} — {uf}", corpo, municipio, uf,
+                   subtitulo, paisagem=False, estilo_extra=CSS_FICHA + CSS_DET_RICO,
+                   brasao=brasao)
+
+
 def render_cobertura(d, municipio, uf, brasao=None, categoria=None,
                      acervo=None):
     """Retrato de `dados_cobertura` — pergunta que o card de Configurações

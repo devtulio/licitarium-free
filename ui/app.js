@@ -1330,10 +1330,29 @@ function metaParaImpressao() {
   }
   return clone.innerHTML;
 }
-$("det-imprimir").addEventListener("click", () =>
-  api.imprimir_detalhe(detalheTipo, detalheAtual,
-    $("det-titulo").textContent, $("det-sub").textContent,
-    metaParaImpressao(), $("det-raw").innerHTML));
+// ficha rica (contratação) tem cabeçalho/corpo próprios — imprimir com
+// `imprimir_detalhe` capturaria #det-titulo/.meta, ocultos e vazios
+// nesse modo (folha em branco). Mesmo padrão de sempre: a tela desenha
+// (cabeçalho + #det-corpo-rico já prontos), o papel só captura.
+function cabecalhoRicoParaImpressao() {
+  return `<div class="dim" style="margin-bottom:2px">${
+      esc($("det-migalha").textContent)}</div>
+    <p class="ficha-objeto">${esc($("det-titulo-rico").textContent)}</p>
+    <div class="dim" style="display:flex;gap:16px;flex-wrap:wrap;
+        margin-bottom:14px">${$("det-info-linha").innerHTML}</div>
+    <div style="margin-bottom:4px">${$("det-homologado").innerHTML}</div>`;
+}
+$("det-imprimir").addEventListener("click", () => {
+  const rico = !$("det-corpo-rico").classList.contains("oculto");
+  if (rico)
+    api.imprimir_detalhe_contratacao(detalheAtual,
+      cabecalhoRicoParaImpressao(), $("det-corpo-rico").innerHTML,
+      $("det-raw").innerHTML);
+  else
+    api.imprimir_detalhe(detalheTipo, detalheAtual,
+      $("det-titulo").textContent, $("det-sub").textContent,
+      metaParaImpressao(), $("det-raw").innerHTML);
+});
 
 // ── montador de minuta do PCA ─────────────────────────────────────────────
 $("btn-pca").addEventListener("click", async () => {

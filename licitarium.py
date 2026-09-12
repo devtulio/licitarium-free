@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.12.5"
+VERSAO = "2.12.6"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -1568,6 +1568,37 @@ class Api:
         destino.mkdir(parents=True, exist_ok=True)
         limpo = re.sub(r"[^\w-]+", "_",
                         (numero_controle or titulo or tipo).lower())[:60]
+        arquivo = destino / f"detalhe_{limpo}.html"
+        arquivo.write_text(html, encoding="utf-8")
+        webbrowser.open(arquivo.as_uri())
+        return {"ok": True, "arquivo": str(arquivo)}
+
+    def imprimir_detalhe_contratacao(self, numero_controle, cabecalho_html,
+                                      corpo_html, raw_html=""):
+        """Ficha impressa da CONTRATAÇÃO — versão rica (handoff Claude
+        Design, fase 12, tela 1d): andamento, itens × mediana, vencedor,
+        procedência. `imprimir_detalhe` (acima) não serve aqui porque lê
+        `#det-titulo`/`.meta`, que ficam ocultos e vazios na ficha rica —
+        capturaria uma folha em branco. Mesmo princípio: a tela desenha
+        (`cabecalho_html`/`corpo_html` já vêm prontos, incl. andamento e
+        tabela de itens), o papel só captura.
+        """
+        db = abrir_db()
+        try:
+            municipio = pncp._config(db, "municipio_nome") or "Município"
+            uf = pncp._config(db, "municipio_uf") or ""
+            brasao = pncp._config(db, "brasao")
+            d = self.detalhe("contratacoes", numero_controle) or {}
+            titulo_doc = _titulo_impressao_detalhe(db, "contratacoes", d)
+        finally:
+            db.close()
+        html = relatorios.render_detalhe_contratacao(
+            cabecalho_html, corpo_html, municipio, uf, brasao=brasao,
+            raw_html=raw_html, titulo_doc=titulo_doc,
+            subtitulo=numero_controle or "")
+        destino = DIR_DADOS / "relatorios"
+        destino.mkdir(parents=True, exist_ok=True)
+        limpo = re.sub(r"[^\w-]+", "_", (numero_controle or "contratacao").lower())[:60]
         arquivo = destino / f"detalhe_{limpo}.html"
         arquivo.write_text(html, encoding="utf-8")
         webbrowser.open(arquivo.as_uri())

@@ -703,6 +703,29 @@ def test_imprimir_detalhe_grava_a_ficha_com_o_que_a_tela_montou(
     assert "detalhe_12345_2026-1" in r["arquivo"]
 
 
+def test_imprimir_detalhe_contratacao_grava_cabecalho_e_corpo_ricos(
+        tmp_path, monkeypatch):
+    """Ficha rica (fase 12): botão Imprimir manda cabeçalho + corpo já
+    montados pela tela (andamento, itens, vencedor) — não a ficha
+    genérica, que ficaria em branco (`#det-titulo`/`.meta` ocultos nesse
+    modo). Achado do usuário, 2026-09-12."""
+    monkeypatch.setattr(licitarium, "DIR_DADOS", tmp_path)
+    monkeypatch.setattr(licitarium, "ARQUIVO_DB", tmp_path / "t.db")
+    licitarium.abrir_db().close()
+    monkeypatch.setattr(licitarium.webbrowser, "open", lambda *a, **k: None)
+
+    cabecalho = '<p class="ficha-objeto">AQUISIÇÃO DE MATERIAL HOSPITALAR</p>'
+    corpo = '<div class="det-andamento">...</div><div id="det-itens">...</div>'
+    r = licitarium.Api().imprimir_detalhe_contratacao(
+        "12345/2026-1", cabecalho, corpo)
+    assert r["ok"]
+    html = Path(r["arquivo"]).read_text(encoding="utf-8")
+    assert cabecalho in html
+    assert corpo in html
+    assert "det-rico-corpo" in html   # CSS do layout rico foi incluído
+    assert "size: A4 portrait" in html
+
+
 def test_imprimir_detalhe_nomeia_o_pdf_da_contratacao_pela_modalidade(
         tmp_path, monkeypatch):
     """Pedido do usuário (2026-08-12): mesma lógica dos contratos, agora
