@@ -126,6 +126,10 @@ test("o corte vertical lê todos os anos no mês apontado", async ({ page }) => 
   await expect(guia).toHaveAttribute("opacity", "0");
   await expect(padrao).toHaveAttribute("opacity", "1");
 
+  // o cartão fica abaixo da dobra (viewport padrão 720px, altura mínima
+  // de gráfico subiu pra 350px em 2026-09-12); sem isso o alvo do
+  // mouse.move cai fora da tela e o evento não chega no SVG
+  await hit.scrollIntoViewIfNeeded();
   const box = await hit.boundingBox();
   await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2);
 
@@ -150,6 +154,7 @@ test("mudar o mês apontado muda os valores mostrados", async ({ page }) => {
   await page.locator('.subabas button[data-vista="analise"]').click();
   const hit = page.locator(
     '#p-analise .card:has([data-graf="series"]) svg [data-cross-hit]');
+  await hit.scrollIntoViewIfNeeded();
   const box = await hit.boundingBox();
   const tt = page.locator(".graf-tt");
 

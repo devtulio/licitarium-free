@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.13.1 — 2026-09-12
+
+**Correção — altura mínima dos gráficos sobe pra 350px**
+
+- Pedido do usuário: todo gráfico do Painel (largura total ou de altura
+  variável por linha/etapa — barras, deságio, mapa de calor, funil) tem
+  agora 350px de altura MÍNIMA, contra os 260px/pisos menores de antes.
+- 2 testes (`o corte vertical lê...`/`mudar o mês apontado...`) tiveram
+  que rolar o cartão até a tela antes do hover — o cartão passou a
+  ficar abaixo da dobra do viewport padrão de teste (720px) com a
+  altura maior; mesmo ajuste que o teste da Concentração já tinha.
+- 310 testes Python + 188 Playwright verdes.
+
 ## 2.13.0 — 2026-09-12
 
 **Adiciona — ficha rica estendida a Contratos e Atas**
