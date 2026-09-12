@@ -445,10 +445,10 @@ const COLUNAS = {
                  ["Modalidade","modalidade"], ["Estimado","estimado"],
                  ["Homologado","homologado"], ["Deságio",null],
                  ["Situação","situacao"]],
-  contratos:    [["Contrato","numero"], ["Objeto / Fornecedor","objeto"],
-                 ["Vigência inicial","vigencia_inicio"],
-                 ["Vigência final","vigencia_fim"], ["Status","status"],
-                 ["Valor","valor"]],
+  contratos:    [["Contrato","numero"], ["Fornecedor","fornecedor"],
+                 ["Objeto","objeto"], ["Órgão",null], ["Origem",null],
+                 ["Valor","valor"], ["Vigência inicial","vigencia_inicio"],
+                 ["Vigência final","vigencia_fim"], ["Vence em","status"]],
   atas:         [["Ata","numero"], ["Contratação de origem","origem"],
                  ["Objeto","objeto"], ["Vigência inicial","vigencia_inicio"],
                  ["Vigência final","vigencia_fim"], ["Status","status"]],
@@ -546,10 +546,13 @@ function statusVigencia(fim) {
 
 // a cor sozinha não informa (daltonismo, impressão em preto e branco): o selo
 // leva sempre o texto do estado, e a data completa fica no title — coluna
-// própria (achado 2026-08-12: vigência inicial/final e status separados)
-function celulaStatusVigencia(d) {
+// própria (achado 2026-08-12: vigência inicial/final e status separados).
+// `semVigencia` troca o "–" genérico por um rótulo — contrato sem vigência
+// não tem data inventada, mostra por que (handoff Claude Design,
+// 2026-09-11, fase 8, tela 3c: "aguardando assinatura", não "–" mudo)
+function celulaStatusVigencia(d, semVigencia = "–") {
   const s = statusVigencia(d.vigencia_fim);
-  if (!s) return `<span class="dim">–</span>`;
+  if (!s) return `<span class="badge mut">${esc(semVigencia)}</span>`;
   return `<span class="badge ${s.cl}" title="Vigência até `
     + `${dataBr(d.vigencia_fim)}">${s.txt}</span>`;
 }
@@ -568,15 +571,22 @@ function renderLinha(tipo, d) {
       <span style="justify-self:center">${badgeSituacaoContratacao(d)}</span>`;
   }
   if (tipo === "contratos")
+    // Fornecedor não é link pro perfil aqui (diferente da tabela "Onde o
+    // dinheiro foi" do Painel): a linha inteira já é um <button> que abre
+    // o detalhe do contrato — <a> dentro de <button> é HTML inválido e o
+    // clique não sairia confiável nos dois sentidos.
     return `<span class="dim">${esc(numContrato(d))}</span>
-      <span><span class="obj" title="${esc(d.objeto ?? "")}">${
-        esc(d.objeto ?? "–")}</span><br>
-        <span class="dim" title="${esc(d.fornecedor_nome ?? "")}">${
-          esc(d.fornecedor_nome ?? "")}</span></span>
+      <span class="dim" title="${esc(d.fornecedor_nome ?? "")}">${
+        esc(fornecedorCurto(d.fornecedor_nome) ?? "–")}</span>
+      <span class="obj">${esc(d.objeto ?? "–")}</span>
+      <span class="dim" title="${esc(d.orgao_nome ?? "")}">${
+        esc(d.orgao_nome ?? "–")}</span>
+      <span class="dim">${esc(d.origem ?? "–")}</span>
+      <span class="num">${dinheiro(d.valor_global)}</span>
       <span class="dim">${dataBr(d.vigencia_inicio)}</span>
       <span class="dim">${dataBr(d.vigencia_fim)}</span>
-      <span>${celulaStatusVigencia(d)}</span>
-      <span class="num">${dinheiro(d.valor_global)}</span>`;
+      <span style="justify-self:end">${
+        celulaStatusVigencia(d, "Aguardando assinatura")}</span>`;
   if (tipo === "pca")
     return `<span class="dim">${esc(d.numero_item)}</span>
       <span class="obj">${esc(d.descricao ?? "–")}</span>
@@ -706,7 +716,7 @@ function desenharColunasEcharts(el, meses, corVar) {
 // A coluna elástica de cada aba (objeto/descrição) absorve a sobra e por
 // isso não tem alça: alargar qualquer outra encolhe ela, que é o que se
 // espera ao puxar "fornecedor" para ver o nome inteiro.
-const COL_FLEX = { contratacoes:1, contratos:1, atas:2, pca:1 };
+const COL_FLEX = { contratacoes:1, contratos:2, atas:2, pca:1 };
 const LARGURA_MIN = 44;
 const FLEX_MIN = 170;       // espaço que a coluna elástica nunca cede
 let larguras = {};
@@ -917,6 +927,10 @@ function mudarAba(tipo) {
   const ehVigencia = ["contratos", "atas"].includes(tipo);
   $("cx-vigentes").classList.toggle("oculto", !ehVigencia);
   $("cx-vence60").classList.toggle("oculto", !ehVigencia);
+  // handoff Claude Design (2026-09-11, fase 8, tela 3c): "vigentes" e
+  // "vence em 60 dias" contam coisas diferentes — bug real documentado
+  // no DASHBOARD.md (25 no alerta, 50 na lista), daí a explicação fixa
+  $("aviso-vigencia").classList.toggle("oculto", !ehVigencia);
   $("f-busca").placeholder = "Buscar no objeto…";
   $("f-propostas").checked = false;
   $("f-vigentes").checked = false;

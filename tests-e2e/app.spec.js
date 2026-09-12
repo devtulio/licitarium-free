@@ -135,16 +135,21 @@ test("abas trocam colunas e detalhe abre ao clicar na linha",
 test("contratos e atas separam vigência inicial/final e status em colunas próprias",
     async ({ page }) => {
   // pedido do usuário (2026-08-12): "Vigência" combinada (duas datas + selo
-  // espremidos numa célula) virou 3 colunas — vig. inicial, vig. final, status
+  // espremidos numa célula) virou 3 colunas — vig. inicial, vig. final,
+  // status; a fase 8 do handoff (2026-09-11) quis reunir as duas datas de
+  // volta numa só ("Vigência"), mas isso reintroduziria o exato problema
+  // que o usuário já tinha pedido pra resolver — mantidas separadas, só
+  // ganharam Fornecedor/Objeto/Órgão/Origem ao redor
   await page.locator('nav.abas button[data-tipo="contratos"]').click();
   const cabecalho = page.locator(".cab > *");
-  await expect(cabecalho).toHaveText(["Contrato", "Objeto / Fornecedor",
-    "Vigência inicial", "Vigência final", "Status", "Valor"]);
+  await expect(cabecalho).toHaveText(["Contrato", "Fornecedor", "Objeto",
+    "Órgão", "Origem", "Valor", "Vigência inicial", "Vigência final",
+    "Vence em"]);
   const primeira = page.locator(".linha:not(.cab)").first();
   const celulas = primeira.locator("> *");
-  await expect(celulas.nth(2)).toHaveText("28/05/2026");   // vigência inicial
-  await expect(celulas.nth(3)).toHaveText(/^\d{2}\/\d{2}\/\d{4}$/);  // final
-  await expect(celulas.nth(4).locator(".badge")).toBeVisible();  // status
+  await expect(celulas.nth(6)).toHaveText("28/05/2026");   // vigência inicial
+  await expect(celulas.nth(7)).toHaveText(/^\d{2}\/\d{2}\/\d{4}$/);  // final
+  await expect(celulas.nth(8).locator(".badge")).toBeVisible();  // vence em
 
   await page.locator('nav.abas button[data-tipo="atas"]').click();
   await expect(page.locator(".cab > *")).toHaveText(["Ata",
@@ -602,7 +607,6 @@ test("contratos e atas mostram a situação da vigência por cor e texto",
                 ["err", "Encerrado"]]]]) {
     await page.locator(`nav.abas button[data-tipo="${aba}"]`).click();
     const selos = page.locator(".linha:not(.cab) .badge");
-    await expect(selos).toHaveCount(3);
     for (const [i, [classe, texto]] of esperado.entries()) {
       await expect(selos.nth(i)).toHaveClass(new RegExp(`badge ${classe}$`));
       await expect(selos.nth(i)).toHaveText(texto);
@@ -610,6 +614,14 @@ test("contratos e atas mostram a situação da vigência por cor e texto",
       await expect(selos.nth(i)).toHaveAttribute("title", /Vigência até \d{2}\//);
     }
   }
+  // contrato sem vigência (nunca assinado) não inventa data — nem tenta
+  // "vigência até" nenhuma (handoff Claude Design, fase 8, tela 3c)
+  await page.locator('nav.abas button[data-tipo="contratos"]').click();
+  const selos = page.locator(".linha:not(.cab) .badge");
+  await expect(selos).toHaveCount(4);
+  await expect(selos.nth(3)).toHaveClass(/badge mut$/);
+  await expect(selos.nth(3)).toHaveText("Aguardando assinatura");
+  await expect(selos.nth(3)).not.toHaveAttribute("title");
 });
 
 test("situação da vigência não escorrega de dia por causa do fuso",
@@ -676,7 +688,7 @@ test("selos de situação atingem o contraste AA nos quatro temas",
         return { classe: b.className, razao: (hi + 0.05) / (lo + 0.05) };
       });
     });
-    expect(medidas.length).toBe(3);
+    expect(medidas.length).toBe(4);
     // AA para texto pequeno: 4.5:1 (o selo tem 10,5px)
     const reprovados = medidas.filter(m => m.razao < 4.5)
       .map(m => `${tema}/${m.classe} = ${m.razao.toFixed(2)}`);

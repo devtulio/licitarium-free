@@ -169,7 +169,13 @@ input, select { background:var(--surface); color:var(--text);
               color:color-mix(in srgb, var(--warn) var(--badge-tom), black); }
 .badge.err  { background:color-mix(in srgb, var(--erro) 15%, transparent);
               color:color-mix(in srgb, var(--erro) var(--badge-tom), black); }
-.badge.mut  { background:var(--surface2); color:var(--muted); }
+/* mesma tinta escurecida das três de cima — sem isso, "civil" some com
+   4,39:1 (achado da fase 8 do handoff, 2026-09-11: só ficou visível
+   quando "Aguardando assinatura" virou o 1º selo cinza de verdade na
+   coluna de vigência — os outros usos de .mut já tinham essa folga
+   por acaso, não por cálculo) */
+.badge.mut  { background:var(--surface2);
+              color:color-mix(in srgb, var(--muted) var(--badge-tom), black); }
 [data-theme="pergaminho"] .badge.ok { background:var(--ok); color:var(--accent-fg); }
 label { font-size:12px; color:var(--muted); display:block; margin:12px 0 5px; }
 
@@ -322,7 +328,8 @@ nav.abas button.on { color:var(--accent); font-weight:600;
 /* larguras padrão; o usuário pode ajustar arrastando (var --cols) */
 .g-contratacoes { grid-template-columns:var(--cols,
   80px minmax(0,1fr) 140px 115px 115px 80px 130px); }
-.g-contratos    { grid-template-columns:var(--cols, 110px 1fr 100px 100px 110px 110px); }
+.g-contratos    { grid-template-columns:var(--cols,
+  90px 140px minmax(0,1fr) 130px 115px 105px 100px 100px 130px); }
 .g-atas         { grid-template-columns:var(--cols, 90px 210px 1fr 100px 100px 110px); }
 .g-pca          { grid-template-columns:var(--cols, 60px 1fr 150px 80px 110px); }
 .g-itens        { grid-template-columns:var(--cols, 30px minmax(0,1fr) 48px 60px 118px 212px 96px 88px); }
@@ -410,8 +417,7 @@ body.redimensionando { cursor:col-resize; user-select:none; }
 .est small { font-size:11px; letter-spacing:.04em; }
 /* colunas curtas centralizadas (mesmo tratamento dos relatórios) */
 .g-contratacoes > :nth-child(1),
-.g-contratos > :nth-child(1), .g-contratos > :nth-child(3),
-.g-contratos > :nth-child(4), .g-contratos > :nth-child(5),
+.g-contratos > :nth-child(1),
 .g-atas > :nth-child(1), .g-atas > :nth-child(2),
 .g-atas > :nth-child(4), .g-atas > :nth-child(5), .g-atas > :nth-child(6),
 .g-pca > :nth-child(1), .g-pca > :nth-child(3),
@@ -427,6 +433,13 @@ body.redimensionando { cursor:col-resize; user-select:none; }
 .linha .sel input { cursor:pointer; margin:0; }
 .aviso-selecao { margin:8px 0; padding:8px 14px; font-size:12.5px;
   color:var(--muted); background:var(--surface2);
+  border-radius:var(--radius); }
+/* "vigentes" × "vence em 60 dias" contam coisas diferentes — bug real
+   documentado no DASHBOARD.md (handoff Claude Design, 2026-09-11, fase 8) */
+.aviso-vigencia { margin:-4px 0 4px; padding:12px 16px; font-size:12px;
+  line-height:1.6; color:var(--text);
+  background:color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius:var(--radius); }
 .aviso-selecao .descarte-topo { display:flex; align-items:center; gap:10px; }
 .aviso-selecao .descarte-topo span { flex:1; }

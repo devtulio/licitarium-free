@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.8.0 — 2026-09-11
+
+**Adição — Fase 8 do handoff "Dashboard de Licitações Públicas" (Claude Design): lista de Contratos**
+
+- **Tabela** ganha Fornecedor e Objeto como colunas separadas (antes
+  numa célula só), mais Órgão e Origem (modalidade + processo) — mesmo
+  enriquecimento pós-página do "vencendo" e do "por_orgao" das fases
+  3/4, pra não tornar `orgao_cnpj`/`objeto`/`numero_controle` ambíguos
+  no `Api.listar` compartilhado com os outros tipos.
+- **Vigência inicial e final continuam em colunas separadas** — o
+  mockup 3c reúne as duas numa só ("Vigência"), mas isso desfaria o
+  pedido do usuário de 2026-08-12 que as separou porque uma célula só
+  ficava espremida; a fase 8 respeitou a decisão anterior e só
+  adicionou "Vence em" como coluna própria ao lado.
+- **"Aguardando assinatura"**: contrato sem vigência (ainda não
+  assinado) mostra esse selo em vez de "–" mudo ou data inventada.
+  Achado no caminho: `.badge.mut` não alcançava 4,5:1 no tema Civil —
+  ganhou a mesma tinta escurecida das três cores irmãs.
+- Caixa de aviso explica a diferença entre **Vigentes** (sem prazo) e
+  **Vence em 60 dias** (janela fechada) — bug real já documentado no
+  DASHBOARD.md (25 no alerta, 50 na lista); as duas caixas já eram
+  independentes no backend, só faltava a explicação na tela.
+- 294 pytest + 168 Playwright verdes.
+
 ## 2.7.0 — 2026-09-11
 
 **Adição — Fase 7 do handoff "Dashboard de Licitações Públicas" (Claude Design): lista de Contratações**

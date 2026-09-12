@@ -90,6 +90,31 @@ def test_status_de_contrato_e_ata_ordena_por_severidade(api):
     assert [i["numero_controle"] for i in r["itens"]] == ["AT-ENC", "AT-VIG"]
 
 
+def test_lista_de_contratos_traz_orgao_e_origem(api):
+    # handoff Claude Design (2026-09-11, fase 8, tela 3c): contratos só
+    # guarda orgao_cnpj — órgão (nome) e origem (modalidade + processo)
+    # vêm de contratacoes, enriquecidos DEPOIS da página (não dentro do
+    # SELECT principal, pra não tornar orgao_cnpj/objeto/numero_controle
+    # ambíguos nos filtros que esta mesma função usa pra outros tipos)
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_nome, modalidade_nome, objeto)"
+        " VALUES ('K',2026,31,'Sec. de Administração','Pregão eletrônico',"
+        " 'Obj')")
+    db.execute(
+        "INSERT INTO contratos (numero_controle, contratacao_controle,"
+        " objeto, vigencia_fim) VALUES ('CT-K','K','Combustível',?)",
+        ((date.today() + timedelta(days=8)).isoformat(),))
+    db.commit()
+    db.close()
+
+    r = api.listar("contratos", {})
+    ct = next(i for i in r["itens"] if i["numero_controle"] == "CT-K")
+    assert ct["orgao_nome"] == "Sec. de Administração"
+    assert ct["origem"] == "Pregão 031/2026"
+
+
 def test_listar_e_detalhe_pca(api):
     r = api.listar("pca", {"ord": "valor", "dir": "desc"})
     assert [i["descricao"] for i in r["itens"]] == ["Toner", "Papel"]

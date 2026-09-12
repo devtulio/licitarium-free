@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.7.0"
+VERSAO = "2.8.0"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -224,7 +224,8 @@ ORDENAVEIS = {
                      "situacao": "situacao"},
     "contratos": {"numero":
                   "(COALESCE(ano_contrato,0)*100000+COALESCE(sequencial_contrato,0))",
-                  "objeto": "objeto", "vigencia_inicio": "vigencia_inicio",
+                  "objeto": "objeto", "fornecedor": "fornecedor_nome",
+                  "vigencia_inicio": "vigencia_inicio",
                   "vigencia_fim": "vigencia_fim", "valor": "valor_global",
                   "status": STATUS_VIGENCIA_ORDEM},
     "atas": {"numero":
@@ -1339,6 +1340,31 @@ class Api:
                 d = dict(r)
                 d.pop("raw", None)  # listagem não precisa do JSON completo
                 itens.append(d)
+            # órgão (nome) e origem (modalidade + processo) da lista de
+            # Contratos (handoff Claude Design, fase 8, tela 3c) — contratos
+            # só guarda orgao_cnpj, o resto vem de contratacoes. Enriquecer
+            # DEPOIS de paginar (só os 50 da página), não dentro do SELECT
+            # principal: um JOIN ali tornaria orgao_cnpj/data_publicacao/
+            # objeto/numero_controle ambíguos nos filtros que esta mesma
+            # função já usa pra outros tipos — mesmo bug de aliasing já
+            # visto no Painel (funil, vencendo, por_orgao).
+            if tipo == "contratos" and itens:
+                ids = list({d["contratacao_controle"] for d in itens
+                           if d.get("contratacao_controle")})
+                if ids:
+                    marcadores = ",".join("?" * len(ids))
+                    info = {r[0]: r for r in db.execute(
+                        f"""SELECT numero_controle, orgao_nome,
+                               modalidade_nome, sequencial, ano
+                           FROM contratacoes
+                           WHERE numero_controle IN ({marcadores})""", ids)}
+                    for d in itens:
+                        k = info.get(d.get("contratacao_controle"))
+                        d["orgao_nome"] = k["orgao_nome"] if k else None
+                        d["origem"] = (
+                            f"{k['modalidade_nome'].split(' ')[0]} "
+                            f"{int(k['sequencial']):03d}/{k['ano']}"
+                        ) if k and k["modalidade_nome"] and k["sequencial"] else None
             # aba Preços: a linha guarda só o código IBGE — resolve o nome
             # aqui (mesmo dicionário de ORDENAVEIS["itens"]["municipio"]),
             # para a tela mostrar "Olímpia" em vez do código
