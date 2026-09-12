@@ -3506,9 +3506,18 @@ CSS_DET_RICO = """
     --muted:var(--suave); --text:var(--texto); --border:var(--borda);
     --accent:var(--acento); --ok:#2f7d32; --warn:var(--atencao); }
   .ficha-objeto { margin-bottom:4px; }
-  .det-rico-corpo { display:grid; grid-template-columns:1fr 260px;
-                     gap:14px; margin-top:16px; }
+  /* 1 coluna só, sempre — não só no @media print. Achado do usuário
+     (2026-09-12): grid de 2 colunas (1fr 260px) numa página A4 retrato
+     (~628px úteis, CSS_FICHA acima) deixava só ~360px pro cartão de
+     itens; a coluna Item do #det-itens (table-layout:fixed, largura
+     calibrada pra tela larga: 4 colunas fixas somam 440px) ficava com
+     largura NEGATIVA — o navegador colapsava pra ~1 caractere por linha
+     e a descrição saía inteira na vertical, espalhando por 3 páginas.
+     Empilhado, cada cartão usa a largura inteira da folha. */
+  .det-rico-corpo { display:flex; flex-direction:column; gap:14px;
+                     margin-top:16px; }
   .det-rico-col { display:flex; flex-direction:column; gap:14px; }
+  #det-itens table { table-layout:auto; }
   .card { background:var(--surface); border:1px solid var(--border);
           border-radius:6px; padding:14px 16px; break-inside:avoid; }
   .rot-filtros { font:600 10.5px/1 'Segoe UI',system-ui,sans-serif;
@@ -3536,7 +3545,6 @@ CSS_DET_RICO = """
   .det-posicao.acima  { color:var(--warn); font-weight:600; }
   .det-posicao.mediana, .det-posicao.mut { color:var(--muted); font-weight:600; }
   .link { color:var(--accent); text-decoration:none; }
-  @media print { .det-rico-corpo { grid-template-columns:1fr 220px; } }
 """
 
 

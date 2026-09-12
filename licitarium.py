@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.12.6"
+VERSAO = "2.12.7"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -681,17 +681,17 @@ def _titulo_impressao_detalhe(db, tipo, d):
     orgao = (d.get("orgao_nome") or _nome_orgao(db, d.get("orgao_cnpj"))
              or "ÓRGÃO NÃO IDENTIFICADO")
     if tipo == "contratacoes" and d.get("sequencial") is not None:
-        numero = f"{d['sequencial']}-{d.get('ano') or ''}"
+        numero = f"{d['sequencial']}/{d.get('ano') or ''}"
         modalidade = (d.get("modalidade_nome") or "").upper()
-        return f"{modalidade} {numero} {orgao}".strip()
+        return f"{modalidade} {numero} - {orgao}".strip()
     if tipo == "contratos" and d.get("numero_contrato"):
         numero = _sem_zeros(d["numero_contrato"])
         ano = d.get("ano_contrato") or ""
         fornecedor = d.get("fornecedor_nome") or "FORNECEDOR NÃO IDENTIFICADO"
-        return f"CONTRATO {numero}-{ano} {orgao} X {fornecedor}"
+        return f"CONTRATO {numero}/{ano} - {orgao} X {fornecedor}"
     if tipo == "atas" and d.get("numero_ata"):
         ano = d.get("ano_ata") or ""
-        return f"ATA DE REGISTRO DE PREÇOS {d['numero_ata']}-{ano} {orgao}"
+        return f"ATA DE REGISTRO DE PREÇOS {d['numero_ata']}/{ano} - {orgao}"
     return None
 
 

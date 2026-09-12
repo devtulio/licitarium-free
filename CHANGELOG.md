@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.12.7 — 2026-09-12
+
+**Correção — título da ficha impressa e catástrofe de paginação no PDF real**
+
+- **Título do documento** — separador virou `/` no número/ano e `-`
+  antes do órgão ("DISPENSA 45/2026 - MUNICIPIO DE ORINDIUVA"). A grafia
+  do órgão em si (sem acento) é dado cru do PNCP — mantida de propósito,
+  sem inventar correção sobre a fonte oficial (decisão do usuário).
+- **PDF real quebrava a descrição em 1 letra por linha, por 3 páginas**
+  — o usuário mandou o PDF gerado de verdade (Ctrl+P) e o corpo rico
+  (grid 2 colunas, 1fr 260px) numa A4 retrato só tinha ~360px pro
+  cartão de itens; o colgroup do `#det-itens` (calibrado pra tela larga,
+  4 colunas fixas somando 440px) deixava a coluna Item com largura
+  NEGATIVA — o Chrome colapsava pra ~1 caractere por linha. Meu preview
+  anterior (screenshot no navegador) não pegou porque não é o mesmo
+  motor de paginação do "Salvar como PDF" real — só o PDF de verdade
+  expôs. Corrigido: corpo empilha em 1 coluna só na ficha impressa
+  (nunca mais grid 2-colunas ali) e `#det-itens table` usa
+  `table-layout:auto`. Reproduzido com `page.pdf()` do Playwright
+  (A4 real) antes e depois da correção pra confirmar.
+- 305 testes Python + 186 Playwright verdes (2 assertivas novas).
+
 ## 2.12.6 — 2026-09-12
 
 **Correção — objeto justificado e ficha impressa da contratação**

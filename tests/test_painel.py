@@ -724,6 +724,16 @@ def test_imprimir_detalhe_contratacao_grava_cabecalho_e_corpo_ricos(
     assert corpo in html
     assert "det-rico-corpo" in html   # CSS do layout rico foi incluído
     assert "size: A4 portrait" in html
+    # achado do usuário imprimindo de verdade (2026-09-12): grid de 2
+    # colunas (1fr 260px) numa A4 retrato (~628px úteis) deixava só
+    # ~360px pro cartão de itens — menos que os 440px fixos do
+    # colgroup calibrado pra tela larga, coluna Item ficava negativa e
+    # a descrição saía inteira na vertical, 1 letra por linha, por 3
+    # páginas. Corrigido empilhando (flex column) e com table-layout
+    # auto no #det-itens — checar que não volta pro grid de 2 colunas.
+    assert "grid-template-columns:1fr 260px" not in html
+    assert "grid-template-columns:1fr 220px" not in html
+    assert "#det-itens table { table-layout:auto; }" in html
 
 
 def test_imprimir_detalhe_nomeia_o_pdf_da_contratacao_pela_modalidade(
@@ -747,7 +757,7 @@ def test_imprimir_detalhe_nomeia_o_pdf_da_contratacao_pela_modalidade(
     r = licitarium.Api().imprimir_detalhe(
         "contratacoes", "X-1", "Aquisição de material", "X-1", "<div></div>")
     html = Path(r["arquivo"]).read_text(encoding="utf-8")
-    assert ("<title>PREGÃO ELETRÔNICO 28-2026 "
+    assert ("<title>PREGÃO ELETRÔNICO 28/2026 - "
             "MUNICIPIO DE ORINDIUVA</title>") in html
 
 
@@ -774,7 +784,7 @@ def test_imprimir_detalhe_nomeia_o_pdf_pelo_contrato_orgao_e_fornecedor(
     r = licitarium.Api().imprimir_detalhe(
         "contratos", "Y-1", "Festa do peão", "Y-1", "<div></div>")
     html = Path(r["arquivo"]).read_text(encoding="utf-8")
-    assert ("<title>CONTRATO 46-2026 MUNICIPIO DE ORINDIUVA X "
+    assert ("<title>CONTRATO 46/2026 - MUNICIPIO DE ORINDIUVA X "
             "M J M VALVERDE SERVIÇOS E LOCAÇÕES ME</title>") in html
 
 
@@ -798,7 +808,7 @@ def test_imprimir_detalhe_nomeia_o_pdf_da_ata_sem_fornecedor(
     r = licitarium.Api().imprimir_detalhe(
         "atas", "Z-1", "Fraldas", "Z-1", "<div></div>")
     html = Path(r["arquivo"]).read_text(encoding="utf-8")
-    assert ("<title>ATA DE REGISTRO DE PREÇOS 26-2025 "
+    assert ("<title>ATA DE REGISTRO DE PREÇOS 26/2025 - "
             "MUNICIPIO DE ORINDIUVA</title>") in html
 
 
