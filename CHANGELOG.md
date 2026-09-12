@@ -1,5 +1,59 @@
 # Changelog
 
+## 2.13.4 — 2026-09-12
+
+**Correção — lote de achados da auditoria completa de visual/UX/acessibilidade**
+
+Pedido do usuário: auditoria com agente Opus vasculhando o app inteiro
+(4 temas, print real em PDF, contraste, teclado, ARIA). Corrigido nesta
+leva (críticos e moderados; achados menores/subjetivos ficaram de fora,
+listados no relatório da auditoria):
+
+- **Cabeçalho quebrava em 8 linhas na largura mínima do app** (900px,
+  `licitarium.py`) — `.info-topo` tinha `min-width:0`; ganhou piso de
+  190px e o `header` ganhou `flex-wrap` pra quebrar de linha em vez de
+  espremer o texto.
+- **Cabeçalho de coluna das listas falhava AA no tema civil** (4,39:1,
+  mínimo 4,5) — `--muted` escurecido.
+- **Números do calendário (61-90 dias) falhavam AA em 3 dos 4 temas** —
+  a receita de cor do selo (`--badge-tom`) nunca foi calibrada pra
+  `--s3` (cor de série, não de selo); a cor do número virou `var(--text)`.
+- **Andamento de Contrato/Ata marcava etapa como "futuro" mesmo com uma
+  etapa POSTERIOR já confirmada** (ex.: Vigência rodando com Publicado
+  "no futuro") — etapa sem data própria mas com uma posterior confirmada
+  vira "concluída, data não informada" em vez de bolinha vazia. Datas do
+  andamento também ganharam o ano (só mostravam "DD/MM").
+- **Barra do "Limite anual de dispensa" travava em 100% sempre** — o
+  card existe pra ranquear severidade e não ranqueava nada visualmente
+  (todos os itens da lista já estão acima do limite); passou a escalar
+  pelo maior % da lista.
+- **Curva de concentração de fornecedores sem eixo Y** — só os extremos
+  em texto; ganhou eixo com % e grade.
+- **7 de 9 cards de Relatórios diziam "Gerar" mas só selecionavam** (a
+  geração de verdade pede ano/órgão na barra lateral primeiro) — rótulo
+  virou "Escolher", que é o que o clique de fato faz.
+- **"×" de filtro removível vazou pra Configurações/PCA** — 3 checkboxes
+  de parâmetro (não filtro) reusavam `.check-filtro` e ganhavam um "×"
+  que parecia clicável mas não fazia nada; classe própria sem o "×".
+- **Anotação da curva ABC riscada pela própria linha** quando a classe A
+  é pequena (caso comum) — rótulo foi pro topo do ponto, não mais do lado.
+- **Faixa sombreada A/B/C desalinhada da legenda** — a faixa usava
+  unidade de índice (zero de largura com 1 item em A) e a legenda usava
+  contagem; unificado com meia célula de folga.
+- CNPJ cortava no meio em civil/pergaminho (coluna calibrada pra fonte
+  errada) — 122px → 158px.
+- Botão de descartar item (Preços) tinha alvo de toque de 20px, abaixo
+  do piso AA de 24px (WCAG 2.5.8).
+- `aviso-vigencia` vazava pro Painel/Preços ao trocar de aba.
+- Contador de lista e resultado de busca global ganharam `role="status"`/
+  `aria-live` — filtrar/buscar não anunciava nada antes.
+- `aria-labelledby` do modal de detalhe apontava pro título genérico
+  oculto na ficha rica, não pro título visível.
+- Mensagem vazia do PCA não fala mais "sincronize" quando o resto do
+  acervo já está carregado (PCA é tabela própria).
+- 310 testes Python + 190 Playwright verdes (4 novos, cobrindo os
+  achados críticos).
+
 ## 2.13.3 — 2026-09-12
 
 **Correção — visual da Fila de triagem e do Limite anual de dispensa**

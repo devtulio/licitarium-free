@@ -340,6 +340,31 @@ test.describe("Detalhe rico do CONTRATO (estendido, 2026-09-12)", () => {
     await expect(page.locator("#det-vencedor")).toContainText("09.475.002/0001-01");
     await expect(page.locator("#det-vencedor")).not.toContainText("09475002000101");
   });
+
+  test("etapa sem data própria mas com vigência já rodando não vira bolinha \"futuro\""
+      + " (achado da auditoria 2026-09-12)", async ({ page }) => {
+    // Publicado/Assinado nunca capturados, mas Vigência início/fim já
+    // existem — a etapa JÁ aconteceu (senão não teria vigência), só
+    // falta a data. Virava bolinha vazia ENTRE duas preenchidas.
+    await page.evaluate(() => {
+      window.pywebview.api.detalhe_contrato = async () => ({
+        contrato: { numero_controle: "Y-1", numero_contrato: "0033/26",
+          ano_contrato: 2026, objeto: "Obj", orgao_nome: "Sec.",
+          valor_global: 1000, data_publicacao: null, data_assinatura: null,
+          vigencia_inicio: "2026-05-28", vigencia_fim: "2027-03-20" },
+        itens: [], vencedor: null,
+      });
+    });
+    await page.locator('nav.abas button[data-tipo="contratos"]').click();
+    await page.locator('.linha[data-nc="Y-1"]').click();
+    const passos = page.locator("#det-andamento .det-passo");
+    await expect(passos.nth(0)).not.toHaveClass(/futuro/);   // Publicado
+    await expect(passos.nth(1)).not.toHaveClass(/futuro/);   // Assinado
+    await expect(passos.nth(0)).toContainText("data não informada");
+    // a data mostrada quando existe também traz o ano (achado: "20/05"
+    // sem ano nenhum, não dava pra saber a que exercício pertencia)
+    await expect(passos.nth(3)).toContainText("20/03/27");
+  });
 });
 
 test.describe("Detalhe rico da ATA (estendido, 2026-09-12)", () => {
@@ -1229,6 +1254,23 @@ test.describe("busca global (cabeçalho)", () => {
       page.locator(".info-topo").boundingBox()]);
     const vao = infoBox.x - (buscaBox.x + buscaBox.width);
     expect(vao).toBeLessThan(20);
+  });
+
+  test("na largura mínima do app (900px), o status de sync não estilhaça em 8 linhas"
+      + " (achado da auditoria 2026-09-12)", async ({ page }) => {
+    // min_size do pywebview (licitarium.py) é 900×600 — .info-topo tinha
+    // min-width:0 e encolhia até a largura da palavra, quebrando
+    // "Sincronizado em DD/MM/AAAA às HH:MM" em ~8 linhas e inchando o
+    // cabeçalho inteiro. Header ganhou flex-wrap: sem espaço de verdade,
+    // quebra pra 2ª linha em vez de espremer o texto de um só bloco.
+    await page.setViewportSize({ width: 900, height: 600 });
+    const linhas = await page.locator("#sync-status").evaluate(el =>
+      Math.round(el.getBoundingClientRect().height
+        / parseFloat(getComputedStyle(el).lineHeight)));
+    expect(linhas).toBeLessThanOrEqual(3);
+    // os botões continuam legíveis (não some nenhum, mesmo quebrando linha)
+    await expect(page.locator("#btn-pca")).toBeVisible();
+    await expect(page.locator("#btn-sync")).toBeVisible();
   });
 
   test("campo tem teto de largura, status ganha o espaço que sobra"

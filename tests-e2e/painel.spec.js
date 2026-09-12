@@ -170,6 +170,11 @@ test("o corte vertical da concentração segue o cursor pela curva",
   await page.locator('.subabas button[data-vista="analise"]').click();
   const cartao = page.locator(
     '#p-analise .card:has([data-graf="concentracao"])');
+  // achado da auditoria (2026-09-12): a curva não tinha eixo Y — só os
+  // extremos "1"/total em texto, sem escala nenhuma pra ler um valor
+  // no meio da curva sem passar o mouse
+  await expect(cartao.locator("svg text").filter({ hasText: "%" }).first())
+    .toBeVisible();
   const hit = cartao.locator("svg [data-cross-hit]");
   const ponto = cartao.locator("svg [data-cross-pt]");
   const padrao = cartao.locator("svg [data-serie-padrao]").first();
@@ -441,11 +446,17 @@ test("limite anual de dispensa: barra na largura do cartão, texto abaixo",
     expect(g.larguraCartao).toBeGreaterThan(300);
     expect(g.legendaAbaixo).toBe(true);
   }
-  // pct >100% (fixture: 263,9%, 239,3%...) todos achatam no teto: mesma
-  // largura de barra, cheia — não estica além do cartão
-  const larguras = geo.map(g => Math.round(g.larguraBarra));
-  expect(new Set(larguras).size).toBe(1);
-  expect(geo[0].pctBarra).toBeGreaterThan(0.95);   // ~100%, achatada no teto
+  // achado da auditoria (2026-09-12): antes TODAS as barras achatavam no
+  // teto de 100% (fixture: 263,9%, 239,3%...) — o card que existe pra
+  // ranquear severidade não ranqueava nada visualmente, todas idênticas.
+  // Agora escala pelo maior % da lista: o pior vira barra cheia, os
+  // outros ficam proporcionais — nunca estoura o cartão (pctBarra<=1),
+  // e a ordem das barras acompanha a ordem (decrescente) dos itens.
+  expect(geo[0].pctBarra).toBeGreaterThan(0.95);   // pior caso, quase 100%
+  for (const g of geo) expect(g.pctBarra).toBeLessThanOrEqual(1);
+  const larguras = geo.map(g => g.larguraBarra);
+  for (let i = 1; i < larguras.length; i++)
+    expect(larguras[i]).toBeLessThanOrEqual(larguras[i - 1] + 0.5);
 });
 
 test("os alertas viram chips clicáveis acima das subabas",

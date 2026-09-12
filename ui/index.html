@@ -51,7 +51,8 @@
       <input type="search" id="busca-global-campo" autocomplete="off"
         placeholder="Buscar processo, contrato, fornecedor…"
         aria-label="Busca em contratações, contratos e atas">
-      <div id="busca-global-resultados" class="oculto" role="listbox"></div>
+      <div id="busca-global-resultados" class="oculto" role="listbox"
+        aria-live="polite"></div>
     </div>
     <div class="info-topo">
       <div id="sync-status"><span class="dot" id="sync-dot"></span>
@@ -224,7 +225,7 @@
       <button class="filtro-alerta oculto" id="filtro-alerta">Só os objetos
         do alerta de limite anual <span aria-hidden="true">×</span></button>
       <div class="filtros-espaco"></div>
-      <span class="dim" id="contador-lista"></span>
+      <span class="dim" id="contador-lista" role="status"></span>
       <button class="btn ghost oculto" id="btn-limpar">Limpar filtros</button>
     </div>
     <div class="aviso-vigencia oculto" id="aviso-vigencia">As duas caixas
@@ -263,7 +264,8 @@
         <div class="dim" id="det-info-linha"
              style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px"></div>
       </div>
-      <div id="det-homologado" style="text-align:right;white-space:nowrap"></div>
+      <div id="det-homologado" style="text-align:right;white-space:nowrap;
+           margin-right:8px"></div>
       <button class="fechar" data-fecha="veu-detalhe" aria-label="Fechar">×</button>
     </div>
     <div class="meta" id="det-meta"></div>
@@ -358,9 +360,9 @@
           <option value="3" selected>3 palavras</option>
           <option value="4">4 palavras (restrito)</option>
         </select></div>
-      <label class="check-filtro" style="align-self:end">
+      <label class="check-opcao" style="align-self:end">
         <input type="checkbox" id="pca-recorrentes" checked> Só recorrentes</label>
-      <label class="check-filtro" style="align-self:end" title="Traz preços de anos anteriores a valor de hoje pela série do IPCA (Banco Central), antes de calcular a mediana/média">
+      <label class="check-opcao" style="align-self:end" title="Traz preços de anos anteriores a valor de hoje pela série do IPCA (Banco Central), antes de calcular a mediana/média">
         <input type="checkbox" id="pca-ipca" checked> Corrigir preço pelo IPCA</label>
       <button class="btn" id="pca-gerar" style="align-self:end">Gerar</button>
     </div>
@@ -507,7 +509,7 @@
         <option value="confortavel">Confortável — linhas com respiro</option>
         <option value="compacta">Compacta — mais registros na tela</option>
       </select>
-      <label class="check-filtro" style="margin-top:14px">
+      <label class="check-opcao" style="margin-top:14px">
         <input type="checkbox" id="cfg-maximizar"> Abrir a janela maximizada
       </label>
       <label>Largura das colunas</label>

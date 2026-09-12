@@ -892,6 +892,14 @@ async function carregarLista() {
     ? `<div class="vazio"><svg viewBox="0 0 64 64" aria-hidden="true">${SELO}</svg>
         <p>Nenhum registro para estes filtros.</p>
         <button class="btn ghost" id="vazio-limpar">✕ Limpar filtros</button></div>`
+    // achado da auditoria (2026-09-12): PCA usa a mesma mensagem genérica
+    // de "nunca sincronizou" mesmo com o resto do acervo carregado — PCA é
+    // tabela própria, vazia porque o município não publicou plano nenhum,
+    // não porque falta sincronizar
+    : estado.tipo === "pca"
+    ? `<div class="vazio"><svg viewBox="0 0 64 64" aria-hidden="true">${SELO}</svg>
+        <p>Nenhum plano de contratação publicado pelo município ainda.</p>
+        <button class="btn" id="vazio-sync">Sincronizar agora</button></div>`
     : `<div class="vazio"><svg viewBox="0 0 64 64" aria-hidden="true">${SELO}</svg>
         <p>Nada neste acervo ainda.<br>Sincronize para baixar o que o município
         publicou no PNCP.</p>
@@ -945,6 +953,14 @@ function mudarAba(tipo) {
   if (semLista) $("alertas").classList.add("oculto");
   else if ($("alertas").innerHTML.trim()) $("alertas").classList.remove("oculto");
   if (api.set_config) api.set_config("aba", tipo);
+  // achado da auditoria (2026-09-12): este toggle vinha DEPOIS do "if
+  // (semLista) return" abaixo — trocar de Contratos/Atas pro Painel ou
+  // Preços deixava o aviso preso na tela, sem checkbox nenhum por perto
+  const ehVigencia = ["contratos", "atas"].includes(tipo);
+  // handoff Claude Design (2026-09-11, fase 8, tela 3c): "vigentes" e
+  // "vence em 60 dias" contam coisas diferentes — bug real documentado
+  // no DASHBOARD.md (25 no alerta, 50 na lista), daí a explicação fixa
+  $("aviso-vigencia").classList.toggle("oculto", !ehVigencia || semLista);
   if (semLista) return;
   estado.ord = null; estado.dir = "desc";
   estado.objetosAlvo = null;
@@ -953,13 +969,8 @@ function mudarAba(tipo) {
   $("f-situacao").classList.toggle("oculto", !soContratacoes);
   $("cx-propostas").classList.toggle("oculto", !soContratacoes);
   $("cx-parada").classList.toggle("oculto", !soContratacoes);
-  const ehVigencia = ["contratos", "atas"].includes(tipo);
   $("cx-vigentes").classList.toggle("oculto", !ehVigencia);
   $("cx-vence60").classList.toggle("oculto", !ehVigencia);
-  // handoff Claude Design (2026-09-11, fase 8, tela 3c): "vigentes" e
-  // "vence em 60 dias" contam coisas diferentes — bug real documentado
-  // no DASHBOARD.md (25 no alerta, 50 na lista), daí a explicação fixa
-  $("aviso-vigencia").classList.toggle("oculto", !ehVigencia);
   $("f-busca").placeholder = "Buscar no objeto…";
   $("f-propostas").checked = false;
   $("f-vigentes").checked = false;
@@ -1174,6 +1185,11 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
     const dc = await ficha.buscar(nc);
     if (dc) ficha.render(d, dc);
   }
+  // achado da auditoria (2026-09-12): o modal sempre nomeava a
+  // acessibilidade por #det-titulo, que fica oculto (display:none) na
+  // ficha rica — o nome certo (visível) é #det-titulo-rico
+  $("veu-detalhe").setAttribute("aria-labelledby",
+    rico ? "det-titulo-rico" : "det-titulo");
   abrirModal("veu-detalhe");
 }
 
@@ -1181,7 +1197,12 @@ async function abrirDetalhe(nc, tipo = estado.tipo) {
 // 12, tela 1d): andamento, itens x mediana do acervo, vencedor,
 // procedência do dado. `d` é o detalhe genérico (raw/objeto/etc., já
 // buscado por abrirDetalhe); `dc` é o extra desta fase.
-const MES_ABREV_2D = s => dataBr(s).slice(0, 5);   // "DD/MM/AAAA" -> "DD/MM"
+// "DD/MM/AAAA" -> "DD/MM" (curto, cabe na coluna estreita da tabela de
+// itens) ou "DD/MM/AA" com `comAno` (achado da auditoria 2026-09-12: o
+// andamento nunca dizia o ano — "20/05" sem saber de qual, um passo
+// podia estar marcado num ano bem diferente do outro)
+const MES_ABREV_2D = (s, comAno) =>
+  comAno ? dataBr(s).slice(0, 6) + dataBr(s).slice(8) : dataBr(s).slice(0, 5);
 
 function celulaPosicao(diferenca) {
   if (diferenca == null)
@@ -1271,6 +1292,25 @@ function cardVencedores(vencedores, ano) {
        </div>`;
 }
 
+// achado da auditoria (2026-09-12): em Contrato/Ata, uma etapa anterior
+// sem data (ex.: "Publicado" nunca capturado) virava bolinha "futuro"
+// (vazia) ENTRE duas preenchidas — Vigência início/fim já rodando com
+// Publicado/Assinado "no futuro" é regressão visual absurda: a etapa JÁ
+// aconteceu (senão a vigência não teria começado), só falta a data.
+// Uma etapa mais à frente com data confirmada preenche as anteriores —
+// nunca o contrário (isso sim seria inventar o que a fonte não tem).
+function cascatearAndamento(passos) {
+  let aconteceu = false;
+  for (let i = passos.length - 1; i >= 0; i--) {
+    if (passos[i].ok) aconteceu = true;
+    else if (aconteceu) {
+      passos[i].ok = true;
+      passos[i].semData = passos[i].semData ?? "data não informada";
+    }
+  }
+  return passos;
+}
+
 function renderDetalheRicoContratacao(d, dc) {
   const c = dc.contratacao;
   $("det-migalha").textContent =
@@ -1317,7 +1357,7 @@ function renderDetalheRicoContratacao(d, dc) {
     <div class="det-passo ${p.ok ? "" : "futuro"}">
       <div class="trilho"><span class="bola"></span><span class="trilho-linha"></span></div>
       <div class="rotulo">${esc(p.rotulo)}</div>
-      <div class="data">${p.data ? MES_ABREV_2D(p.data) : esc(p.semData ?? "–")}</div>
+      <div class="data">${p.data ? MES_ABREV_2D(p.data, true) : esc(p.semData ?? "–")}</div>
     </div>`).join("");
 
   $("det-itens").innerHTML = tabelaItensComMediana(dc.itens);
@@ -1343,17 +1383,17 @@ function renderDetalheRicoContrato(d, dc) {
        <div style="font-size:22px;font-weight:700;margin-top:6px">${dinheiro(c.valor_global)}</div>`
     : `<span class="badge mut">Sem valor no acervo</span>`;
 
-  const passos = [
+  const passos = cascatearAndamento([
     { rotulo: "Publicado", data: c.data_publicacao, ok: !!c.data_publicacao },
     { rotulo: "Assinado", data: c.data_assinatura, ok: !!c.data_assinatura },
     { rotulo: "Vigência início", data: c.vigencia_inicio, ok: !!c.vigencia_inicio },
     { rotulo: "Vigência fim", data: c.vigencia_fim, ok: !!c.vigencia_fim },
-  ];
+  ]);
   $("det-andamento").innerHTML = passos.map(p => `
     <div class="det-passo ${p.ok ? "" : "futuro"}">
       <div class="trilho"><span class="bola"></span><span class="trilho-linha"></span></div>
       <div class="rotulo">${esc(p.rotulo)}</div>
-      <div class="data">${p.data ? MES_ABREV_2D(p.data) : "–"}</div>
+      <div class="data">${p.data ? MES_ABREV_2D(p.data, true) : esc(p.semData ?? "–")}</div>
     </div>`).join("");
 
   $("det-itens").innerHTML = tabelaItensComMediana(dc.itens);
@@ -1386,17 +1426,17 @@ function renderDetalheRicoAta(d, dc) {
        <div class="dim" style="font-size:12px;margin-top:4px">${
          dc.n_contratos ? `${dc.n_contratos} contrato(s) decorrente(s)` : "sem contrato decorrente"}</div>`;
 
-  const passos = [
+  const passos = cascatearAndamento([
     { rotulo: "Publicado", data: a.data_publicacao, ok: !!a.data_publicacao },
     { rotulo: "Assinado", data: a.data_assinatura, ok: !!a.data_assinatura },
     { rotulo: "Vigência início", data: a.vigencia_inicio, ok: !!a.vigencia_inicio },
     { rotulo: "Vigência fim", data: a.vigencia_fim, ok: !!a.vigencia_fim },
-  ];
+  ]);
   $("det-andamento").innerHTML = passos.map(p => `
     <div class="det-passo ${p.ok ? "" : "futuro"}">
       <div class="trilho"><span class="bola"></span><span class="trilho-linha"></span></div>
       <div class="rotulo">${esc(p.rotulo)}</div>
-      <div class="data">${p.data ? MES_ABREV_2D(p.data) : "–"}</div>
+      <div class="data">${p.data ? MES_ABREV_2D(p.data, true) : esc(p.semData ?? "–")}</div>
     </div>`).join("");
 
   $("det-itens").innerHTML = dc.compartilhada
@@ -1801,7 +1841,7 @@ async function montarCartoesRelatorio() {
         ? ` <span class="badge err">${pertoDoLimite}
             objeto${pertoDoLimite === 1 ? "" : "s"}</span>` : ""}</h3>
       <p>${esc(c.desc)}</p>
-      <span class="rel-acao">Gerar</span>
+      <span class="rel-acao">Escolher</span>
     </button>`).join("") + `
     <button class="card rel-cartao" id="rel-cartao-pca">
       <h3>Minuta do PCA</h3>

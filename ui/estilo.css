@@ -46,7 +46,7 @@
    originou a direção (2026-08-13). */
 [data-theme="civil"] {
   --bg:#f6f9fa; --surface:#ffffff; --surface2:#eaf0ee;
-  --text:#122a22; --muted:#567569; --border:#d9e6e1;
+  --text:#122a22; --muted:#4e6a5f; --border:#d9e6e1;
   --accent:#1b7a4d; --accent-fg:#ffffff; --ok:#1b7a4d; --warn:#8f6212;
   --erro:#b23a2e; --badge-tom:85%;
   --radius:12px; --pill:99px; --shadow:0 1px 3px rgba(18,42,34,.1); --mark-v:#1b7a4d;
@@ -136,6 +136,22 @@ input, select { background:var(--surface); color:var(--text);
    digita) — o espaço que sobra vai pro status de sync, que ganha
    `flex:1` logo abaixo. min-width impede sumir de vista em janela
    estreita antes dos botões espremerem primeiro. */
+/* sugestões de município de referência (Configurações) — mesmo padrão da
+   busca global: lista empilhada, sem borda por botão, sem sombra nativa
+   de <button> (achado do usuário: sem CSS nenhuma, caía no <button> cru
+   do navegador — virava chip inline, quebrando linha, com a borda/sombra
+   padrão do SO) */
+#ref-sugestoes { position:relative; background:var(--surface);
+  border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); max-height:260px; overflow-y:auto;
+  margin-top:6px; }
+#ref-sugestoes button { display:block; width:100%; text-align:left;
+  border:none; background:none; color:var(--text); padding:8px 10px;
+  font-size:12.5px; border-bottom:1px solid var(--border); cursor:pointer; }
+#ref-sugestoes button:last-child { border-bottom:none; }
+#ref-sugestoes button:hover, #ref-sugestoes button:focus
+  { background:var(--surface2); }
+#ref-sugestoes button:disabled { color:var(--muted); cursor:default; }
 .busca-global { position:relative; flex:0 1 360px; min-width:160px; }
 .busca-global input { width:100%; }
 #busca-global-resultados { position:absolute; top:calc(100% + 4px); left:0;
@@ -197,7 +213,7 @@ label { font-size:12px; color:var(--muted); display:block; margin:12px 0 5px; }
 /* ══ APP ══ */
 header { background:var(--surface); border-bottom:1px solid var(--border);
          padding:12px 22px; display:flex; align-items:center;
-         justify-content:space-between; gap:12px; }
+         justify-content:space-between; gap:12px; flex-wrap:wrap; }
 [data-theme="pergaminho"] header { border-bottom:3px double #b08d3e; }
 header .mark { font-size:22px; }
 header .mark small { display:block; font-family:var(--font-ui); font-size:11px;
@@ -292,6 +308,15 @@ nav.abas button.on { color:var(--accent); font-weight:600;
   color:var(--accent); border-radius:99px; padding:9px 13px; font-weight:600;
 }
 .check-filtro:has(:checked)::after { content:"×"; opacity:.7; margin-left:2px; }
+/* mesmo destaque de "ligado" do check-filtro, sem o "×" — achado da
+   auditoria (2026-09-12): 3 checkboxes de PARÂMETRO (não filtro
+   removível) reusavam .check-filtro e ganhavam um "×" que parecia
+   clicável pra remover, mas não fazia nada (Configurações → maximizar,
+   Montar PCA → recorrentes/IPCA) */
+.check-opcao:has(:checked) {
+  background:color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color:var(--accent); border-radius:99px; padding:9px 13px; font-weight:600;
+}
 .filtro-alerta { display:flex; align-items:center; gap:6px; font-size:12.5px;
                  font-weight:600; color:var(--accent); cursor:pointer;
                  background:color-mix(in srgb, var(--accent) 10%, var(--surface));
@@ -355,7 +380,9 @@ nav.abas button.on { color:var(--accent); font-weight:600;
    botão normal (9px 18px) — compacto e redondo aqui, com o número numa
    célula própria, não mais na mesma sequência de texto */
 .col-processo { display:flex; align-items:center; gap:6px; }
-.btn-descartar-item { flex:none; width:20px; height:20px; padding:0;
+/* 24px: piso do alvo de toque AA (WCAG 2.5.8) — era 20px (achado da
+   auditoria 2026-09-12), ação destrutiva dentro de linha clicável */
+.btn-descartar-item { flex:none; width:24px; height:24px; padding:0;
   border-radius:50%; border:1px solid var(--border); background:transparent;
   color:var(--muted); font-size:11px; line-height:1; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; }
@@ -474,9 +501,15 @@ body.redimensionando { cursor:col-resize; user-select:none; }
    `flex:1` (2026-09-09): ganha o espaço que a busca-global (com teto de
    360px) deixa de usar — sem `margin-left:auto`, que empurrava tudo pra
    direita sem deixar o bloco crescer pra esquerda. */
-.info-topo { flex:1; margin-right:18px; text-align:right;
+/* achado da auditoria (2026-09-12): min-width:0 deixava este bloco
+   encolher até a largura da palavra na janela mínima do app (900px,
+   licitarium.py) — a mensagem de sync quebrava em ~8 linhas e o
+   cabeçalho inteiro inchava. Piso de 190px (cabe "Sincronizado hoje às
+   14:32" em 2 linhas); header ganhou flex-wrap acima — faltando espaço
+   de verdade, quebra pra 2ª linha em vez de espremer o texto. */
+.info-topo { flex:1 1 190px; margin-right:18px; text-align:right;
              font-size:11.5px; line-height:1.6; color:var(--muted);
-             min-width:0; }
+             min-width:190px; }
 .info-topo .dot { display:inline-block; width:8px; height:8px;
                   border-radius:50%; background:var(--ok); margin-right:6px; }
 .info-topo .dot.rodando { background:var(--warn); animation:pulsa 1s infinite; }
@@ -883,9 +916,11 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .painel td.num, .painel th.num, .veu td.num, .veu th.num { width:100px; }
 /* CNPJ/CPF é largura fixa (nunca varia), diferente de objeto/órgão — sem
    coluna própria ele reticências no meio do número, achado da fase 3 do
-   handoff (2026-09-11): "Onde o dinheiro foi" ganhou coluna de CNPJ */
+   handoff (2026-09-11): "Onde o dinheiro foi" ganhou coluna de CNPJ.
+   122px cortava em civil/pergaminho (fonte mais larga que system-ui) —
+   achado da auditoria 2026-09-12, medido no pior caso (pergaminho, 151px). */
 .painel td.doc, .painel th.doc, .veu td.doc, .veu th.doc {
-  width:122px; font-variant-numeric:tabular-nums; }
+  width:158px; font-variant-numeric:tabular-nums; }
 .painel td, .painel th, .veu td, .veu th { padding:5px 6px; text-align:left;
                          border-bottom:1px solid var(--border); }
 .painel th, .veu th { font-size:11px; color:var(--muted); text-transform:uppercase;
@@ -967,8 +1002,14 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
   color:color-mix(in srgb, var(--erro) var(--badge-tom), black); }
 .cal-dia.venc.a { background:color-mix(in srgb, var(--warn) 16%, var(--surface));
   color:color-mix(in srgb, var(--warn) var(--badge-tom), black); }
+/* --s3 é cor de série de gráfico, não foi calibrada pra receita do
+   selo (--badge-tom pressupõe uma cor "clara o bastante no escuro,
+   escurece 15% no claro" — vale pra --erro/--warn, não pro teal de
+   --s3, que falhava AA em 3 dos 4 temas: achado da auditoria
+   2026-09-12). var(--text) já é garantido AA contra --surface, e o
+   tingimento de 16% desloca pouco o fundo pra importar. */
 .cal-dia.venc.t { background:color-mix(in srgb, var(--s3) 16%, var(--surface));
-  color:color-mix(in srgb, var(--s3) var(--badge-tom), black); }
+  color:var(--text); }
 /* selo da contagem: o dia continua sendo o número do meio, e a quantidade
    não disputa o mesmo lugar com ele */
 .cal-dia b { position:absolute; top:3px; right:3px; min-width:17px;

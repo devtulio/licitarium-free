@@ -564,9 +564,16 @@ function grafConcentracao(el, curva, total) {
   const chart = _iniciarEchart(alvoChart);
   chart.setOption({
     animation: false,
+    // achado da auditoria (2026-09-12): sem eixo Y, o único jeito de tirar
+    // um valor da curva era o ponto/rótulo fixo — nenhuma outra leitura
+    // dava pra fazer. Eixo com % e grade horizontal, sem mexer nos
+    // rótulos de texto próprios (endpoints/legenda) já desenhados abaixo.
     grid: { left: 8, right: 12, top: 8, bottom: 30, containLabel: true },
     xAxis: { type: "value", min: 0, max: curva.length - 1, show: false },
-    yAxis: { type: "value", min: 0, max: 100, show: false },
+    yAxis: { type: "value", min: 0, max: 100, splitNumber: 4,
+      axisLabel: { formatter: "{value}%", color: "var(--muted)", fontSize: 10 },
+      axisLine: { show: false }, axisTick: { show: false },
+      splitLine: { lineStyle: { color: "var(--border)", opacity: .6 } } },
     series: [
       { type: "line", symbol: "none", silent: true,
         data: [[0, 0], [curva.length - 1, 100]],
@@ -585,10 +592,14 @@ function grafConcentracao(el, curva, total) {
   const [px0] = pxCoord(0, 0), [pxN] = pxCoord(curva.length - 1, 0);
   const [dx, dy] = pxCoord(dez, curva[dez]);
   const aDireita = dx < px0 + (pxN - px0) * 0.7;
-  let g = `<text class="rot" x="0" y="${alturaPx - 6}">1</text>
-    <text class="rot" x="${larguraPx}" y="${alturaPx - 6}" text-anchor="end"
+  // achado da auditoria (2026-09-12): x="0"/x="${larguraPx}" cru ignorava
+  // a margem que o eixo Y novo abriu à esquerda (containLabel) — os
+  // rótulos "1"/total saíam desalinhados do início/fim reais da curva.
+  // px0/pxN (já calculados acima) são a posição de verdade no grid.
+  let g = `<text class="rot" x="${px0}" y="${alturaPx - 6}">1</text>
+    <text class="rot" x="${pxN}" y="${alturaPx - 6}" text-anchor="end"
       >${total}</text>
-    <text class="rot" x="${larguraPx / 2}" y="${alturaPx - 6}" text-anchor="middle"
+    <text class="rot" x="${(px0 + pxN) / 2}" y="${alturaPx - 6}" text-anchor="middle"
       >fornecedores, do maior para o menor</text>
     <circle data-serie-padrao cx="${dx}" cy="${dy}" r="4" fill="var(--s1)"
       stroke="var(--surface)" stroke-width="2" opacity="1"/>
@@ -676,7 +687,13 @@ function grafCurvaABC(el, itens, larg = 660) {
   chart.setOption({
     animation: false,
     grid: { left: 8, right: 12, top: 12, bottom: 8, containLabel: true },
-    xAxis: { type: "value", min: 0, max: validos.length - 1, show: false },
+    // achado da auditoria (2026-09-12): a faixa sombreada usava xAxis:0→
+    // fimA (largura em UNIDADES DE ÍNDICE — com 1 item em A, fimA=0, faixa
+    // de largura zero), enquanto a legenda logo abaixo reserva espaço por
+    // CONTAGEM ((fimA+1)/n) — descasado, a legenda de A sobrava sobre a
+    // faixa de B. min/max com meia célula de folga (±0,5) faz cada item
+    // "ocupar" 1 unidade cheia, batendo com a largura da legenda.
+    xAxis: { type: "value", min: -0.5, max: validos.length - 0.5, show: false },
     yAxis: { type: "value", min: 0, max: 100, axisLabel: { ...ROT_TXT,
         formatter: "{value}%" },
       splitLine: { lineStyle: { color: COR_EIXO, opacity: .55 } } },
@@ -685,13 +702,17 @@ function grafCurvaABC(el, itens, larg = 660) {
       data: curva.map((v, i) => [i, v]),
       lineStyle: { color: "var(--s1)", width: 2.5 },
       markArea: { silent: true, data: [
-        [{ xAxis: 0, itemStyle: { color: "var(--seq1)" } }, { xAxis: fimA }],
-        [{ xAxis: fimA, itemStyle: { color: "var(--surface2)" } }, { xAxis: fimB }],
+        [{ xAxis: -0.5, itemStyle: { color: "var(--seq1)" } }, { xAxis: fimA + 0.5 }],
+        [{ xAxis: fimA + 0.5, itemStyle: { color: "var(--surface2)" } }, { xAxis: fimB + 0.5 }],
       ] },
       markPoint: {
         silent: true, symbol: "circle", symbolSize: 8,
         itemStyle: { color: "var(--s1)", borderColor: "var(--surface)", borderWidth: 2 },
-        label: { show: true, position: "right", offset: [8, 0],
+        // achado da auditoria: rótulo à direita do ponto ficava quase
+        // horizontal com a própria curva quando a classe A é pequena (o
+        // caso comum) — a linha de 2,5px riscava o texto por cima. Acima
+        // do ponto, não ao lado, garante que nunca fica sobre a curva.
+        label: { show: true, position: "top", offset: [0, -10],
           fontFamily: _fonteUI(), fontSize: 12.5, fontWeight: 600,
           color: "var(--text)",
           formatter: () => `${nA} ${nA === 1 ? "item" : "itens"} (classe A) = ${
@@ -841,10 +862,19 @@ function grafLimites(el, objetos, limite) {
     return (o.pct > 100 ? `${vezes}× o limite` : `${pct(o.pct, 0)} do limite`)
       + ` · ${dinheiro(o.total)}`;
   };
+  // achado da auditoria (2026-09-12): toda barra travava em 100% de
+  // largura (Math.min) — com a lista inteira já acima do limite (é o
+  // recorte que o cartão mostra), todas ficavam idênticas e o card que
+  // existe pra RANQUEAR severidade não ranqueava nada visualmente. Escala
+  // pelo maior % da lista (nunca menos que 100, senão um grupo todo
+  // abaixo do limite infla artificialmente) — o pior caso vira a barra
+  // cheia, os outros ficam proporcionais a ele.
+  const maiorPct = Math.max(100, ...objetos.map(o => o.pct || 0));
   el.innerHTML = objetos.map(o => `
     <div class="lim-item">
       <div class="lim-trilho">
-        <div class="lim-barra" style="width:${Math.min(100, o.pct || 0)}%;
+        <div class="lim-barra" style="width:${Math.min(100,
+             (o.pct || 0) / maiorPct * 100)}%;
              background:${cor(o)}"></div>
         ${o.pct > 100 ? `<span class="lim-estouro" style="color:${cor(o)}"
              aria-hidden="true">▸</span>` : ""}
@@ -1139,7 +1169,7 @@ function tabelaFornecedores(itens, total90) {
   const total = total90 || itens.reduce((s, f) => s + (f.total || 0), 0);
   const topo4 = itens.slice(0, 4).reduce((s, f) => s + (f.total || 0), 0);
   return `<table><tr><th style="width:18%">Fornecedor</th><th class="doc">CNPJ</th>
-    <th>Objeto</th><th class="num" style="width:54px" title="Contratos">Contr.</th>
+    <th>Objeto</th><th class="num" style="width:66px" title="Contratos">Contr.</th>
     <th class="num" style="width:104px">Total</th>
     <th class="num" style="width:58px" title="% do ano">% ano</th></tr>` +
     itens.slice(0, 5).map(f =>
