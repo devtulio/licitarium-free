@@ -2015,11 +2015,22 @@ $("btn-exportar-json")?.addEventListener("click", async () => {
 // em vez de em fila — o tempo total vira o da mais lenta, não a soma.
 $("btn-config").addEventListener("click", async () => {
   abrirModal("veu-config");
-  const [e, brasao, orgaos, log] = await Promise.all([
-    api.get_estado(), api.brasao(), api.listar_orgaos(), api.ultimo_log()]);
+  const [e, brasao] = await Promise.all([api.get_estado(), api.brasao()]);
   $("cfg-municipio").innerHTML = `${esc(e.municipio)} — ${esc(e.uf)}
     <small class="dim">(IBGE ${esc(e.ibge)})</small>`;
   mostrarBrasao(brasao.dataurl);
+  aplicarLimCompras(parseFloat(e.limite_dispensa_compras) || 0);
+  aplicarLimObras(parseFloat(e.limite_dispensa_obras) || 0);
+  $("cfg-frac-janela").value = e.frac_janela || "exercicio";
+});
+
+// órgãos monitorados, municípios de referência e log de sincronizações:
+// configuração PERSISTENTE de sync, movida do modal Configurações pro modal
+// de Sincronização (pedido do usuário, 2026-09-12) — recarrega toda vez
+// que o modal de sync abre, e de novo depois de add/remover órgão.
+async function carregarConfigSync() {
+  const [e, orgaos, log] = await Promise.all([
+    api.get_estado(), api.listar_orgaos(), api.ultimo_log()]);
   $("cfg-orgaos").innerHTML = orgaos.map(o =>
     `<div class="orgrow"><span>${esc(o.razao_social ?? o.cnpj)}
        <small>${esc(o.cnpj)} · ${o.origem === "manual" ? "adicionado manualmente"
@@ -2030,9 +2041,6 @@ $("btn-config").addEventListener("click", async () => {
   $("cfg-orgaos").querySelectorAll("input[data-cnpj]").forEach(c =>
     c.addEventListener("change", () =>
       api.set_orgao_ativo(c.dataset.cnpj, c.checked)));
-  aplicarLimCompras(parseFloat(e.limite_dispensa_compras) || 0);
-  aplicarLimObras(parseFloat(e.limite_dispensa_obras) || 0);
-  $("cfg-frac-janela").value = e.frac_janela || "exercicio";
   $("ref-ordem").value = e.ref_ordem || "tamanho";
   $("cfg-log").innerHTML = log.map(l =>
     `<div class="logline">${esc(l.iniciado_em?.slice(0,16).replace("T"," "))} ·
@@ -2040,7 +2048,7 @@ $("btn-config").addEventListener("click", async () => {
        : `<span style="color:var(--warn)">erro: ${esc(l.erro)}</span>`}</div>`)
     .join("") || `<div class="dim">Nenhuma sincronização ainda.</div>`;
   carregarMunicipiosReferencia();
-});
+}
 function mostrarBrasao(dataurl) {
   const preview = $("cfg-brasao-preview");
   preview.src = dataurl || "";
@@ -2088,7 +2096,7 @@ $("btn-trocar").addEventListener("click", () => {
 $("btn-add-orgao").addEventListener("click", async () => {
   const r = await api.add_orgao($("novo-cnpj").value, $("novo-nome").value);
   if (r.ok) { $("novo-cnpj").value = ""; $("novo-nome").value = "";
-    $("btn-config").click(); }
+    carregarConfigSync(); }
   else if (r.erro) alert(r.erro);
 });
 
@@ -2154,6 +2162,7 @@ $("btn-sync-opcoes")?.addEventListener("click", async () => {
     api.status_sync?.() ?? Promise.resolve({rodando: false}),
     api.opcoes_sync()]);
   estadoDoParar(!!sync.rodando);
+  carregarConfigSync();
   const pendentes = d.referencia.filter(m => m.nunca_sincronizado);
   $("opcoes-sync-lista").innerHTML = `
     <label class="opcao-sync">

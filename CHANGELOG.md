@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.13.6 — 2026-09-12
+
+**Mudança — configuração de sync sai de "Configurações" e entra no modal
+de Sincronização**
+
+Órgãos monitorados, municípios de referência e log de sincronizações
+recentes eram parâmetros de coleta escondidos dentro do modal
+"Configurações" (aparência, brasão, limites...), longe do fluxo real de
+sincronizar. Proposta apresentada ao usuário (mockup com tokens reais do
+tema) antes da implementação — aprovada com um ajuste: botão
+"Sincronizar" ao lado de "Parar sincronização", não separado no rodapé.
+
+- As 3 seções (órgãos, referência, log) mudaram para dentro do modal
+  aberto pelo ▾ ao lado de Sincronizar, agora com 680px (era 440px) e
+  layout em duas colunas para órgãos/referência.
+- Selo "Configuração persistente" separa visualmente o que é permanente
+  do escopo desta execução (radios "tudo/só o meu/pendentes/escolher").
+- Botão "Sincronizar" (execução com o escopo escolhido) ficou ao lado de
+  "Parar sincronização"; rodapé agora só tem "Fechar".
+- `Configurações` perdeu essas 3 seções — continua só com aparência,
+  município, brasão, limites de dispensa, cópia/exportação e Sobre.
+
+314 testes Python + 190 testes Playwright verdes.
+
 ## 2.13.5 — 2026-09-12
 
 **Correção — lote de achados da auditoria dos PDFs de relatório**

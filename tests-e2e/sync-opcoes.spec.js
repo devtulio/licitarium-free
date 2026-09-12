@@ -85,9 +85,9 @@ test("submeter com 'município' apontando pro próprio vira escopo proprio",
        ibge_escolhido: null }]);
 });
 
-test("cancelar fecha a modal sem sincronizar", async ({ page }) => {
+test("fechar sem sincronizar não dispara sincronizar", async ({ page }) => {
   await page.locator("#btn-sync-opcoes").click();
-  await page.locator('#veu-sync-opcoes button:has-text("Cancelar")').click();
+  await page.locator('#veu-sync-opcoes button:has-text("Fechar")').click();
   await expect(page.locator("#veu-sync-opcoes")).toHaveClass(/oculto/);
   const chamadas = await page.evaluate(() => window.__chamadas);
   expect(chamadas.filter(c => c.metodo === "sincronizar")).toEqual([]);

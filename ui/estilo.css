@@ -721,6 +721,18 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
   border-radius:var(--radius); cursor:pointer; font-size:13px; }
 .opcao-sync:hover { background:var(--surface2); }
 .opcao-sync input { margin-top:3px; flex:none; }
+.cfg h3 { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--muted); margin:0 0 10px; font-weight:600; }
+/* "O que entra na coleta" (config persistente movida pra dentro do modal
+   de sync, 2026-09-12): grade lado a lado só quando cabe; empilha no
+   mínimo do app (900px) */
+.grade-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:760px) { .grade-2 { grid-template-columns:1fr; } }
+.subcard { background:var(--surface2); border-radius:var(--radius); padding:14px 16px; }
+.rotulo-persistente { font-size:11px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; padding:2px 8px; border-radius:99px;
+  background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--ok);
+  display:inline-block; margin-bottom:10px; }
 .bolinha-status { display:inline-block; width:8px; height:8px;
   border-radius:50%; margin-right:7px; vertical-align:middle; }
 .bolinha-status.status-vermelho { background:var(--erro); }

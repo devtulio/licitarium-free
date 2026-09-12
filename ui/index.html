@@ -543,43 +543,6 @@
       </div>
     </div>
     <div class="card cfg">
-      <h2>Órgãos monitorados</h2>
-      <div id="cfg-orgaos"></div>
-      <!-- rótulo de verdade, não só placeholder: o placeholder some no
-           primeiro caractere digitado e não é nome acessível -->
-      <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end">
-        <label class="campo" style="flex:1"><span>CNPJ</span>
-          <input type="text" id="novo-cnpj" placeholder="14 dígitos"></label>
-        <label class="campo" style="flex:2"><span>Nome do órgão</span>
-          <input type="text" id="novo-nome" placeholder="ex.: Câmara Municipal"></label>
-        <button class="btn ghost" id="btn-add-orgao">+ Adicionar</button>
-      </div>
-    </div>
-    <div class="card cfg">
-      <h2>Municípios de referência</h2>
-      <p class="dim" style="font-size:12.5px; margin-bottom:10px">
-        Os itens destes municípios entram <b>apenas no banco de preços</b>,
-        para dar base de comparação à aba Preços. O acervo e os relatórios
-        continuam só do seu município.</p>
-      <button class="btn ghost" id="btn-cobertura" style="margin-bottom:10px">
-        Relatório de cobertura da coleta</button>
-      <label for="ref-ordem" style="font-size:12.5px">Ordenar por</label>
-      <select id="ref-ordem" style="width:100%; margin-bottom:8px">
-        <option value="tamanho">Tamanho em disco (maior primeiro)</option>
-        <option value="nome">Nome (A-Z)</option>
-        <option value="itens">Preços no banco (mais primeiro)</option>
-      </select>
-      <div id="cfg-referencia"></div>
-      <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end">
-        <label class="campo" style="width:90px"><span>UF</span>
-          <select id="ref-uf"><option value="">Todos</option></select></label>
-        <label class="campo" style="flex:1"><span>Município de referência</span>
-          <input type="text" id="ref-busca" placeholder="ex.: Olímpia"
-                 autocomplete="off"></label>
-      </div>
-      <div id="ref-sugestoes" class="oculto"></div>
-    </div>
-    <div class="card cfg">
       <h2>Limites de dispensa — art. 75, Lei 14.133</h2>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
         <div style="flex:1; min-width:180px">
@@ -628,10 +591,6 @@
       </div>
       <div id="json-msg" class="dim" style="margin-top:8px"></div>
     </div>
-    <div class="card cfg">
-      <h2>Sincronizações recentes</h2>
-      <div id="cfg-log"></div>
-    </div>
     <div class="card cfg sobre">
       <svg viewBox="0 0 64 64" aria-hidden="true" id="svg-estandarte-sobre"></svg>
       <p><b style="color:var(--text)">Licitarium <span id="sobre-versao"></span></b><br>
@@ -645,26 +604,74 @@
      Free 2026-09-07): clique normal continua sincronizando tudo sem
      fricção nova; o ▾ ao lado abre isto pra quem quer restringir. -->
 <div id="veu-sync-opcoes" class="veu oculto" role="dialog" aria-modal="true"
-     aria-label="O que sincronizar">
-  <div class="modal" style="background:none; border:none; box-shadow:none; width:min(440px,100%)">
+     aria-label="Sincronização">
+  <div class="modal" style="background:none; border:none; box-shadow:none; width:min(680px,100%)">
     <div class="card cfg">
       <div style="display:flex; justify-content:space-between">
-        <h2>O que sincronizar</h2>
+        <h2>Sincronização</h2>
         <button class="fechar" data-fecha="veu-sync-opcoes" aria-label="Fechar">×</button>
       </div>
       <div class="ajuda">A coleta roda em segundo plano e pode demorar na
         primeira vez. Parar não corrompe nada: o que já entrou fica, e a
         próxima coleta refaz de onde faltou.</div>
-      <div style="display:flex; align-items:center; gap:12px; margin:8px 0 14px">
+      <div style="display:flex; align-items:center; gap:12px; margin:10px 0 16px">
+        <button class="btn primario" id="btn-sync-opcoes-ir">Sincronizar</button>
         <button class="btn ghost" id="btn-parar-sync" disabled>Parar
           sincronização</button>
         <span class="dim" id="parar-sync-status" role="status"></span>
       </div>
+      <h3>Escopo desta sincronização</h3>
       <div class="opcoes-sync" id="opcoes-sync-lista"></div>
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px">
-        <button class="btn ghost" data-fecha="veu-sync-opcoes">Cancelar</button>
-        <button class="btn" id="btn-sync-opcoes-ir">Sincronizar</button>
+    </div>
+    <div class="card cfg">
+      <span class="rotulo-persistente">Configuração persistente</span>
+      <h2 style="margin-top:-2px">O que entra na coleta</h2>
+      <div class="grade-2">
+        <div class="subcard">
+          <h3>Órgãos monitorados</h3>
+          <div id="cfg-orgaos"></div>
+          <!-- rótulo de verdade, não só placeholder: o placeholder some no
+               primeiro caractere digitado e não é nome acessível -->
+          <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end; flex-wrap:wrap">
+            <label class="campo" style="flex:1; min-width:100px"><span>CNPJ</span>
+              <input type="text" id="novo-cnpj" placeholder="14 dígitos"></label>
+            <label class="campo" style="flex:2; min-width:140px"><span>Nome do órgão</span>
+              <input type="text" id="novo-nome" placeholder="ex.: Câmara Municipal"></label>
+            <button class="btn ghost" id="btn-add-orgao">+ Adicionar</button>
+          </div>
+        </div>
+        <div class="subcard">
+          <h3>Municípios de referência</h3>
+          <button class="btn ghost" id="btn-cobertura" style="margin-bottom:10px">
+            Relatório de cobertura da coleta</button>
+          <label for="ref-ordem" style="font-size:12.5px">Ordenar por</label>
+          <select id="ref-ordem" style="width:100%; margin-bottom:8px">
+            <option value="tamanho">Tamanho em disco (maior primeiro)</option>
+            <option value="nome">Nome (A-Z)</option>
+            <option value="itens">Preços no banco (mais primeiro)</option>
+          </select>
+          <div id="cfg-referencia"></div>
+          <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end; flex-wrap:wrap">
+            <label class="campo" style="width:90px"><span>UF</span>
+              <select id="ref-uf"><option value="">Todos</option></select></label>
+            <label class="campo" style="flex:1; min-width:140px"><span>Município de referência</span>
+              <input type="text" id="ref-busca" placeholder="ex.: Olímpia"
+                     autocomplete="off"></label>
+          </div>
+          <div id="ref-sugestoes" class="oculto"></div>
+        </div>
       </div>
+      <p class="dim" style="font-size:12.5px; margin-top:10px">
+        Os itens dos municípios de referência entram <b>apenas no banco de
+        preços</b>, para dar base de comparação à aba Preços. O acervo e os
+        relatórios continuam só do seu município.</p>
+    </div>
+    <div class="card cfg">
+      <h2>Sincronizações recentes</h2>
+      <div id="cfg-log"></div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px">
+      <button class="btn ghost" data-fecha="veu-sync-opcoes">Fechar</button>
     </div>
   </div>
 </div>

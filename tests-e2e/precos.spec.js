@@ -62,7 +62,7 @@ test("descartar um item exige motivo antes de confirmar",
 
 test("Municípios de referência: listar, estimar e adicionar",
   async ({ page }) => {
-  await page.locator("#btn-config").click();
+  await page.locator("#btn-sync-opcoes").click();
   await expect(page.locator("#cfg-referencia")).toContainText("Olímpia");
   // semáforo de status (portado do Pretiarium Free): verde = já sincronizou
   await expect(page.locator("#cfg-referencia .bolinha-status"))
@@ -90,7 +90,7 @@ test("estimar município de referência mostra sinal de carregamento (achado do 
   // consulta real ao PNCP sem sinal nenhum parecia travada — achado do
   // usuário, 2026-09-08
   await page.evaluate(() => { window.__delayEstimar = 80; });
-  await page.locator("#btn-config").click();
+  await page.locator("#btn-sync-opcoes").click();
   await page.locator("#ref-uf").selectOption("SP");
   await page.locator("#ref-busca").fill("Olímpia");
   await expect(page.locator("#ref-sugestoes button[data-c]").first())
@@ -106,7 +106,7 @@ test("estimar município de referência mostra sinal de carregamento (achado do 
 
 test("relatório de cobertura da coleta abre pela ponte",
   async ({ page }) => {
-  await page.locator("#btn-config").click();
+  await page.locator("#btn-sync-opcoes").click();
   await page.locator("#btn-cobertura").click();
   const chamada = await page.evaluate(() => window.__chamadas
     .find(c => c.metodo === "gerar_relatorio" && c.tipo === "cobertura"));
@@ -127,7 +127,7 @@ test("Municípios de referência: ordenar e persistir a escolha",
         status: "verde" },
     ];
   });
-  await page.locator("#btn-config").click();
+  await page.locator("#btn-sync-opcoes").click();
   const nomes = () => page.locator("#cfg-referencia .orgrow")
     .allTextContents();
   // padrão: tamanho em disco, maior primeiro
