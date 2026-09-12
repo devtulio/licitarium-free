@@ -624,34 +624,40 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 #pca-lista { max-height:58vh; overflow-y:auto; }
 /* limite anual de dispensa (Painel → Vigilância): barra na largura inteira
    do cartão, texto abaixo dela — HTML puro, não ECharts (2026-09-04,
-   pedido do usuário: o layout horizontal anterior desperdiçava a largura). */
-.lim-item + .lim-item { margin-top:14px; }
-.lim-trilho { position:relative; height:8px; border-radius:4px;
+   pedido do usuário: o layout horizontal anterior desperdiçava a largura).
+   Barra 14px (era 8px) e objeto em caixa alta sem cortar — mais espaço
+   horizontal sobrando do que o nowrap+ellipsis aproveitava (pedido do
+   usuário, 2026-09-12, mesmo molde da fila de triagem abaixo). */
+.lim-item + .lim-item { margin-top:16px; }
+.lim-trilho { position:relative; height:14px; border-radius:6px;
              background:var(--surface2); }
-.lim-barra { height:100%; border-radius:4px; }
+.lim-barra { height:100%; border-radius:6px; }
 .lim-estouro { position:absolute; right:-9px; top:50%;
               transform:translateY(-50%); font-size:11px; line-height:1; }
-.lim-legenda { display:flex; justify-content:space-between; align-items:baseline;
-              gap:10px; margin-top:5px; }
-.lim-obj { font-size:10.5px; color:var(--muted); overflow:hidden;
-          text-overflow:ellipsis; white-space:nowrap; }
-.lim-val { font-size:11px; font-weight:600; white-space:nowrap; }
+.lim-legenda { display:flex; justify-content:space-between; align-items:flex-start;
+              gap:14px; margin-top:6px; }
+.lim-obj { font-size:11px; color:var(--text); text-transform:uppercase;
+          flex:1; min-width:0; }
+.lim-val { font-size:11px; font-weight:600; white-space:nowrap;
+          text-align:right; flex-shrink:0; }
 /* fila de triagem (Painel → Vigilância, handoff Claude Design 2026-09-11,
    fase 5): mesmos 5 alertas do chip do topo, com o porquê e uma barra de
    gravidade — "abrir lista" é o mesmo clique do chip, só com mais contexto
-   pra decidir o que tratar primeiro. */
-.fila-item { display:flex; align-items:center; gap:14px; padding:13px 0;
-             border-bottom:1px solid var(--border); }
+   pra decidir o que tratar primeiro. Barra na largura inteira do cartão,
+   acima do texto — mesmo molde do limite anual acima (pedido do usuário,
+   2026-09-12: a barra de 110px ao lado do texto desperdiçava a largura). */
+.fila-item { padding:14px 0; border-bottom:1px solid var(--border); }
 .fila-item:last-child { border-bottom:0; }
+.fila-trilho { position:relative; height:14px; border-radius:6px;
+              background:var(--surface2); margin-bottom:10px; }
+.fila-barra { height:100%; border-radius:6px; }
+.fila-topo { display:flex; align-items:flex-start; gap:14px; }
 .fila-icone { display:flex; flex-shrink:0; }
 .fila-icone svg { width:19px; height:19px; }
 .fila-corpo { flex:1; min-width:0; }
 .fila-titulo { font-size:13.5px; line-height:1.35; }
 .fila-detalhe { font-size:11.5px; color:var(--muted); margin-top:3px;
                 line-height:1.5; }
-.fila-trilho { width:110px; flex-shrink:0; height:6px; border-radius:99px;
-              background:var(--surface2); overflow:hidden; }
-.fila-barra { height:100%; }
 .fila-ir { flex-shrink:0; font-size:12px; color:var(--accent);
           background:none; border:0; cursor:pointer; padding:0; }
 .fila-ir:hover { text-decoration:underline; }

@@ -1104,8 +1104,8 @@ def test_toda_classe_do_painel_tem_estilo_no_documento_impresso():
         "doc",
         # fila de triagem (fase 5 do handoff, Vigilância): "abrir lista →"
         # é navegação de tela, sem sentido no papel — vira texto comum
-        "fila", "fila-item", "fila-icone", "fila-corpo", "fila-titulo",
-        "fila-detalhe", "fila-trilho", "fila-barra", "fila-ir",
+        "fila", "fila-item", "fila-topo", "fila-icone", "fila-corpo",
+        "fila-titulo", "fila-detalhe", "fila-trilho", "fila-barra", "fila-ir",
         # modificadores sem geometria própria (herdam da classe base)
         "on", "oculto", "hoje", "venc", "fora", "u", "a", "t",
         "grave", "aviso", "info", "ok", "warn", "err", "up", "down", "dir",

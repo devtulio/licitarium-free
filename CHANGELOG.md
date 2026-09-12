@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.13.3 — 2026-09-12
+
+**Correção — visual da Fila de triagem e do Limite anual de dispensa**
+
+- **Fila de triagem** (Painel · Vigilância): a barra de gravidade era uma
+  tira de 110px espremida ao lado do texto. Virou barra na largura
+  inteira do cartão, acima do texto — mesmo molde que "Limite anual de
+  dispensa" já usava.
+- **Limite anual de dispensa**: objeto em CAIXA ALTA (era minúsculo/
+  cinza) e sem cortar (era `nowrap`+ellipsis numa linha só; agora quebra
+  linha, aproveitando a largura sobrando).
+- Barras de ambos os cartões engrossaram de 8px pra 14px.
+- Proposta desenhada e aprovada antes de implementar (pedido do
+  usuário, 2026-09-12).
+- 310 testes Python + 188 Playwright verdes.
+
 ## 2.13.2 — 2026-09-12
 
 **Adiciona/Corrige — gráfico de Atas vai pro Painel; 350px também em Preços**

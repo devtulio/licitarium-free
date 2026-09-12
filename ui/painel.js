@@ -1489,14 +1489,16 @@ function filaDeTriagem(d) {
   const corLinha = (cls, chave) => chave === "propostas" ? "var(--ok)" : COR_ALERTA[cls];
   const linhas = ordenados.map(([cls, icone, n, texto, aoClicar, chave]) => `
     <div class="fila-item">
-      <span class="fila-icone" style="color:${corLinha(cls, chave)}">${icone}</span>
-      <div class="fila-corpo">
-        <div class="fila-titulo"><b>${n}</b> ${texto}</div>
-        <div class="fila-detalhe">${detalheAlerta(chave, d)}</div>
-      </div>
       <div class="fila-trilho"><div class="fila-barra" style="width:${
         GRAVIDADE_ALERTA[chave] ?? 20}%;background:${corLinha(cls, chave)}"></div></div>
-      <button class="fila-ir" data-fila="${chave}">abrir lista →</button>
+      <div class="fila-topo">
+        <span class="fila-icone" style="color:${corLinha(cls, chave)}">${icone}</span>
+        <div class="fila-corpo">
+          <div class="fila-titulo"><b>${n}</b> ${texto}</div>
+          <div class="fila-detalhe">${detalheAlerta(chave, d)}</div>
+        </div>
+        <button class="fila-ir" data-fila="${chave}">abrir lista →</button>
+      </div>
     </div>`).join("");
   return cartao("Fila de triagem — ordenada por gravidade",
     `<div class="fila">${linhas}</div>`);
