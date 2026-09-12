@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.13.5 — 2026-09-12
+
+**Correção — lote de achados da auditoria dos PDFs de relatório**
+
+Segunda auditoria (agente Opus, focada em PDF real dos 7 cards de
+Relatórios + minuta do PCA + cobertura, 18 PDFs gerados de verdade):
+
+- **Cabeçalho corrido em branco a partir da página 2, em todo relatório**
+  — `@top-center { content: string(titulo) }` usa CSS Paged Media que o
+  Chrome/Chromium (o motor real, via `webbrowser.open()`) não
+  implementa; virou um literal fixo calculado em Python, que funciona em
+  qualquer motor.
+- **Relação de Atas duplicava linha (byte-idêntica) sem explicação** —
+  `dados_atas` desdobra 1 linha por fornecedor pra planilha, mas a
+  tabela impressa não tinha coluna de Fornecedor pra mostrar por quê;
+  coluna adicionada.
+- **Rodapé de total lia como subtotal da página** (repete em toda
+  página do PDF real, é comportamento normal de `tfoot`) — "Total:" →
+  "Total geral:" nos 3 relatórios de relação.
+- **Quantidade da Minuta do PCA em formato americano** ("4141.22") ao
+  lado de valor em R$ brasileiro — trocado pelo helper `quantidade()`
+  que Preços já usa.
+- Legenda "Por município" (Preços) podia ficar sozinha no fim de uma
+  página com o gráfico dela na seguinte — `break-inside:avoid` no
+  wrapper. Mesmo ajuste geral em `.caixa-aviso` (não quebrar logo
+  depois de um aviso).
+- `colspan` do estado vazio de Fracionamento contava 1 coluna a menos
+  (5/6 numa tabela de 6/7) — sobrava célula vazia sob "Situação".
+- Coluna Unidade (administrativa) de Contratações não é a mesma coisa
+  que Unidade de medida de Preços — mantida com quebra de linha (é
+  nome de secretaria, não "KG"/"UN"), só alinhamento à esquerda em vez
+  de centralizado.
+- `scope="col"` em todo `<th>` de todo relatório (84 ocorrências) —
+  tabela sem isso não expõe a associação coluna↔célula pra leitor de
+  tela.
+- 314 testes Python + 190 Playwright verdes (4 novos, cobrindo os
+  achados).
+
 ## 2.13.4 — 2026-09-12
 
 **Correção — lote de achados da auditoria completa de visual/UX/acessibilidade**

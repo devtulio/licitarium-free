@@ -2475,12 +2475,26 @@ def _acervo_atual(db):
     return r[0] if r else None
 
 
-def _css(paisagem, papel="A4"):
+def _css_str(s):
+    """Escapa pra dentro de um `content:"..."` do CSS — usado só pro
+    cabeçalho corrido do papel (achado da auditoria, 2026-09-12): o motor
+    de impressão real (Chrome/Chromium, é o que `webbrowser.open()` abre)
+    não implementa `string-set`/`content()` do CSS Paged Media — o
+    `@top-center` ficava sempre em branco a partir da página 2, e uma
+    folha solta de um relatório de 16 páginas não dizia de qual documento
+    era. Literal fixo (calculado 1x em Python) funciona em qualquer
+    motor; perde-se só o "adapta por seção" que `string-set` prometeria
+    e nunca chegou a fazer."""
+    return str(s or "").replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+
+
+def _css(paisagem, papel="A4", titulo_pagina=""):
     return f"""
   :root {{ {_VARS} }}
   @page {{
     size: {papel} {"landscape" if paisagem else "portrait"}; margin: 1.6cm 1.4cm;
-    @top-center {{ content: string(titulo); font-size: 8pt; color: #6f5b3e; }}
+    @top-center {{ content: "{_css_str(titulo_pagina)}"; font-size: 8pt;
+                   color: #6f5b3e; }}
     @bottom-right {{ content: "Página " counter(page) " de " counter(pages);
                      font-size: 8pt; color: #6f5b3e; }}
   }}
@@ -2497,8 +2511,7 @@ def _css(paisagem, papel="A4"):
   .pagina {{ max-width:100%; margin:0 auto; padding:26px 30px 50px; }}
   header {{ display:flex; align-items:center; gap:18px; padding-bottom:14px;
             border-bottom:1px solid var(--borda); margin-bottom:16px; }}
-  h1 {{ font-family:Georgia,serif; font-size:21px; font-weight:400;
-        string-set: titulo content(); }}
+  h1 {{ font-family:Georgia,serif; font-size:21px; font-weight:400; }}
   .meta {{ font-size:11.5px; color:var(--suave); margin-top:3px; }}
   h2 {{ font-family:Georgia,serif; font-size:15px; font-weight:400;
         color:var(--acento); margin:20px 0 8px; break-after:avoid; }}
@@ -2534,6 +2547,11 @@ def _css(paisagem, papel="A4"):
   p.disp {{ margin:0 0 6px; font-size:10.5px; color:var(--suave);
             break-inside:avoid; }}
   p.disp b {{ color:var(--texto); }}
+  /* achado da auditoria (2026-09-12): a legenda "Por município" e o
+     gráfico dela eram 2 blocos soltos — a legenda podia ficar sozinha no
+     fim de uma página e o gráfico pular pra próxima. Um wrapper com
+     break-inside:avoid prende os dois juntos. */
+  .bloco-municipio {{ break-inside:avoid; }}
   td.sem-motivo {{ color:var(--alerta); font-style:italic; }}
   .card {{ background:var(--superficie); border:1px solid var(--borda);
            border-top:3px solid var(--cor-categoria, var(--acento));
@@ -2564,7 +2582,7 @@ def _css(paisagem, papel="A4"):
   .caixa-aviso {{ background:var(--superficie); border:1px solid var(--borda);
                   border-left:4px solid var(--alerta); border-radius:3px;
                   padding:10px 14px; font-size:11.5px; margin-bottom:12px;
-                  break-inside:avoid; }}
+                  break-inside:avoid; break-after:avoid; }}
   .farol-alerta {{ color:var(--alerta); font-weight:600; }}
   .farol-atencao {{ color:var(--atencao); font-weight:600; }}
   footer {{ margin-top:22px; padding-top:10px;
@@ -2614,7 +2632,7 @@ def _pagina(titulo_doc, corpo, municipio, uf, periodo_txt, paisagem,
     return f"""<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>{_e(titulo_doc)}</title>
-<style>{_css(paisagem, papel)}{estilo_extra}</style></head>
+<style>{_css(paisagem, papel, titulo_doc)}{estilo_extra}</style></head>
 <body{estilo_body}>
 <div class="no-print"><button onclick="print()">🖨 Imprimir</button></div>
 <div class="pagina">
@@ -2639,7 +2657,7 @@ def render_contratacoes(d, municipio, uf, periodo_txt, brasao=None,
       <td class="ctr">{_e(l['modalidade_nome'])}</td>
       <td class="ctr">{_e(l['amparo'])}</td>
       <td class="obj">{_e(l['objeto'])}</td>
-      <td class="ctr">{_e(l['unidade'])}</td>
+      <td>{_e(l['unidade'])}</td>
       <td class="num">{moeda(l['valor_estimado'])}</td>
       <td class="num">{moeda(l['valor_homologado'])}</td>
       <td class="num">{data_br(l['data_publicacao'])}</td></tr>"""
@@ -2652,12 +2670,12 @@ publicadas</b> pelo município no período, extraída do PNCP — inclui
 processos em andamento (sem homologação) e já concluídos. Valor estimado é
 o do edital; valor homologado é o valor final, quando já há resultado.</div>
 <table>
-<thead><tr><th class="ctr">Processo</th><th class="ctr">Modalidade</th>
-<th class="ctr">Amparo legal</th>
-<th>Objeto</th><th class="ctr">Unidade</th><th class="num">Valor estimado</th>
-<th class="num">Valor homologado</th><th class="num">Publicação</th></tr></thead>
+<thead><tr><th scope="col" class="ctr">Processo</th><th scope="col" class="ctr">Modalidade</th>
+<th scope="col" class="ctr">Amparo legal</th>
+<th scope="col">Objeto</th><th scope="col" class="ctr">Unidade</th><th scope="col" class="num">Valor estimado</th>
+<th scope="col" class="num">Valor homologado</th><th scope="col" class="num">Publicação</th></tr></thead>
 <tbody>{linhas or '<tr><td colspan="8">Nenhum registro no período.</td></tr>'}</tbody>
-<tfoot><tr><td colspan="5">Total: {t['n']} contratações{desagio}</td>
+<tfoot><tr><td colspan="5">Total geral: {t['n']} contratações{desagio}</td>
 <td class="num">{moeda(t['estimado'])}</td>
 <td class="num">{moeda(t['homologado'])}</td><td></td></tr></tfoot></table>"""
     titulo = f"{TITULOS['contratacoes']} — {municipio} — {periodo_txt}"
@@ -2682,11 +2700,11 @@ pelo município, extraída do PNCP. Contrato é o instrumento definitivo —
 decorrente de uma contratação já homologada, com fornecedor e vigência
 definidos.</div>
 <table>
-<thead><tr><th class="ctr">Contrato</th><th class="ctr">Fornecedor</th><th>Objeto</th>
-<th class="num">Valor global</th><th class="num">Vigência</th>
-<th class="num">Publicação</th></tr></thead>
+<thead><tr><th scope="col" class="ctr">Contrato</th><th scope="col" class="ctr">Fornecedor</th><th scope="col">Objeto</th>
+<th scope="col" class="num">Valor global</th><th scope="col" class="num">Vigência</th>
+<th scope="col" class="num">Publicação</th></tr></thead>
 <tbody>{linhas or '<tr><td colspan="6">Nenhum registro no período.</td></tr>'}</tbody>
-<tfoot><tr><td colspan="3">Total: {t['n']} contratos</td>
+<tfoot><tr><td colspan="3">Total geral: {t['n']} contratos</td>
 <td class="num">{moeda(t['valor'])}</td><td colspan="2"></td></tr></tfoot></table>"""
     titulo = f"{TITULOS['contratos']} — {municipio} — {periodo_txt}"
     return _pagina(titulo, corpo, municipio, uf, periodo_txt, paisagem=True,
@@ -2698,19 +2716,29 @@ def render_atas(d, municipio, uf, periodo_txt, brasao=None, categoria=None,
     linhas = "".join(f"""<tr>
       <td class="ctr">{_e(l['numero'])}/{_e(l['ano_ata'])}</td>
       <td class="ctr">{_e(l['contratacao_controle'])}</td>
+      <td class="ctr">{_e(l['fornecedor_nome']) if l.get('fornecedor_nome')
+        else '–'}</td>
       <td class="obj">{_e(l['objeto'])}</td>
       <td class="num">{data_br(l['vigencia_inicio'])} – {data_br(l['vigencia_fim'])}</td>
       <td class="num">{data_br(l['data_publicacao'])}</td></tr>"""
       for l in d["linhas"])
+    # achado da auditoria (2026-09-12): a tabela já vinha com 1 linha por
+    # fornecedor (`dados_atas` desdobra pra planilha) mas sem coluna de
+    # Fornecedor pra mostrar — 2 linhas idênticas na letra pareciam
+    # duplicata. Coluna adicionada; a nota abaixo explica o desdobramento
+    # pra "N atas" no rodapé não bater com o nº de linhas quando alguma
+    # ata tem mais de 1 fornecedor.
     corpo = f"""<div class="caixa-aviso">Relação de <b>atas de registro de
 preços</b> vigentes ou já encerradas, extraída do PNCP. A ata registra o
 preço para contratações futuras dentro do prazo de vigência — não é, em
-si, uma despesa executada.</div>
+si, uma despesa executada. Ata com mais de um fornecedor (registro de
+preços por lote) aparece em mais de uma linha, uma por fornecedor.</div>
 <table>
-<thead><tr><th class="ctr">Ata</th><th class="ctr">Contratação de origem</th><th>Objeto</th>
-<th class="num">Vigência</th><th class="num">Publicação</th></tr></thead>
-<tbody>{linhas or '<tr><td colspan="5">Nenhum registro no período.</td></tr>'}</tbody>
-<tfoot><tr><td colspan="5">Total: {d['totais']['n']} atas</td></tr></tfoot></table>"""
+<thead><tr><th scope="col" class="ctr">Ata</th><th scope="col" class="ctr">Contratação de origem</th>
+<th scope="col" class="ctr">Fornecedor</th><th scope="col">Objeto</th>
+<th scope="col" class="num">Vigência</th><th scope="col" class="num">Publicação</th></tr></thead>
+<tbody>{linhas or '<tr><td colspan="6">Nenhum registro no período.</td></tr>'}</tbody>
+<tfoot><tr><td colspan="6">Total geral: {d['totais']['n']} atas</td></tr></tfoot></table>"""
     titulo = f"{TITULOS['atas']} — {municipio} — {periodo_txt}"
     return _pagina(titulo, corpo, municipio, uf, periodo_txt, paisagem=True,
                    brasao=brasao, categoria=categoria, acervo=acervo)
@@ -2742,7 +2770,11 @@ def render_fracionamento(d, municipio, uf, brasao=None, categoria=None,
       <td class="num">{moeda(l['valor'])}</td>
       <td class="num">{data_br(l['data_publicacao'])}</td></tr>"""
       for l in d["dispensas"])
-    n_colunas = 6 if varios_orgaos else 5
+    # achado da auditoria (2026-09-12): tabela tem Objeto/Teto/Dispensas/
+    # Total/%doteto/Situação = 6 colunas sem Órgão, 7 com — estava
+    # contando 5/6 (1 a menos em cada caso), sobrando célula vazia sob
+    # "Situação" no estado vazio.
+    n_colunas = 7 if varios_orgaos else 6
     fora = d.get("fora_do_limite_legal") or []
     nota_fora = (f'<p class="nota">Cada linha é medida contra o teto do seu '
                  f'próprio inciso — obra tem limite dobrado em relação a '
@@ -2776,15 +2808,15 @@ de outro ente.</div>
 <h2>Soma de dispensas por objeto semelhante × teto legal</h2>
 <div class="card">{_grafico_limites(d["unidades"])}</div>
 <table><thead><tr>{
-  '<th>Órgão</th>' if varios_orgaos else ''}<th>Objeto</th><th>Teto</th>
-<th class="num">Dispensas</th>
-<th class="num">Total</th><th class="num">% do teto</th>
-<th class="ctr">Situação</th></tr></thead>
+  '<th scope="col">Órgão</th>' if varios_orgaos else ''}<th scope="col">Objeto</th><th scope="col">Teto</th>
+<th scope="col" class="num">Dispensas</th>
+<th scope="col" class="num">Total</th><th scope="col" class="num">% do teto</th>
+<th scope="col" class="ctr">Situação</th></tr></thead>
 <tbody>{unid or f'<tr><td colspan="{n_colunas}">Nenhuma dispensa com teto por valor no período.</td></tr>'}</tbody></table>
 {nota_fora}
 <h2>Dispensas do período (para agrupamento por natureza pelo gestor)</h2>
-<table><thead><tr><th class="ctr">Processo</th><th class="ctr">Unidade</th>
-<th>Objeto</th><th class="num">Valor</th><th class="num">Publicação</th></tr></thead>
+<table><thead><tr><th scope="col" class="ctr">Processo</th><th scope="col" class="ctr">Unidade</th>
+<th scope="col">Objeto</th><th scope="col" class="num">Valor</th><th scope="col" class="num">Publicação</th></tr></thead>
 <tbody>{disp or '<tr><td colspan="5">Nenhuma dispensa no período.</td></tr>'}</tbody></table>"""
     titulo = f"{TITULOS['fracionamento']} {d['ano']} — {municipio}"
     return _pagina(titulo, corpo, municipio, uf,
@@ -2800,7 +2832,7 @@ def render_minuta_pca(d, municipio, uf, brasao=None, categoria=None,
       <td class="obj">{_e(l['descricao'])}</td>
       <td class="ctr">{_e(l['categoria'])}</td>
       <td class="ctr">{_e(l['unidade'])}</td>
-      <td class="num">{l['quantidade'] or 0:.2f}</td>
+      <td class="num">{quantidade(l['quantidade'] or 0)}</td>
       <td class="num">{moeda(l['valor_unitario'])}</td>
       <td class="num">{moeda(l['valor_total'])}</td>
       <td class="ctr">{f"<b>{l['abc']}</b>" if l['abc'] == 'A' else l['abc']}</td></tr>"""
@@ -2838,10 +2870,10 @@ pela <b>{est}</b> dos valores homologados.</div>
 <div class="card"><div class="n">{p.get('margem', '—')}%</div><div class="l">margem aplicada</div></div>
 </div>{f'<p class="disp">Curva ABC — {linha_abc}. Classe A concentra 80% do valor, B os 15% seguintes: é onde a revisão rende mais.</p>' if linha_abc else ''}
 <h2>Itens da minuta</h2>
-<table><thead><tr><th class="num">#</th><th>Descrição</th>
-<th class="ctr">Tipo</th><th class="ctr">Unid.</th><th class="num">Quantidade</th>
-<th class="num">Unitário</th><th class="num">Total</th>
-<th class="ctr" title="Curva ABC: A concentra 80% do valor, B os 15% seguintes, C o resto">ABC</th></tr></thead>
+<table><thead><tr><th scope="col" class="num">#</th><th scope="col">Descrição</th>
+<th scope="col" class="ctr">Tipo</th><th scope="col" class="ctr">Unid.</th><th scope="col" class="num">Quantidade</th>
+<th scope="col" class="num">Unitário</th><th scope="col" class="num">Total</th>
+<th scope="col" class="ctr" title="Curva ABC: A concentra 80% do valor, B os 15% seguintes, C o resto">ABC</th></tr></thead>
 <tbody>{linhas or '<tr><td colspan="8">Minuta vazia.</td></tr>'}</tbody></table>"""
     titulo = f"{TITULOS['minuta_pca']} {d['ano']} — {municipio}"
     return _pagina(titulo, corpo, municipio, uf, f"Exercício {d['ano']}",
@@ -2937,10 +2969,10 @@ def _desconsiderados_html(d):
 <div class="caixa-aviso">Os preços abaixo foram coletados, mas <b>não entraram
 no cálculo</b> por decisão do responsável pela pesquisa. Eles constam aqui para
 que a filtragem fique visível a quem confere.{alerta}</div>
-<table><thead><tr><th>Descrição</th><th class="unid">Unid.</th>
-<th class="num">Qtde</th><th class="num">Unitário</th>
-<th class="forn">Fornecedor</th><th class="ctr">Processo</th>
-<th>Razão</th></tr></thead><tbody>{linhas}</tbody></table>"""
+<table><thead><tr><th scope="col">Descrição</th><th scope="col" class="unid">Unid.</th>
+<th scope="col" class="num">Qtde</th><th scope="col" class="num">Unitário</th>
+<th scope="col" class="forn">Fornecedor</th><th scope="col" class="ctr">Processo</th>
+<th scope="col">Razão</th></tr></thead><tbody>{linhas}</tbody></table>"""
 
 
 def _processo(l):
@@ -3072,13 +3104,13 @@ O número do processo leva à página oficial no PNCP, para conferência.{
   if coluna_conteudo else ''}</div>
 {cards}
 <h2>Itens homologados, do menor para o maior preço unitário</h2>
-<table><thead><tr><th>Descrição</th><th class="unid">Unid.</th>
-<th class="num">Qtde</th><th class="num">Unitário</th>{
-  '<th class="num">Corrigido</th>' if coluna_corrigido else ''}{
-  f'<th class="num">Por {r["rotulo_base"]}</th>' if coluna_conteudo else ''}
-<th class="num">Total</th><th class="forn">Fornecedor</th>
-<th class="muni">Município</th>
-<th class="ctr">Processo</th><th class="num">Resultado</th></tr></thead>
+<table><thead><tr><th scope="col">Descrição</th><th scope="col" class="unid">Unid.</th>
+<th scope="col" class="num">Qtde</th><th scope="col" class="num">Unitário</th>{
+  '<th scope="col" class="num">Corrigido</th>' if coluna_corrigido else ''}{
+  f'<th scope="col" class="num">Por {r["rotulo_base"]}</th>' if coluna_conteudo else ''}
+<th scope="col" class="num">Total</th><th scope="col" class="forn">Fornecedor</th>
+<th scope="col" class="muni">Município</th>
+<th scope="col" class="ctr">Processo</th><th scope="col" class="num">Resultado</th></tr></thead>
 <tbody>{linhas}</tbody></table>{
   '<p class="nota">* preço fora da faixa esperada (critério de Tukey ou '
   'escore Z modificado) — vale conferir se o item é mesmo comparável antes '
@@ -3207,19 +3239,19 @@ em curso.</div>
 {hero}
 {charts}
 <h2>Contratações por modalidade</h2>
-<table><thead><tr><th>Modalidade</th><th class="num">Qtde</th>
-<th class="num">Estimado</th><th class="num">Homologado</th></tr></thead>
+<table><thead><tr><th scope="col">Modalidade</th><th scope="col" class="num">Qtde</th>
+<th scope="col" class="num">Estimado</th><th scope="col" class="num">Homologado</th></tr></thead>
 <tbody>{mod or '<tr><td colspan="4">Sem dados.</td></tr>'}</tbody></table>
 <h2>Evolução mensal (valor homologado/estimado publicado)</h2>
-<table><thead><tr><th class="ctr">Mês</th><th class="num">Processos</th>
-<th class="num">Valor</th></tr></thead><tbody>{meses}</tbody></table>
+<table><thead><tr><th scope="col" class="ctr">Mês</th><th scope="col" class="num">Processos</th>
+<th scope="col" class="num">Valor</th></tr></thead><tbody>{meses}</tbody></table>
 <h2>Maiores fornecedores contratados no ano</h2>
-<table><thead><tr><th>Fornecedor</th><th class="num">Contratos</th>
-<th class="num">Valor</th></tr></thead>
+<table><thead><tr><th scope="col">Fornecedor</th><th scope="col" class="num">Contratos</th>
+<th scope="col" class="num">Valor</th></tr></thead>
 <tbody>{forn or '<tr><td colspan="3">Sem contratos no ano.</td></tr>'}</tbody></table>
 <h2>Vigências a vencer nos próximos 90 dias</h2>
-<table><thead><tr><th class="ctr">Tipo</th><th class="ctr">Contrato/Ata</th><th>Objeto</th>
-<th class="num">Fim</th><th class="num">Prazo</th></tr></thead>
+<table><thead><tr><th scope="col" class="ctr">Tipo</th><th scope="col" class="ctr">Contrato/Ata</th><th scope="col">Objeto</th>
+<th scope="col" class="num">Fim</th><th scope="col" class="num">Prazo</th></tr></thead>
 <tbody>{venc or '<tr><td colspan="5">Nada vence nos próximos 90 dias.</td></tr>'}</tbody></table>"""
     titulo = f"{TITULOS['executivo']} {ano} — {municipio}"
     return _pagina(titulo, corpo, municipio, uf, f"Exercício {ano}",
@@ -3312,9 +3344,9 @@ de bom fornecedor: pode ser estimativa inflada na origem.</div></div>"""
           <td class="num">{moeda(l['economizado'])}</td></tr>"""
           for l in linhas)
         return f"""<h2>{titulo_secao}</h2>
-<table><thead><tr><th>{coluna}</th><th class="num">Qtde</th>
-<th class="num">Estimado</th><th class="num">Homologado</th>
-<th class="num">Economizado</th></tr></thead>
+<table><thead><tr><th scope="col">{coluna}</th><th scope="col" class="num">Qtde</th>
+<th scope="col" class="num">Estimado</th><th scope="col" class="num">Homologado</th>
+<th scope="col" class="num">Economizado</th></tr></thead>
 <tbody>{corpo_linhas or '<tr><td colspan="5">Sem dados.</td></tr>'}</tbody>
 </table>"""
 
@@ -3694,8 +3726,8 @@ def render_cobertura(d, municipio, uf, brasao=None, categoria=None,
         if not linhas:
             return (f'<h2>{_e(titulo)} (0)</h2>'
                     f'<p class="nota">Nenhum município nesta situação.</p>')
-        extra_cab = ('<th class="num">Sincronizadas</th>'
-                     '<th>Itens sincronizados</th>') if com_progresso else ''
+        extra_cab = ('<th scope="col" class="num">Sincronizadas</th>'
+                     '<th scope="col">Itens sincronizados</th>') if com_progresso else ''
         linhas_html = "".join(f"""<tr>
           <td>{_e(m['nome'])}{' <small>(próprio)</small>' if m['propria'] else ''}</td>
           <td class="ctr">{_e(m['uf'])}</td>
@@ -3704,8 +3736,8 @@ def render_cobertura(d, municipio, uf, brasao=None, categoria=None,
           {f"<td class='num'>{m['sincronizadas']}</td><td>{barra(m['pct'])}</td>"
             if com_progresso else ""}</tr>""" for m in linhas)
         return f"""<h2>{_e(titulo)} ({len(linhas)})</h2>
-<table><thead><tr><th>Município</th><th class="ctr">UF</th>
-<th class="ctr">IBGE</th><th class="num">Contratações</th>{extra_cab}
+<table><thead><tr><th scope="col">Município</th><th scope="col" class="ctr">UF</th>
+<th scope="col" class="ctr">IBGE</th><th scope="col" class="num">Contratações</th>{extra_cab}
 </tr></thead><tbody>{linhas_html}</tbody></table>"""
 
     corpo = f"""<div class="cards">

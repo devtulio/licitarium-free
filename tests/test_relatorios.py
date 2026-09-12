@@ -734,11 +734,19 @@ def test_render_fracionamento_mostra_tipo_e_orgao_quando_ha_mais_de_um(
 
     r = relatorios.gerar(db, "fracionamento", {"ano": 2026}, "T", "SP", tmp_path)
     html = Path(r["html"]).read_text(encoding="utf-8")
-    assert "<th>Órgão</th>" in html
+    assert '<th scope="col">Órgão</th>' in html
     assert "PREFEITURA" in html and "CÂMARA" in html
     assert "Compras" in html
 
 
+def test_fracionamento_colspan_do_estado_vazio_bate_com_as_colunas(db, tmp_path):
+    """`n_colunas` (usado no colspan da linha "nenhuma dispensa...") estava
+    1 a menos em cada caso (6/5 pra uma tabela de 7/6 colunas) — sobrava
+    uma célula vazia sob "Situação" no PDF real."""
+    r = relatorios.gerar(db, "fracionamento", {"ano": 2026}, "T", "SP", tmp_path)
+    html = Path(r["html"]).read_text(encoding="utf-8")
+    assert "Nenhuma dispensa com teto por valor no período." in html
+    assert 'colspan="6">Nenhuma dispensa' in html   # sem Órgão: 6 colunas
 
 
 def test_pagina_sem_categoria_fica_como_antes(db, tmp_path):
@@ -797,6 +805,56 @@ def test_metodo_e_categoria_nos_cinco_relatorios_que_nao_tinham(db):
         d_pn, "T", "SP")
     assert '<div class="caixa-aviso">' in relatorios.render_economia(
         d_pn, "T", "SP")
+
+
+# achados da auditoria de PDF (2026-09-12)
+
+def test_relacao_de_atas_mostra_fornecedor_e_total_geral(db):
+    """`dados_atas` desdobra 1 linha por fornecedor (pra planilha) — sem
+    coluna de Fornecedor na tabela impressa, 2 linhas de uma ata com 2
+    fornecedores saíam byte-idênticas, lendo como duplicata. E o rodapé
+    repete em toda página do PDF real — "Total:" sozinho lia como
+    subtotal da página, não da relação inteira."""
+    db.execute(
+        "INSERT INTO atas (numero_controle, contratacao_controle,"
+        " numero_ata, ano_ata, objeto, fornecedor_ni, fornecedor_nome,"
+        " vigencia_inicio, vigencia_fim) VALUES"
+        " ('AT-1','C-1','9',2026,'Obj','111\x1f222',"
+        " 'Fornecedor Um\x1fFornecedor Dois','2026-01-01','2026-12-31')")
+    db.commit()
+    d = relatorios.dados_atas(db, ano=2026)
+    html = relatorios.render_atas(d, "T", "SP", "período")
+    assert "Fornecedor Um" in html
+    assert "Fornecedor Dois" in html
+    assert "Total geral:" in html
+
+
+def test_minuta_pca_quantidade_em_formato_brasileiro():
+    """`{v:.2f}` saía "4141.22" (formato EUA) do lado de valor em R$
+    formato brasileiro — o helper `quantidade()` já existe e já é usado
+    em Preços; só faltava usar aqui também."""
+    d = {"ano": 2027, "parametros": {"margem": 10},
+         "totais": {"grupos": 1, "valor": 4141.22},
+         "itens": [{"descricao": "Item A", "categoria": "Material",
+                    "unidade": "UN", "quantidade": 1234.5,
+                    "valor_unitario": 3.36, "valor_total": 4141.22,
+                    "abc": "A"}]}
+    html = relatorios.render_minuta_pca(d, "T", "SP")
+    assert "1.234,5" in html
+    assert "1234.5" not in html
+
+
+def test_cabecalho_corrido_do_papel_e_texto_literal_nao_string_set():
+    """`@top-center { content: string(titulo) }` nunca funcionou no motor
+    real (Chrome, via `webbrowser.open()`) — Chromium não implementa
+    `string-set`/`content()` do CSS Paged Media. Página 2+ de qualquer
+    relatório saía sem identificação nenhuma. Precisa ser um literal
+    fixo calculado em Python, não a sintaxe do CSS Paged Media."""
+    html = relatorios._pagina("Relatório de Teste — T — SP", "<p>corpo</p>",
+                              "T", "SP", "período", paisagem=True)
+    assert "string-set" not in html
+    assert "string(titulo)" not in html
+    assert 'content: "Relatório de Teste' in html
 
 
 def test_documento_sai_com_a_paleta_institucional(db, tmp_path):
@@ -877,7 +935,7 @@ def test_minuta_pca_mostra_a_curva_abc():
     assert "1 item classe A = 80% do valor" in html
     assert "1 item classe B = 15% do valor" in html
     assert "1 item classe C = 5% do valor" in html
-    assert '<th class="ctr" title="Curva ABC' in html
+    assert '<th scope="col" class="ctr" title="Curva ABC' in html
 
 
 def test_tipo_desconhecido(db, tmp_path):
