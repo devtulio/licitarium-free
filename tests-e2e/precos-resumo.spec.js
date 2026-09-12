@@ -71,6 +71,17 @@ test("gráficos de preço desenham: boxplot, série temporal e por município",
   await expect(page.locator("#precos-resumo")).toContainText("Ao longo do tempo");
 });
 
+test("caixa de Tukey rotula os cinco pontos e a média sempre, não só no hover",
+    async ({ page }) => {
+  // handoff Claude Design (2026-09-11, fase 10, tela 1e): antes só o
+  // tooltip trazia mín/Q1/mediana/Q3/máx — o mockup pede rótulo sempre
+  // visível; "média" não aparecia em lugar nenhum fora do hover
+  await buscarESelecionarTudo(page);
+  const texto = await page.locator("#precos-boxplot").innerText();
+  for (const rotulo of ["mín", "Q1", "mediana", "Q3", "máx", "média"])
+    expect(texto).toContain(rotulo);
+});
+
 test("preço fora da curva vira aviso com botão de descarte em lote",
     async ({ page }) => {
   await buscarESelecionarTudo(page);

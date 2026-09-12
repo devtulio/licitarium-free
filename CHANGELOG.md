@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.10.0 — 2026-09-11
+
+**Adição — Fase 10 do handoff "Dashboard de Licitações Públicas" (Claude Design): caixa de Tukey em Preços**
+
+- **Rótulos sempre visíveis**: mín, Q1, mediana, Q3, máx e média —
+  antes só apareciam no hover do gráfico — agora ficam escritos na
+  própria caixa de dispersão, em valor cheio, como o mockup 1e pede.
+  "Média" não aparecia em lugar nenhum fora do tooltip; agora tem
+  rótulo próprio junto do losango que já a marcava.
+- **Sem empilhar**: mín/máx ficam mais afastados do traço que a
+  mediana, pra não colidir com ela quando a amostra é pequena ou
+  concentrada (mín e mediana caem quase no mesmo x nesses casos).
+  ponytail: resolve o caso comum, não elimina toda colisão — uma
+  amostra com outlier extremo (uma ponta 10x+ maior que o resto) ainda
+  comprime os rótulos do lado apertado.
+- 296 pytest + 170 Playwright verdes.
+
 ## 2.9.0 — 2026-09-11
 
 **Adição — Fase 9 do handoff "Dashboard de Licitações Públicas" (Claude Design): lista de Atas**

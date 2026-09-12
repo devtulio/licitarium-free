@@ -2290,12 +2290,36 @@ function desenharBoxplotPreco(el, s) {
     `mín <b>${fmt(d[1])}</b><br/>Q1 <b>${fmt(d[2])}</b><br/>` +
     `mediana <b>${fmt(d[3])}</b><br/>Q3 <b>${fmt(d[4])}</b><br/>máx <b>${fmt(d[5])}</b>`;
 
+  // rótulos sempre visíveis (não só no hover) pros 5 pontos da caixa de
+  // Tukey + a média — handoff Claude Design (2026-09-11, fase 10, tela
+  // 1e): "a caixa rotula todos os cinco pontos em valor cheio sem
+  // empilhar". Mín/Q1/mediana/Q3/máx alternam acima/abaixo, e mín/máx
+  // ficam ainda mais afastados do traço que a mediana — numa amostra
+  // pequena ou bem concentrada, mín e mediana caem quase no mesmo x; sem
+  // a distância diferente, os dois "top" colidiriam mesmo alternando.
+  // ponytail: 2 níveis por lado resolve o caso comum, não todo caso —
+  // 3+ rótulos amontoados no mesmo pixel ainda podem se tocar.
+  const rotulosCaixa = [
+    { valor: s.minimo, rotulo: "mín", pos: "top", dist: 24 },
+    { valor: s.q1, rotulo: "Q1", pos: "bottom", dist: 8 },
+    { valor: s.mediana, rotulo: "mediana", pos: "top", dist: 8, forte: true },
+    { valor: s.q3, rotulo: "Q3", pos: "bottom", dist: 8 },
+    { valor: s.maximo, rotulo: "máx", pos: "top", dist: 24 },
+  ].filter(r => r.valor != null);
+
   const series = [
     { type: "boxplot", data: [[s.minimo, s.q1, s.mediana, s.q3, s.maximo]],
       itemStyle: { color: `${s1}2e`, borderColor: s1, borderWidth: 1.6 },
       boxWidth: ["24%", "24%"], markLine: { symbol: "none", animation: false, data: markLines } },
     { type: "scatter", data: [{ value: [s.media, 0] }], symbol: "diamond",
-      symbolSize: 11, itemStyle: { color: s2 }, z: 6 }
+      symbolSize: 11, itemStyle: { color: s2 }, z: 6,
+      label: { show: true, formatter: `média\n${fmt(s.media)}`, position: "bottom",
+        distance: 14, fontSize: 11, fontWeight: 600, color: s2, lineHeight: 13 } },
+    { type: "scatter", symbolSize: 0, silent: true, tooltip: { show: false }, z: 7,
+      data: rotulosCaixa.map(r => ({ value: [r.valor, 0],
+        label: { show: true, formatter: `${r.rotulo}\n${fmt(r.valor)}`,
+          position: r.pos, distance: r.dist, fontSize: 11, lineHeight: 13,
+          fontWeight: r.forte ? 600 : 400, color: r.forte ? texto : muted } })) }
   ];
 
   el.style.height = itens.length ? "240px" : "150px";
@@ -2322,7 +2346,10 @@ function desenharBoxplotPreco(el, s) {
   el.__echart = chart;
   chart.setOption({
     animation: false,
-    grid: { left: 8, right: 16, top: 22, bottom: 22 },
+    // margem maior que antes (22): agora carrega rótulo de 2 linhas
+    // (nome + valor) em vez de só o traço — sem espaço, o texto de cima
+    // cortava contra a borda do cartão
+    grid: { left: 8, right: 16, top: 38, bottom: 40 },
     xAxis: { type: "value", min: 0, axisLine: { lineStyle: { color: border } },
       axisLabel: { color: muted, fontSize: 11 }, splitLine: { lineStyle: { color: border, opacity: .4 } } },
     yAxis: { type: "category", data: [""], axisLine: { show: false }, axisTick: { show: false } },
