@@ -574,6 +574,13 @@ function grafConcentracao(el, curva, total) {
       axisLabel: { formatter: "{value}%", color: "var(--muted)", fontSize: 10 },
       axisLine: { show: false }, axisTick: { show: false },
       splitLine: { lineStyle: { color: "var(--border)", opacity: .6 } } },
+    // muitos fornecedores — zoom pro início da curva (padrão portado do
+    // Licitarium Pro, 2026-09-13). Só "inside" — o overlay do crosshair
+    // abaixo cobre a área toda, então a roda do mouse é repassada
+    // manualmente (ver hit.addEventListener("wheel", ...)); a régua
+    // arrastável ("slider") tentada aqui saía cortada pelo layout deste
+    // gráfico híbrido (echarts + SVG por cima) — sem valer o risco.
+    dataZoom: curva.length > 30 ? [{ type: "inside", xAxisIndex: 0 }] : [],
     series: [
       { type: "line", symbol: "none", silent: true,
         data: [[0, 0], [curva.length - 1, 100]],
@@ -645,6 +652,37 @@ function grafConcentracao(el, curva, total) {
     padrao.forEach(pt => pt.setAttribute("opacity", "1"));
     esconderTt();
   });
+  if (curva.length > 30) {
+    const fixos = overlay.querySelectorAll(".rot, [data-serie-padrao]");
+    // com zoom aplicado, "1"/total e o marcador fixo descrevem a curva
+    // INTEIRA — dentro de uma janela zoomada eles ficam fora do que está
+    // visível (ou caem em cima da curva), então somem enquanto zoomado;
+    // o crosshair (sempre correto, lê `chart.convertFromPixel` ao vivo)
+    // segue fazendo a leitura de ponto.
+    chart.on("datazoom", () => {
+      const [{ start = 0, end = 100 }] = chart.getOption().dataZoom;
+      fixos.forEach(el2 => el2.style.display =
+        (start > 0.1 || end < 99.9) ? "none" : "");
+    });
+    hit.addEventListener("wheel", evt => {
+      evt.preventDefault();
+      const r = overlay.getBoundingClientRect();
+      const [iBruto] = chart.convertFromPixel({ gridIndex: 0 },
+        [evt.clientX - r.left, evt.clientY - r.top]);
+      const centro = Math.max(0, Math.min(curva.length - 1, iBruto))
+        / (curva.length - 1) * 100;
+      const atual = chart.getOption().dataZoom[0];
+      const largura = Math.max(4, Math.min(100,
+        (atual.end - atual.start) * (evt.deltaY > 0 ? 1.25 : 0.8)));
+      let start = Math.max(0, centro - largura / 2);
+      let end = Math.min(100, centro + largura / 2);
+      if (start === 0) end = Math.min(100, largura);
+      if (end === 100) start = Math.max(0, 100 - largura);
+      chart.dispatchAction({ type: "dataZoom", start, end });
+    }, { passive: false });
+    hit.addEventListener("dblclick", () =>
+      chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 }));
+  }
 }
 
 // ── curva ABC do PCA: itens ordenados por valor, acumulado do plano ───────
@@ -686,7 +724,8 @@ function grafCurvaABC(el, itens, larg = 660) {
   const chart = _iniciarEchart(alvo);
   chart.setOption({
     animation: false,
-    grid: { left: 8, right: 12, top: 12, bottom: 8, containLabel: true },
+    grid: { left: 8, right: 12, top: 12,
+      bottom: validos.length > 30 ? 26 : 8, containLabel: true },
     // achado da auditoria (2026-09-12): a faixa sombreada usava xAxis:0→
     // fimA (largura em UNIDADES DE ÍNDICE — com 1 item em A, fimA=0, faixa
     // de largura zero), enquanto a legenda logo abaixo reserva espaço por
@@ -697,6 +736,16 @@ function grafCurvaABC(el, itens, larg = 660) {
     yAxis: { type: "value", min: 0, max: 100, axisLabel: { ...ROT_TXT,
         formatter: "{value}%" },
       splitLine: { lineStyle: { color: COR_EIXO, opacity: .55 } } },
+    // PCA grande (centenas de itens) — zoom pra examinar de perto o
+    // "cotovelo" A→B; roda do mouse sempre liga, a régua arrastável só
+    // aparece com curva grande o bastante pra valer o espaço (padrão
+    // portado do Licitarium Pro, 2026-09-13)
+    dataZoom: validos.length > 30
+      ? [{ type: "inside", xAxisIndex: 0 },
+         { type: "slider", xAxisIndex: 0, height: 14, bottom: 0,
+           borderColor: COR_EIXO, fillerColor: "var(--surface2)",
+           handleStyle: { color: "var(--s1)" }, textStyle: { color: "var(--muted)" } }]
+      : [{ type: "inside", xAxisIndex: 0 }],
     series: [{
       type: "line", symbol: "none", silent: true,
       data: curva.map((v, i) => [i, v]),

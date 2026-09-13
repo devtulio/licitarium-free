@@ -193,6 +193,28 @@ test("o corte vertical da concentração segue o cursor pela curva",
   await expect(tt).toContainText("fornecedor");
 });
 
+test("concentração de mercado com muitos fornecedores (>30) ganha zoom (achado do usuário, 2026-09-13 — comparação com o Licitarium Pro)",
+    async ({ page }) => {
+  const curva = Array.from({ length: 40 }, (_, i) =>
+    Math.min(100, 30 + i * 1.7));
+  await page.evaluate(c => {
+    window.PAINEL_DADOS.analise.curva = c;
+    window.PAINEL_DADOS.analise.fornecedores_total = c.length;
+  }, curva);
+  // Painel já carregou (é a home) com a curva pequena padrão — sair e
+  // voltar refaz `carregarPainel()`, que agora lê o PAINEL_DADOS mutado
+  await page.locator('nav.abas button[data-tipo="contratacoes"]').click();
+  await page.locator('nav.abas button[data-tipo="painel"]').click();
+  await page.locator('.subabas button[data-vista="analise"]').click();
+  const cartao = page.locator(
+    '#p-analise .card:has([data-graf="concentracao"])');
+  await cartao.scrollIntoViewIfNeeded();
+  await expect(cartao.locator("svg [data-cross-hit]")).toBeVisible();
+  const temZoom = await cartao.locator(".graf-echart").evaluate(el =>
+    el.__echart.getOption().dataZoom.length > 0);
+  expect(temZoom).toBe(true);
+});
+
 test("as três vistas trocam e ficam lembradas", async ({ page }) => {
   await expect(page.locator("#p-execucao")).toBeVisible();
   await expect(page.locator("#p-analise")).toBeHidden();

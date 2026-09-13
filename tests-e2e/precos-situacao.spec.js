@@ -34,6 +34,26 @@ test("concentração de fornecedores desenha curva e lista pro item selecionado"
   await expect(page.locator(".barra-concentracao")).toHaveCount(2);
 });
 
+test("concentração com muitos fornecedores (>30) ganha zoom (achado do usuário, 2026-09-13 — comparação com o Licitarium Pro)",
+    async ({ page }) => {
+  await page.evaluate(() => {
+    const fornecedores = [];
+    let acumulado = 0;
+    for (let i = 0; i < 40; i++) {
+      acumulado += 1;
+      fornecedores.push({ fornecedor: `Fornecedor ${i + 1}`, n: 1,
+        pct: 2.5, acumulado_pct: Math.round(acumulado / 40 * 1000) / 10 });
+    }
+    window.__concentracaoFornecedores = {
+      descricao: "PAPEL SULFITE A4", total: 40, fornecedores, corte: 30 };
+  });
+  await page.locator('button[data-vista-precos="situacao"]').click();
+  await expect(page.locator("#painel-concentracao-svg svg")).toBeVisible();
+  const temZoom = await page.locator("#painel-concentracao-svg").evaluate(
+    el => el.__echart.getOption().dataZoom.length > 0);
+  expect(temZoom).toBe(true);
+});
+
 test("cartões dos gráficos ficam empilhados em 1 coluna, não lado a lado",
     async ({ page }) => {
   // achado do usuário (2026-09-12): esta tela ainda usava o grid de 2

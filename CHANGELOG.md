@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.13.14 — 2026-09-13
+
+**Adição — `dataZoom` nos 3 gráficos com eixo sem teto (comparação com
+o Licitarium Pro)**
+
+Pedido do usuário: levantar quais gráficos do Free ganhariam com o
+mesmo controle de período que o painel do operador do Pro já tem
+(`dataZoom` condicional, só aparece quando a lista é grande o
+bastante). Levantamento identificou 3 gráficos com eixo genuinamente
+sem teto (curva de concentração/ABC, que crescem com o número de
+fornecedores/itens); o resto já é limitado por corte fixo (`[:6]`,
+`[:10]`, `limite=5`) ou já resolve de outro jeito (município de
+referência cresce a altura do card em vez de precisar de zoom).
+
+- `grafCurvaABC` (Montar PCA) — zoom com régua arrastável quando o
+  plano tem mais de 30 itens.
+- `desenharConcentracaoLorenz` (Preços › Situação do banco) — mesmo
+  padrão, zoom + régua quando o item tem mais de 30 fornecedores.
+- `grafConcentracao` (Painel › Análise "Concentração de mercado" e
+  Preços › Concentração de fornecedores) — mesma ideia, mas só roda do
+  mouse (sem régua visível): esse gráfico já tem um crosshair
+  desenhado à mão por cima em SVG que cobria a área toda e escondia a
+  régua nativa do ECharts; a rolagem é repassada manualmente pro zoom.
+
+319 testes Python + 197 testes Playwright verdes.
+
 ## 2.13.13 — 2026-09-13
 
 **Correção — gráfico "Preços por ano" media dinheiro, tinha que medir

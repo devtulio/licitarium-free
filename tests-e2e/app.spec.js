@@ -708,6 +708,23 @@ test("curva ABC desenha na 1ª abertura do modal, sem precisar clicar em Gerar d
   await expect(page.locator("#pca-abc .graf-echart path")).not.toHaveCount(0);
 });
 
+test("curva ABC com plano grande (>30 itens) ganha zoom (achado do usuário, 2026-09-13 — comparação com o Licitarium Pro)",
+    async ({ page }) => {
+  await page.evaluate(() => {
+    window.__minuta = Array.from({ length: 40 }, (_, i) => ({
+      id: i + 1, chave: `I${i}`, familia: "F", abc: i < 5 ? "A" : i < 20 ? "B" : "C",
+      descricao: `Item ${i}`, unidade: "UN", categoria: "Material",
+      quantidade: 1, valor_unitario: 40 - i, margem: 10, incluir: 1,
+      valor_total: 40 - i }));
+  });
+  await page.locator("#btn-pca").click();
+  await expect(page.locator("#pca-abc .graf-echart svg")).toBeVisible();
+  const temZoom = await page.evaluate(() =>
+    document.querySelector("#pca-abc .graf-echart").__echart
+      .getOption().dataZoom.length > 0);
+  expect(temZoom).toBe(true);
+});
+
 test("montador de PCA gera, edita e recalcula os totais", async ({ page }) => {
   await page.locator("#btn-pca").click();
   await expect(page.locator("#veu-pca")).toBeVisible();
