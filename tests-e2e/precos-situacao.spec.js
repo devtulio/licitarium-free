@@ -49,6 +49,20 @@ test("cartões dos gráficos ficam empilhados em 1 coluna, não lado a lado",
   expect(anoBox.width).toBeGreaterThan(600);   // largura cheia, não metade
 });
 
+test("trocar largura da página redesenha os gráficos no tamanho novo (achado do usuário, 2026-09-13)",
+    async ({ page }) => {
+  await page.locator('button[data-vista-precos="situacao"]').click();
+  await expect(page.locator("#painel-grafico-ano svg")).toBeVisible();
+  const larguraAntes = (await page.locator("#painel-grafico-ano svg")
+    .boundingBox()).width;
+  await page.locator("#btn-config").click();
+  await page.locator("#cfg-largura").selectOption("compacta");
+  await page.locator('button[data-fecha="veu-config"]').click();
+  await expect.poll(async () =>
+    (await page.locator("#painel-grafico-ano svg").boundingBox()).width)
+    .toBeLessThan(larguraAntes - 20);
+});
+
 test("voltar pra Pesquisar mantém a busca de preços intacta",
     async ({ page }) => {
   await page.locator('button[data-vista-precos="situacao"]').click();

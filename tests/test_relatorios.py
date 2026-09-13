@@ -513,6 +513,35 @@ def test_cobertura(db, tmp_path):
     assert r["xlsx"] is None
 
 
+def test_cobertura_traz_itens_no_banco_e_pct_fechado(db, tmp_path):
+    """Pedido do usuário (2026-09-13): a cobertura mede o PIPELINE de
+    coleta, mas não dizia nada sobre a QUALIDADE do dado que já chegou —
+    quantos itens o município deu ao banco de preços e quantos já têm
+    fornecedor homologado (mesma métrica da aba Preços › Situação do
+    banco, dados_banco_precos)."""
+    db.execute("INSERT INTO config (chave, valor) VALUES"
+               " ('municipio_ibge','1'), ('municipio_nome','Próprio'),"
+               " ('municipio_uf','SP')")
+    db.execute(
+        "UPDATE contratacoes SET municipio_ibge='1', itens_versao='v1',"
+        " data_atualizacao='v1' WHERE numero_controle='A'")
+    db.executemany(
+        "INSERT INTO itens (id, municipio_ibge, descricao,"
+        " valor_unitario_homologado) VALUES (?,?,?,?)",
+        [("i1", "1", "Papel A4", 20.0),
+         ("i2", "1", "Papel A4", None),
+         ("i3", "1", "Papel A4", None)])
+    db.commit()
+    d = relatorios.dados_cobertura(db)
+    proprio = next(m for m in d["completos"] if m["nome"] == "Próprio")
+    assert proprio["itens_banco"] == 3
+    assert proprio["pct_homologado"] == 33
+    r = relatorios.gerar(db, "cobertura", {}, "Testópolis", "SP", tmp_path)
+    html = Path(r["html"]).read_text(encoding="utf-8")
+    assert "Itens no banco" in html and "% preço fechado" in html
+    assert "33%" in html
+
+
 def test_fracionamento_tem_o_medidor_de_limite(db, tmp_path):
     """Pedido do usuário (2026-08-08): a tabela já tinha o farol em texto
     ("ACIMA DO LIMITE"/"Atenção") — o gráfico (porta de

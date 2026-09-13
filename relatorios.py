@@ -2222,6 +2222,18 @@ def dados_cobertura(db):
         " OR itens_versao <> data_atualizacao THEN 1 ELSE 0 END)"
         " FROM contratacoes WHERE municipio_ibge IS NOT NULL GROUP BY 1")}
 
+    # qualidade do dado que já chegou (não é a mesma coisa que o PIPELINE
+    # acima) — quantos itens do banco de preços e quantos já têm
+    # fornecedor homologado, mesma métrica de `dados_banco_precos`
+    # (Painel de Preços). Pedido do usuário, 2026-09-13.
+    itens_por_ibge = {r[0]: r[1] for r in db.execute(
+        "SELECT municipio_ibge, COUNT(*) FROM itens"
+        " WHERE municipio_ibge IS NOT NULL GROUP BY 1")}
+    homologados_por_ibge = {r[0]: r[1] for r in db.execute(
+        "SELECT municipio_ibge, COUNT(*) FROM itens"
+        " WHERE municipio_ibge IS NOT NULL"
+        " AND valor_unitario_homologado IS NOT NULL GROUP BY 1")}
+
     municipios = []
     for ibge, (nome, uf) in nomes.items():
         total, pendentes = contagens.get(ibge, (0, 0))
@@ -2232,13 +2244,18 @@ def dados_cobertura(db):
             status = "completo"
         else:
             status = "pendente"
+        n_itens = itens_por_ibge.get(ibge, 0)
+        n_homologados = homologados_por_ibge.get(ibge, 0)
         municipios.append({
             "ibge": ibge, "nome": nome, "uf": uf,
             "propria": ibge == proprio_ibge,
             "total": total, "pendentes": pendentes,
             "sincronizadas": sincronizadas,
             "pct": round(sincronizadas / total * 100, 1) if total else None,
-            "status": status})
+            "status": status,
+            "itens_banco": n_itens,
+            "pct_homologado": round(n_homologados / n_itens * 100)
+                if n_itens else None})
 
     # pendentes primeiro (o que precisa de atenção), ordenado pelo que
     # falta mais; sem_dados depois; completos por último
@@ -3734,10 +3751,14 @@ def render_cobertura(d, municipio, uf, brasao=None, categoria=None,
           <td class="ctr">{_e(m['ibge'])}</td>
           <td class="num">{m['total']}</td>
           {f"<td class='num'>{m['sincronizadas']}</td><td>{barra(m['pct'])}</td>"
-            if com_progresso else ""}</tr>""" for m in linhas)
+            if com_progresso else ""}
+          <td class="num">{m['itens_banco']}</td>
+          <td>{barra(m['pct_homologado'])}</td></tr>""" for m in linhas)
         return f"""<h2>{_e(titulo)} ({len(linhas)})</h2>
 <table><thead><tr><th scope="col">Município</th><th scope="col" class="ctr">UF</th>
 <th scope="col" class="ctr">IBGE</th><th scope="col" class="num">Contratações</th>{extra_cab}
+<th scope="col" class="num">Itens no banco</th>
+<th scope="col">% preço fechado</th>
 </tr></thead><tbody>{linhas_html}</tbody></table>"""
 
     corpo = f"""<div class="cards">
@@ -3752,7 +3773,11 @@ os itens e resultados baixados. <b>Pendente</b> — há contratação com itens
 desatualizados, reprocessada na próxima sincronização de itens. <b>Sem
 dados</b> — está na lista de referência, mas o PNCP ainda não devolveu
 nenhuma contratação (pode não ter publicado nada no período, ou aguarda a
-primeira sincronização).</div>
+primeira sincronização). <b>Itens no banco</b> e <b>% preço fechado</b> são
+outra medida — não do pipeline de coleta, mas da qualidade do dado que já
+chegou: quantos itens este município deu ao banco de preços e quantos já
+têm fornecedor homologado no PNCP (mesma métrica da aba Preços ›
+Situação do banco).</div>
 {tabela("Pendentes — aguardando itens", d['pendentes'], True)}
 {tabela("Sem nenhuma contratação coletada", d['sem_dados'], False)}
 {tabela("Completos — 100% sincronizados", d['completos'], True)}"""

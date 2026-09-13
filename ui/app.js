@@ -3103,6 +3103,18 @@ $("pr-pag-prox").addEventListener("click", () => {
   estado.paginaPrecos++; carregarPrecos(); });
 
 // ── situação do banco de preços (portado do Pretiarium Free, 2026-09-07) ──
+// Os gráficos aqui são desenhados uma vez, na medida do container no
+// momento da abertura da aba — trocar "Compacta"/"Expandida" (ou
+// redimensionar a janela) muda a largura de `main` depois, e sem isto o
+// SVG ficava faixa morta (achado do usuário, 2026-09-13). Mesmo padrão
+// do Painel de execução (`painel.js`), mas aqui basta redimensionar a
+// instância existente, não redesenhar do zero.
+new ResizeObserver(() => {
+  document.querySelectorAll(".graf-echart, #painel-grafico-ano,"
+    + " #painel-grafico-tipo, #painel-concentracao-svg")
+    .forEach(el => { if (el.__echart && el.offsetParent) el.__echart.resize(); });
+}).observe(document.querySelector("main"));
+
 let situacaoPrecosCarregada = false;
 $("tela-precos")?.querySelectorAll(".subabas button[data-vista-precos]")
   .forEach(b => b.addEventListener("click", () => {

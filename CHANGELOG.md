@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.13.7 — 2026-09-13
+
+**Correção — dois achados do usuário no relatório de cobertura e no
+banco de preços**
+
+- Relatório "Cobertura da Coleta" media só o PIPELINE (contratação tem
+  itens em dia?), sem dizer nada sobre a QUALIDADE do dado que já
+  chegou. Ganhou duas colunas novas por município — "Itens no banco" e
+  "% preço fechado" — mesma métrica já mostrada na aba Preços ›
+  Situação do banco (`dados_banco_precos`), agora também no PDF.
+- Gráficos da aba Preços › Situação do banco (itens por ano,
+  material×serviço, curva de concentração) eram desenhados uma vez, na
+  largura do momento — trocar "Largura da página" para Compacta (ou
+  redimensionar a janela) deixava o SVG com faixa morta. Ganharam o
+  mesmo `ResizeObserver` que o Painel de execução já tinha.
+
+315 testes Python + 191 testes Playwright verdes.
+
 ## 2.13.6 — 2026-09-12
 
 **Mudança — configuração de sync sai de "Configurações" e entra no modal
