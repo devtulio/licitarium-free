@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.13.7"
+VERSAO = "2.13.8"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -695,7 +695,8 @@ def _titulo_impressao_detalhe(db, tipo, d):
     return None
 
 
-def _where_pesquisa_precos(busca, ano=None, origem=None, unidade=None):
+def _where_pesquisa_precos(busca, ano=None, origem=None, unidade=None,
+                           municipio=None):
     """Mesmo recorte de `estatisticas_preco` e `selecionar_todos_precos`:
     o que entra na pesquisa de preços para um termo, sem olhar descarte.
 
@@ -721,6 +722,9 @@ def _where_pesquisa_precos(busca, ano=None, origem=None, unidade=None):
     if unidade:
         where.append("unidade_canonica(unidade)=?")
         args.append(unidade)
+    if municipio:
+        where.append("municipio_ibge=?")
+        args.append(municipio)
     return where, args
 
 
@@ -1288,6 +1292,9 @@ class Api:
         if f.get("unidade") and tipo == "itens":
             where.append("unidade_canonica(unidade)=?")
             args.append(f["unidade"])
+        if f.get("municipio") and tipo == "itens":
+            where.append("municipio_ibge=?")
+            args.append(f["municipio"])
         if f.get("busca"):
             if tipo == "itens":
                 # item descartado (motivo obrigatório) some da lista da
@@ -1625,9 +1632,28 @@ class Api:
                     contagem[grupo] = contagem.get(grupo, 0) + 1
             unidades = [{"nome": g, "n": n} for g, n in
                         sorted(contagem.items(), key=lambda x: x[0])]
+            # municípios com item no banco de preços (pedido do usuário,
+            # 2026-09-13): próprio + referência, só quem já deu item —
+            # um município de referência recém-adicionado ainda sem
+            # coleta não aparece como opção vazia no filtro
+            proprio_ibge = pncp._config(db, "municipio_ibge")
+            proprio_nome = pncp._config(db, "municipio_nome")
+            nomes_municipio = {}
+            if proprio_ibge:
+                nomes_municipio[proprio_ibge] = proprio_nome or proprio_ibge
+            for ibge, nome in db.execute(
+                    "SELECT ibge, nome FROM municipios_referencia"):
+                nomes_municipio[ibge] = nome
+            com_item = {r[0] for r in db.execute(
+                "SELECT DISTINCT municipio_ibge FROM itens"
+                " WHERE municipio_ibge IS NOT NULL")}
+            municipios = sorted(
+                ({"id": ibge, "nome": nome}
+                 for ibge, nome in nomes_municipio.items() if ibge in com_item),
+                key=lambda m: m["nome"])
             return {"anos": anos, "situacoes": situacoes,
                     "modalidades": modalidades, "orgaos": orgaos,
-                    "unidades": unidades}
+                    "unidades": unidades, "municipios": municipios}
         finally:
             db.close()
 
@@ -1904,11 +1930,12 @@ class Api:
             db.close()
 
     def desselecionar_preco(self, busca, item_id=None, ano=None, origem=None,
-                            unidade=None):
+                            unidade=None, municipio=None):
         """Tira um item da seleção — ou todos do recorte atual (termo +
         filtros), se não vier item. `unidade` (2026-09-07): desmarcar o
         checkbox geral com um filtro de unidade ativo só limpa os itens
-        daquela unidade — não apaga seleção feita fora do filtro atual."""
+        daquela unidade — não apaga seleção feita fora do filtro atual.
+        `municipio` (2026-09-13): mesmo raciocínio, pro filtro novo."""
         termo = relatorios.chave_termo(busca)
         if not termo:
             return {"ok": False}
@@ -1918,9 +1945,9 @@ class Api:
                 db.execute("DELETE FROM precos_selecionados"
                            " WHERE termo=? AND item_id=?",
                            (termo, str(item_id)))
-            elif unidade or ano or origem:
+            elif unidade or ano or origem or municipio:
                 where, args = _where_pesquisa_precos(busca, ano, origem,
-                                                     unidade)
+                                                     unidade, municipio)
                 ids = [r[0] for r in db.execute(
                     "SELECT id FROM itens WHERE " + " AND ".join(where),
                     args).fetchall()]
@@ -1938,15 +1965,17 @@ class Api:
             db.close()
 
     def selecionar_todos_precos(self, busca, ano=None, origem=None,
-                                unidade=None):
+                                unidade=None, municipio=None):
         """Marca tudo que a busca traz — sobre o recorte inteiro
-        (termo/ano/origem/unidade), não só a página visível. `unidade`
-        (2026-09-07): antes ignorado aqui — "selecionar todos" com o
-        filtro "Kg" ativo selecionava TUDO do termo, não só o Kg."""
+        (termo/ano/origem/unidade/município), não só a página visível.
+        `unidade` (2026-09-07): antes ignorado aqui — "selecionar todos"
+        com o filtro "Kg" ativo selecionava TUDO do termo, não só o Kg.
+        `municipio` (2026-09-13): mesmo raciocínio, pro filtro novo."""
         termo = relatorios.chave_termo(busca)
         if not termo:
             return {"ok": False}
-        where, args = _where_pesquisa_precos(busca, ano, origem, unidade)
+        where, args = _where_pesquisa_precos(busca, ano, origem, unidade,
+                                             municipio)
         db = abrir_db()
         try:
             ids = [r[0] for r in db.execute(

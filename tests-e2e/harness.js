@@ -199,7 +199,9 @@ function scriptPonte(temaBanco = "portal") {
                  { cnpj: "51351716000174", nome: "ORINDIUVA CAMARA MUNICIPAL" }],
         // já agrupadas pelo backend: "CX" e "Caixa" chegam como uma opção só
         unidades: [{ nome: "Unidade", n: 12 }, { nome: "Caixa", n: 4 },
-                   { nome: "Serviço", n: 1 }] }),
+                   { nome: "Serviço", n: 1 }],
+        municipios: [{ id: "3534203", nome: "Orindiúva" },
+                     { id: "3535002", nome: "Palestina" }] }),
       listar: async (tipo, filtros, pagina) => {
         window.__chamadas.push({ metodo: "listar", tipo, filtros, pagina });
         let itens = DADOS[tipo] || [];
@@ -207,6 +209,8 @@ function scriptPonte(temaBanco = "portal") {
           itens = itens.filter(i => i.valor_unitario_homologado != null);
         if (tipo === "itens" && filtros && filtros.origem === "proprio")
           itens = itens.filter(i => !i.referencia);
+        if (tipo === "itens" && filtros && filtros.municipio)
+          itens = itens.filter(i => i.municipio_ibge === filtros.municipio);
         if (tipo === "itens" && filtros && filtros.excluidos)
           itens = itens.filter(i => !filtros.excluidos.includes(String(i.id)));
         return { itens, total: itens.length, total_base: itens.length };

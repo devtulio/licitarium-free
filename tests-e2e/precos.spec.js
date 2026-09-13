@@ -44,6 +44,23 @@ test("marcar um item chama selecionar_preco e atualiza o resumo",
     .toBe(true);
 });
 
+test("filtro de município aparece antes de 'só com preço fechado' e restringe a lista",
+  async ({ page }) => {
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await expect(page.locator("#pr-lista .linha:not(.cab)")).toHaveCount(5);
+  // aparece antes do checkbox "Só com preço fechado" na ordem do DOM
+  const ordem = await page.locator(
+    "#filtros-precos select, #filtros-precos .check-filtro").evaluateAll(
+    els => els.map(e => e.id || e.textContent.trim()));
+  expect(ordem.indexOf("pr-municipio"))
+    .toBeLessThan(ordem.findIndex(t => t.includes("Só com preço fechado")));
+  await page.locator("#pr-municipio").selectOption("3535002");
+  await expect(page.locator("#pr-lista .linha:not(.cab)")).toHaveCount(1);
+  await expect(page.locator("#pr-lista")).toContainText("VIZINHA");
+});
+
 test("descartar um item exige motivo antes de confirmar",
   async ({ page }) => {
   await page.locator('nav.abas button[data-tipo="precos"]').click();

@@ -404,6 +404,8 @@ async function carregarFiltros() {
             f.orgaos.map(o => ({nome: o.nome ?? o.cnpj, id: o.cnpj})));
   preencher($("pr-unidade"), (f.unidades ?? []).map(
     u => ({nome: `${u.nome} (${u.n})`, id: u.nome})));
+  preencher($("pr-municipio"), (f.municipios ?? []).map(
+    m => ({nome: m.nome, id: m.id})));
 }
 
 function filtrosAtuais() {
@@ -2287,6 +2289,7 @@ function filtrosPrecosLista() {
   return { ano: $("pr-ano").value || null,
            orgao: $("pr-orgao").value || null,
            unidade: $("pr-unidade").value || null,
+           municipio: $("pr-municipio").value || null,
            so_homologados: $("pr-homologados").checked || null,
            busca: $("pr-busca").value.trim() || null,
            corrigir: $("pr-ipca").checked || null,
@@ -2517,10 +2520,11 @@ async function carregarPrecos() {
       const ano = $("pr-ano").value ? +$("pr-ano").value : null;
       const orgao = $("pr-orgao").value || null;
       const unidade = $("pr-unidade").value || null;
+      const municipio = $("pr-municipio").value || null;
       if (cabCheck.checked)
-        await api.selecionar_todos_precos(termo, ano, orgao, unidade);
+        await api.selecionar_todos_precos(termo, ano, orgao, unidade, municipio);
       else
-        await api.desselecionar_preco(termo, null, ano, orgao, unidade);
+        await api.desselecionar_preco(termo, null, ano, orgao, unidade, municipio);
       await carregarSelecaoPrecos(termo);
       carregarPrecos();
       mostrarResumoPrecos();
@@ -3068,7 +3072,7 @@ $("pr-csv").addEventListener("click", async () => {
   const r = await api.exportar_planilha("itens", filtrosPrecosLista());
   if (r.erro) alert(r.erro);
 });
-["pr-ano", "pr-orgao", "pr-homologados"].forEach(id =>
+["pr-ano", "pr-orgao", "pr-municipio", "pr-homologados"].forEach(id =>
   $(id).addEventListener("change", () => {
     estado.paginaPrecos = 1; recarregarPrecos();
   }));

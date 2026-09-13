@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.13.8 — 2026-09-13
+
+**Adição — filtro de município na pesquisa de preços**
+
+Pedido do usuário: a aba Preços já mostra a coluna Município nos
+resultados, mas não dava pra restringir a pesquisa a um só (próprio ou
+de referência) — só dava pra ver todos misturados ou usar Ctrl+F visual
+na tabela.
+
+- Novo seletor "Todos os municípios" na barra de filtros, entre "Todas
+  as unidades" e "Só com preço fechado" — só lista município que já deu
+  item ao banco (`filtros_disponiveis`).
+- "Selecionar todos"/desmarcar em lote (cabeçalho da tabela) respeitam
+  o filtro, mesma regra que já existia para unidade.
+- Resumo estatístico e comparação com vizinhos continuam olhando o
+  termo inteiro (próprio + referência) mesmo com o filtro ativo — é
+  deliberado, a comparação só faz sentido cruzando municípios.
+
+318 testes Python + 192 testes Playwright verdes.
+
 ## 2.13.7 — 2026-09-13
 
 **Correção — dois achados do usuário no relatório de cobertura e no

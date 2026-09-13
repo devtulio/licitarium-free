@@ -77,6 +77,37 @@ def test_classificar_por_unidade_seleciona_e_acumula(api):
     assert set(api.selecionados("papel a4")) == {"A#1", "A#2", "C#1"}
 
 
+def test_filtro_de_municipio_na_lista_de_itens(api):
+    # pedido do usuário (2026-09-13): filtrar a pesquisa de preços por um
+    # único município (próprio ou de referência), igual já existe pra
+    # unidade/órgão
+    r = api.listar("itens", {"municipio": "3550308"}, 1)
+    assert {i["id"] for i in r["itens"]} == {"A#1", "A#2", "B#1"}
+    r2 = api.listar("itens", {"municipio": "3536604"}, 1)
+    assert {i["id"] for i in r2["itens"]} == {"C#1"}
+
+
+def test_filtros_disponiveis_traz_municipios_com_item_no_banco(api):
+    db = licitarium.abrir_db()
+    db.execute("INSERT INTO municipios_referencia (ibge, nome, uf)"
+               " VALUES ('3536604','Barretos','SP')")
+    db.commit()
+    db.close()
+    r = api.filtros_disponiveis()
+    nomes = {m["nome"]: m["id"] for m in r["municipios"]}
+    assert nomes == {"São Paulo": "3550308", "Barretos": "3536604"}
+
+
+def test_selecionar_e_desselecionar_todos_respeitam_filtro_de_municipio(api):
+    r = api.selecionar_todos_precos("papel a4", municipio="3550308")
+    assert r == {"ok": True, "n": 2}   # A#1 e A#2, não C#1 (referência)
+    assert set(api.selecionados("papel a4")) == {"A#1", "A#2"}
+    api.selecionar_todos_precos("papel a4")   # sem filtro: inclui C#1
+    assert "C#1" in api.selecionados("papel a4")
+    assert api.desselecionar_preco("papel a4", municipio="3550308") == {"ok": True}
+    assert api.selecionados("papel a4") == ["C#1"]
+
+
 def test_unidades_dos_filtros_ordenadas_alfabeticamente(api):
     # achado do usuário (2026-09-09): por quantidade dificultava achar uma
     # unidade específica; "Resma" tem 2 itens (mais que Caixa/Unidade, 1
