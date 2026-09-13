@@ -3268,6 +3268,9 @@ function desenharConcentracaoLista(container, d) {
     </div>`).join("");
 }
 
+// duas barras por ano — estimado × homologado, mesmo padrão do gráfico
+// "Contratações por mês" do Painel de execução (pedido do usuário,
+// 2026-09-13). Antes só contava itens (n), sem falar em dinheiro nenhum.
 function desenharGraficoAnoPainel(el, porAno) {
   if (!window.echarts || !el || !porAno.length) { if (el) el.innerHTML = ""; return; }
   const s1 = _corTemaEchart("--s1", "#2a78d6");
@@ -3277,14 +3280,22 @@ function desenharGraficoAnoPainel(el, porAno) {
   el.__echart = chart;
   chart.setOption({
     animation: false,
-    grid: { left: 40, right: 12, top: 12, bottom: 24 },
+    grid: { left: 8, right: 8, top: 12, bottom: 8, containLabel: true },
     xAxis: { type: "category", data: porAno.map(p => p.ano),
-      axisLine: { lineStyle: { color: muted } } },
-    yAxis: { type: "value", splitLine: { lineStyle: { color: muted, opacity: .2 } } },
-    tooltip: { trigger: "axis" },
-    series: [{ type: "bar", data: porAno.map(p => p.n),
-      itemStyle: { color: s1, borderRadius: [3, 3, 0, 0] },
-      barMaxWidth: 48 }],
+      axisLine: { lineStyle: { color: muted } }, axisTick: { show: false } },
+    yAxis: { type: "value", min: 0,
+      axisLabel: { color: muted, formatter: v => compacto(v).replace("R$ ", "") },
+      splitLine: { lineStyle: { color: muted, opacity: .2 } } },
+    tooltip: { trigger: "axis", valueFormatter: v => compacto(v) },
+    legend: { bottom: 0, textStyle: { color: muted, fontSize: 11 } },
+    series: [
+      { name: "Estimado", type: "bar",
+        data: porAno.map(p => p.valor_estimado || 0),
+        itemStyle: { color: s1, opacity: .32, borderRadius: [3, 3, 0, 0] } },
+      { name: "Homologado", type: "bar",
+        data: porAno.map(p => p.valor_homologado || 0),
+        itemStyle: { color: s1, borderRadius: [3, 3, 0, 0] } },
+    ],
   });
 }
 

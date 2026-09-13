@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.13.12 — 2026-09-13
+
+**Mudança — "Itens por ano" (banco de preços) virou "Valor por ano —
+estimado × homologado"**
+
+Pedido do usuário: só contar item por ano não dizia nada sobre
+dinheiro; queria a mesma barra adjacente estimado/homologado que o
+Painel de execução já tem em "Contratações por mês".
+
+- `dados_banco_precos` soma `valor_total_estimado` e
+  `valor_total_homologado` por ano, além da contagem que já existia.
+- O gráfico trocou de 1 barra (contagem) para 2 barras (estimado ×
+  homologado, em R$) — mesma paleta e estilo do gráfico do Painel.
+
+319 testes Python + 194 testes Playwright verdes.
+
 ## 2.13.11 — 2026-09-13
 
 **Mudança — aba Sobre ganha a identidade do produto; modais mais largos**

@@ -369,6 +369,26 @@ def test_painel_precos(api):
     assert "São Paulo" in nomes
 
 
+def test_painel_precos_por_ano_traz_valor_estimado_e_homologado(api):
+    # pedido do usuário (2026-09-13): o gráfico "Itens por ano" só
+    # contava item, sem falar em dinheiro — virou "Valor por ano",
+    # mesmo padrão estimado × homologado do Painel de execução.
+    db = licitarium.abrir_db()
+    try:
+        db.execute("UPDATE itens SET valor_total_estimado=30,"
+                   " valor_total_homologado=25 WHERE id='A#1'")
+        db.execute("UPDATE itens SET valor_total_estimado=300,"
+                   " valor_total_homologado=250 WHERE id='A#2'")
+        db.commit()
+    finally:
+        db.close()
+    r = api.painel_precos()
+    ano = next(p for p in r["por_ano"] if p["ano"] == 2026)
+    assert ano["n"] == 4
+    assert ano["valor_estimado"] == 330
+    assert ano["valor_homologado"] == 275
+
+
 def test_concentracao_fornecedores(api):
     r = api.concentracao_fornecedores("PAPEL SULFITE A4")
     assert r["total"] == 3

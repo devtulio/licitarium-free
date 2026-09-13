@@ -2128,8 +2128,10 @@ def dados_banco_precos(db):
     fornecedores = db.execute(
         "SELECT COUNT(DISTINCT fornecedor_ni) FROM itens"
         " WHERE fornecedor_ni IS NOT NULL").fetchone()[0]
-    por_ano = [{"ano": r[0], "n": r[1]} for r in db.execute(
-        "SELECT ano, COUNT(*) FROM itens"
+    por_ano = [{"ano": r[0], "n": r[1], "valor_estimado": r[2] or 0,
+                "valor_homologado": r[3] or 0} for r in db.execute(
+        "SELECT ano, COUNT(*), SUM(valor_total_estimado),"
+        " SUM(valor_total_homologado) FROM itens"
         " WHERE ano IS NOT NULL GROUP BY ano ORDER BY ano")]
     proprio_ibge = pncp._config(db, "municipio_ibge")
     proprio_nome = pncp._config(db, "municipio_nome")
