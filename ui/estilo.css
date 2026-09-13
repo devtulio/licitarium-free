@@ -727,7 +727,7 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    rolagem). Centralizado, altura própria (não a soma dos cards), overflow
    fica DENTRO de cada painel/coluna, nunca no modal inteiro. */
 #veu-config, #veu-sync-opcoes { align-items:center; }
-.modal-cheia { width:min(1040px, 92vw); height:min(660px, 86vh);
+.modal-cheia { width:min(1180px, 94vw); height:min(680px, 86vh);
   background:var(--surface); border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.4);
   display:flex; flex-direction:column; overflow:hidden; }
 .topo-cheia { padding:16px 22px; border-bottom:1px solid var(--border); flex:none; }
@@ -764,7 +764,7 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .opcoes-sync { display:flex; flex-wrap:wrap; gap:8px; flex:1; min-width:260px; }
 .opcao-sync { display:flex; gap:8px; align-items:flex-start; padding:8px 13px;
   border:1px solid var(--border); border-radius:12px; cursor:pointer;
-  font-size:12.5px; max-width:220px; }
+  font-size:12.5px; max-width:270px; }
 .opcao-sync:hover { background:var(--surface2); }
 .opcao-sync:has(input:checked) { border-color:var(--accent);
   background:color-mix(in srgb, var(--accent) 10%, transparent); }

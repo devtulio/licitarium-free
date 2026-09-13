@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.13.11 — 2026-09-13
+
+**Mudança — aba Sobre ganha a identidade do produto; modais mais largos**
+
+Pedido do usuário.
+
+- Aba "Sobre" (dentro de Configurações) ganhou três blocos novos: **O
+  nome** (Licitarium = licitatio + -arium, por que o selo grafa
+  LICITARIVM com V), **O selo e a divisa** (tabula ansata, estandarte,
+  "sub hasta publica", MMXXVI) e **Os quatro temas** (um resumo de
+  cada) — conteúdo já documentado em `design/IDENTIDADE.md`, agora
+  também visível de dentro do app.
+- Os dois modais quase-tela-cheia (Configurações e Sincronização)
+  ficaram mais largos (1040px → 1180px) — o chip "Só quem nunca
+  sincronizou" não quebrava mais em duas linhas.
+
+194 testes Playwright verdes (318 Python inalterados).
+
 ## 2.13.10 — 2026-09-13
 
 **Correção — município de referência ficava marcado como "nunca
