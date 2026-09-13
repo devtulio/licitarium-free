@@ -369,24 +369,23 @@ def test_painel_precos(api):
     assert "São Paulo" in nomes
 
 
-def test_painel_precos_por_ano_traz_valor_estimado_e_homologado(api):
-    # pedido do usuário (2026-09-13): o gráfico "Itens por ano" só
-    # contava item, sem falar em dinheiro — virou "Valor por ano",
-    # mesmo padrão estimado × homologado do Painel de execução.
+def test_painel_precos_por_ano_traz_total_e_homologados(api):
+    # pedido do usuário (2026-09-13): o gráfico é sobre a COMPOSIÇÃO do
+    # banco de preços por ano (total de preços × quantos já fecharam),
+    # não sobre dinheiro — 1ª versão media R$ estimado/homologado, errado.
     db = licitarium.abrir_db()
     try:
-        db.execute("UPDATE itens SET valor_total_estimado=30,"
-                   " valor_total_homologado=25 WHERE id='A#1'")
-        db.execute("UPDATE itens SET valor_total_estimado=300,"
-                   " valor_total_homologado=250 WHERE id='A#2'")
+        db.execute(
+            "INSERT INTO itens (id, contratacao_controle, numero_item,"
+            " descricao, valor_unitario_homologado, ano)"
+            " VALUES ('D#1','D',1,'ITEM SEM PRECO FECHADO', NULL, 2026)")
         db.commit()
     finally:
         db.close()
     r = api.painel_precos()
     ano = next(p for p in r["por_ano"] if p["ano"] == 2026)
-    assert ano["n"] == 4
-    assert ano["valor_estimado"] == 330
-    assert ano["valor_homologado"] == 275
+    assert ano["n"] == 5           # A#1, A#2, B#1, C#1, D#1
+    assert ano["homologados"] == 4  # todos menos D#1
 
 
 def test_concentracao_fornecedores(api):

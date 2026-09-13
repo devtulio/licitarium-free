@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.13.13 — 2026-09-13
+
+**Correção — gráfico "Preços por ano" media dinheiro, tinha que medir
+composição do banco**
+
+Achado do usuário logo depois da 2.13.12: o gráfico é sobre a mesma
+coisa que os KPIs acima dele ("itens no banco" × "% com preço fechado")
+— quantos preços entraram e quantos já fecharam por ano —, não sobre
+valor estimado × homologado em R$.
+
+- `dados_banco_precos` volta a contar (não somar R$): `n` = total de
+  itens do ano, `homologados` = quantos já têm
+  `valor_unitario_homologado`.
+- Gráfico mostra "Total de preços" × "Homologados" em número inteiro,
+  sem formatação de moeda.
+- Título: "Preços por ano — total × homologados".
+
+319 testes Python + 194 testes Playwright verdes.
+
 ## 2.13.12 — 2026-09-13
 
 **Mudança — "Itens por ano" (banco de preços) virou "Valor por ano —

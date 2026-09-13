@@ -3268,9 +3268,11 @@ function desenharConcentracaoLista(container, d) {
     </div>`).join("");
 }
 
-// duas barras por ano — estimado × homologado, mesmo padrão do gráfico
-// "Contratações por mês" do Painel de execução (pedido do usuário,
-// 2026-09-13). Antes só contava itens (n), sem falar em dinheiro nenhum.
+// duas barras por ano — total de preços × homologados, mesma composição
+// dos KPIs acima ("itens no banco" × "% com preço fechado"), não
+// dinheiro (achado do usuário, 2026-09-13: a 1ª versão mediu valor
+// estimado/homologado em R$, mas este gráfico é sobre a COMPOSIÇÃO do
+// banco de preços — quantos preços entraram e quantos já fecharam).
 function desenharGraficoAnoPainel(el, porAno) {
   if (!window.echarts || !el || !porAno.length) { if (el) el.innerHTML = ""; return; }
   const s1 = _corTemaEchart("--s1", "#2a78d6");
@@ -3284,16 +3286,16 @@ function desenharGraficoAnoPainel(el, porAno) {
     xAxis: { type: "category", data: porAno.map(p => p.ano),
       axisLine: { lineStyle: { color: muted } }, axisTick: { show: false } },
     yAxis: { type: "value", min: 0,
-      axisLabel: { color: muted, formatter: v => compacto(v).replace("R$ ", "") },
+      axisLabel: { color: muted, formatter: v => v.toLocaleString("pt-BR") },
       splitLine: { lineStyle: { color: muted, opacity: .2 } } },
-    tooltip: { trigger: "axis", valueFormatter: v => compacto(v) },
+    tooltip: { trigger: "axis" },
     legend: { bottom: 0, textStyle: { color: muted, fontSize: 11 } },
     series: [
-      { name: "Estimado", type: "bar",
-        data: porAno.map(p => p.valor_estimado || 0),
+      { name: "Total de preços", type: "bar",
+        data: porAno.map(p => p.n || 0),
         itemStyle: { color: s1, opacity: .32, borderRadius: [3, 3, 0, 0] } },
-      { name: "Homologado", type: "bar",
-        data: porAno.map(p => p.valor_homologado || 0),
+      { name: "Homologados", type: "bar",
+        data: porAno.map(p => p.homologados || 0),
         itemStyle: { color: s1, borderRadius: [3, 3, 0, 0] } },
     ],
   });

@@ -657,9 +657,8 @@ function scriptPonte(temaBanco = "portal") {
         return window.__painelPrecos ?? {
           total: 12, homologados: 9, pct_homologado: 75,
           fornecedores: 3,
-          por_ano: [
-            { ano: 2025, n: 5, valor_estimado: 42000, valor_homologado: 38500 },
-            { ano: 2026, n: 7, valor_estimado: 61000, valor_homologado: 55200 }],
+          por_ano: [{ ano: 2025, n: 5, homologados: 4 },
+                    { ano: 2026, n: 7, homologados: 5 }],
           municipios: [
             { nome: "Orindiúva", uf: "SP", referencia: false, itens: 8,
               pct_homologado: 80 },
