@@ -256,22 +256,33 @@ test("execução mostra hero, colunas mensais e modalidades",
   await expect(v).toContainText("Por modalidade");
 });
 
-// achado do usuário (2026-09-12): o changelog da fase 3 do handoff dizia
-// "uma coluna, largura total, seguindo o mockup 1a", mas o código nunca
-// tirou o grid de 2 colunas herdado do Painel antigo (.faixa.f-21/.f-11)
-// — mockup 1a é explícito: "cada gráfico e cada tabela ocupa a largura
-// inteira". Mesmo desvio existia em Análise (fase 4, mockup 3a) no par
-// Deságio/Concentração — mantendo os dois gráficos, só tirando o par.
-test("execução e análise não têm mais gráficos/tabelas pareados em 2 colunas",
+// pedido do usuário (2026-09-13): volta atrás da mudança pro mockup do
+// handoff (2026-09-12, v2.12.2/v2.12.3) — gráfico pareia com gráfico de
+// novo (.grade-painel, grid de 2 colunas); tabela nunca entra no par,
+// sempre largura total.
+test("execução e análise pareiam gráfico com gráfico em 2 colunas; tabela fica largura total",
     async ({ page }) => {
-  await expect(page.locator("#p-execucao .faixa.f-21")).toHaveCount(0);
-  await expect(page.locator("#p-execucao .faixa.f-11")).toHaveCount(0);
+  const mesesBox = await page.locator(
+    '#p-execucao [data-graf="meses"]').boundingBox();
+  const modalidadesBox = await page.locator(
+    '#p-execucao [data-graf="modalidades"]').boundingBox();
+  expect(Math.abs(modalidadesBox.y - mesesBox.y)).toBeLessThan(5);
+  expect(modalidadesBox.x).toBeGreaterThan(mesesBox.x + mesesBox.width - 5);
+  const vencendoBox = await page.locator("#p-execucao table").first()
+    .locator("xpath=ancestor::div[contains(@class,'card')][1]").boundingBox();
+  expect(vencendoBox.width).toBeGreaterThan(600);
+
   await page.locator('.subabas button[data-vista="analise"]').click();
-  await expect(page.locator("#p-analise .faixa.f-11")).toHaveCount(0);
-  // os dois gráficos continuam na tela, só que cada um em largura total
-  const v = page.locator("#p-analise");
-  await expect(v).toContainText("Deságio por modalidade");
-  await expect(v).toContainText("Concentração de fornecedores");
+  const funilBox = await page.locator(
+    '#p-analise [data-graf="funil"]').boundingBox();
+  const seriesBox = await page.locator(
+    '#p-analise [data-graf="series"]').boundingBox();
+  expect(Math.abs(seriesBox.y - funilBox.y)).toBeLessThan(5);
+  const desagioBox = await page.locator(
+    '#p-analise [data-graf="desagio"]').boundingBox();
+  const concentracaoBox = await page.locator(
+    '#p-analise [data-graf="concentracao"]').boundingBox();
+  expect(Math.abs(concentracaoBox.y - desagioBox.y)).toBeLessThan(5);
 });
 
 test("fornecedor truncado carrega o nome completo no title",

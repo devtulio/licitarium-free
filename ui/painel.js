@@ -1182,8 +1182,10 @@ function vistaExecucao(d) {
       <div class="r" style="margin-top:8px">${c.atas_vigentes} atas vigentes</div>
     </div>
   </div>
-  ${cartaoGraf(`Contratações por mês — estimado × homologado`, "meses")}
-  ${cartaoGraf("Por modalidade — valor homologado", "modalidades")}
+  <div class="grade-painel">
+    ${cartaoGraf(`Contratações por mês — estimado × homologado`, "meses")}
+    ${cartaoGraf("Por modalidade — valor homologado", "modalidades")}
+  </div>
   ${cartao("Vence nos próximos 90 dias", tabelaVencendo(d.execucao.vencendo),
            `<span class="so-tela">Clicar leva à aba correspondente.</span>`)}
   ${cartao(`Onde o dinheiro foi — fornecedores de ${ano}`,
@@ -1239,18 +1241,22 @@ function tabelaFornecedores(itens, total90) {
 function vistaAnalise(d) {
   const a = d.analise;
   return `
-  ${cartaoGraf(`Do edital ao contrato — mesmo conjunto de contratações de ${d.ano}`,
-           "funil",
-           `${a.funil.publicadas - a.funil.com_resultado} publicadas ainda sem
-            resultado registrado no PNCP.`)}
-  ${cartaoGraf(`Valor homologado acumulado — ${d.ano - 2} a ${d.ano}`, "series",
-           `O ano corrente em destaque; os anteriores ficam como contexto — a
-            comparação é com o mesmo mês, não com o total do ano.`)}
-  ${cartaoGraf("Deságio por modalidade — quanto o certame economizou",
-               "desagio")}
-  ${cartaoGraf(`Concentração de fornecedores — ${d.ano}`, "concentracao",
-           `A linha tracejada é a distribuição perfeitamente igual — quanto
-            mais a curva se afasta dela, mais concentrado é o mercado.`)}
+  <div class="grade-painel">
+    ${cartaoGraf(`Do edital ao contrato — mesmo conjunto de contratações de ${d.ano}`,
+             "funil",
+             `${a.funil.publicadas - a.funil.com_resultado} publicadas ainda sem
+              resultado registrado no PNCP.`)}
+    ${cartaoGraf(`Valor homologado acumulado — ${d.ano - 2} a ${d.ano}`, "series",
+             `O ano corrente em destaque; os anteriores ficam como contexto — a
+              comparação é com o mesmo mês, não com o total do ano.`)}
+  </div>
+  <div class="grade-painel">
+    ${cartaoGraf("Deságio por modalidade — quanto o certame economizou",
+                 "desagio")}
+    ${cartaoGraf(`Concentração de fornecedores — ${d.ano}`, "concentracao",
+             `A linha tracejada é a distribuição perfeitamente igual — quanto
+              mais a curva se afasta dela, mais concentrado é o mercado.`)}
+  </div>
   ${cartaoGraf("Quando o município compra — processos por mês e modalidade",
                "calor")}
   ${cartao(`Onde concentra — por órgão`, tabelaPorOrgao(a.por_orgao))}`;

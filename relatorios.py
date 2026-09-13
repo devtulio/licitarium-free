@@ -3463,6 +3463,9 @@ _CSS_PAINEL_RESTO = """
   .wk .ev { display:flex; justify-content:space-between; gap:6pt; font-size:8.5pt; }
   .f-21 { grid-template-columns:1.6fr 1fr; }
   .f-11 { grid-template-columns:1fr 1fr; }
+  /* gráfico pareado com gráfico (pedido do usuário, 2026-09-13) — A4
+     paisagem tem largura de sobra pros dois lado a lado */
+  .grade-painel { display:grid; grid-template-columns:1fr 1fr; gap:12pt; }
   .f-3 { grid-template-columns:1fr 1fr 1fr; }
   /* min-width:0 devolve ao grid o direito de apertar o item abaixo do
      min-content (a largura fixa do SVG do ECharts). Sem isso, no papel a

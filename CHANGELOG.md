@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.13.15 — 2026-09-13
+
+**Mudança — Painel volta a 2 colunas (Execução, Análise, Situação do
+banco)**
+
+Pedido do usuário: volta atrás da mudança pro mockup do handoff Claude
+Design (v2.12.2/v2.12.3, "1 coluna, largura total"). Gráfico pareia com
+gráfico de novo; tabela (linhas longas, muitas colunas) continua sempre
+em largura total, nunca entra no par.
+
+- **Execução**: "Contratações por mês" + "Por modalidade" lado a lado;
+  "Vence em 90 dias", "Onde o dinheiro foi" e "Registrado por ata"
+  continuam cada um em largura total (são tabela/gráfico sem par).
+- **Análise**: "Do edital ao contrato" + "Valor homologado acumulado"
+  num par; "Deságio por modalidade" + "Concentração de fornecedores"
+  em outro; "Quando o município compra" e "Onde concentra — por órgão"
+  seguem sozinhos.
+- **Situação do banco** (Preços): os 4 pares (Preços por ano/Material×
+  serviço, Concentração/lista, Municípios/Itens frequentes,
+  Fornecedores/Unidades) voltam a ficar lado a lado.
+- `.grade-painel` virou `display:grid` de novo (era `flex-direction:
+  column`); mesma regra também entrou no CSS do Painel impresso — papel
+  A4 paisagem tem largura de sobra pros dois gráficos lado a lado.
+
+319 testes Python + 197 testes Playwright verdes.
+
 ## 2.13.14 — 2026-09-13
 
 **Adição — `dataZoom` nos 3 gráficos com eixo sem teto (comparação com

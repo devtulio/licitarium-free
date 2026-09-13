@@ -54,19 +54,16 @@ test("concentração com muitos fornecedores (>30) ganha zoom (achado do usuári
   expect(temZoom).toBe(true);
 });
 
-test("cartões dos gráficos ficam empilhados em 1 coluna, não lado a lado",
+test("cartões dos gráficos ficam lado a lado em 2 colunas",
     async ({ page }) => {
-  // achado do usuário (2026-09-12): esta tela ainda usava o grid de 2
-  // colunas antigo (.grade-painel) enquanto o resto do app (Painel) já
-  // tinha virado 1 coluna — mesmo espírito da correção de Execução/
-  // Análise, mesmo dia.
+  // pedido do usuário (2026-09-13): volta atrás da mudança pra 1 coluna
+  // (v2.12.3) — gráfico pareia com gráfico de novo.
   await page.locator('button[data-vista-precos="situacao"]').click();
   const anoBox = await page.locator("#painel-grafico-ano").boundingBox();
   const tipoBox = await page.locator("#painel-grafico-tipo").boundingBox();
-  // em 1 coluna, o 2º cartão fica ABAIXO do 1º (mesmo x, y maior), não
-  // ao lado (mesmo y, x maior)
-  expect(tipoBox.y).toBeGreaterThan(anoBox.y + anoBox.height - 5);
-  expect(anoBox.width).toBeGreaterThan(600);   // largura cheia, não metade
+  // em 2 colunas, o 2º cartão fica ao LADO do 1º (mesma linha, x maior)
+  expect(Math.abs(tipoBox.y - anoBox.y)).toBeLessThan(5);
+  expect(tipoBox.x).toBeGreaterThan(anoBox.x + anoBox.width - 5);
 });
 
 test("trocar largura da página redesenha os gráficos no tamanho novo (achado do usuário, 2026-09-13)",
