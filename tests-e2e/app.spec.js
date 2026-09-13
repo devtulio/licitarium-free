@@ -842,6 +842,39 @@ test("selo, título da janela e última sincronização no rodapé",
   await expect(page.locator("#sync-msg")).toContainText("Sincronizado");
 });
 
+test("Configurações: modal quase-tela-cheia troca de seção sem rolagem no modal inteiro (achado/pedido do usuário, 2026-09-13)",
+    async ({ page }) => {
+  await page.locator("#btn-config").click();
+  // "Aparência" começa visível, o resto começa oculto
+  await expect(page.locator('.secao-cfg[data-secao="aparencia"]')).toBeVisible();
+  await expect(page.locator('.secao-cfg[data-secao="limites"]')).toBeHidden();
+  await page.locator('[data-secao-cfg="limites"]').click();
+  await expect(page.locator('.secao-cfg[data-secao="limites"]')).toBeVisible();
+  await expect(page.locator('.secao-cfg[data-secao="aparencia"]')).toBeHidden();
+  await expect(page.locator('[data-secao-cfg="limites"]')).toHaveClass(/on/);
+  await expect(page.locator('[data-secao-cfg="aparencia"]')).not.toHaveClass(/on/);
+  // quem rola é o painel de conteúdo, não o `.veu` (overlay inteiro) —
+  // scrollHeight do overlay não pode passar do clientHeight da janela
+  const semRolagemNoOverlay = await page.evaluate(() => {
+    const veu = document.querySelector("#veu-config");
+    return veu.scrollHeight <= veu.clientHeight + 1;
+  });
+  expect(semRolagemNoOverlay).toBe(true);
+});
+
+test("Sincronização: modal quase-tela-cheia mostra órgãos, referência e log lado a lado, sem rolagem no modal inteiro",
+    async ({ page }) => {
+  await page.locator("#btn-sync-opcoes").click();
+  await expect(page.locator("#cfg-orgaos")).toBeVisible();
+  await expect(page.locator("#cfg-referencia")).toBeVisible();
+  await expect(page.locator("#cfg-log")).toBeVisible();
+  const semRolagemNoOverlay = await page.evaluate(() => {
+    const veu = document.querySelector("#veu-sync-opcoes");
+    return veu.scrollHeight <= veu.clientHeight + 1;
+  });
+  expect(semRolagemNoOverlay).toBe(true);
+});
+
 test("abrir maximizada vem ligada e persiste ao desmarcar",
     async ({ page }) => {
   await page.locator("#btn-config").click();
@@ -890,6 +923,7 @@ test("tamanho da fonte aplica zoom e persiste", async ({ page }) => {
 test("limites de dispensa usam máscara de dinheiro e salvam número puro",
     async ({ page }) => {
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="limites"]').click();
   const campo = page.locator("#cfg-lim-compras");
   await expect(campo).toHaveValue(/R\$/);            // carrega formatado
   await campo.fill("7500000");                        // digita só dígitos
@@ -904,6 +938,7 @@ test("limites de dispensa usam máscara de dinheiro e salvam número puro",
 test("janela de fracionamento carrega do estado e salva ao trocar",
     async ({ page }) => {
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="limites"]').click();
   await expect(page.locator("#cfg-frac-janela")).toHaveValue("exercicio");
   await page.locator("#cfg-frac-janela").selectOption("12");
   const salvo = await page.evaluate(() =>
@@ -1044,6 +1079,7 @@ test("selos de situação atingem o contraste AA nos quatro temas",
 test("brasão: sem upload, a tela abre sem preview nem botão de remover",
     async ({ page }) => {
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="municipio"]').click();
   await expect(page.locator("#cfg-brasao-preview")).toBeHidden();
   await expect(page.locator("#btn-brasao-remover")).toBeHidden();
 });
@@ -1054,6 +1090,7 @@ test("brasão: já configurado, a tela abre com a preview visível",
     window.__brasao = "data:image/png;base64,QQ==";
   });
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="municipio"]').click();
   const preview = page.locator("#cfg-brasao-preview");
   await expect(preview).toBeVisible();
   await expect(preview).toHaveAttribute("src", "data:image/png;base64,QQ==");
@@ -1063,6 +1100,7 @@ test("brasão: já configurado, a tela abre com a preview visível",
 test("brasão: carregar mostra a preview e liga o botão de remover",
     async ({ page }) => {
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="municipio"]').click();
   await page.locator("#btn-brasao-carregar").click();
   const chamada = await page.evaluate(() => window.__chamadas
     .filter(c => c.metodo === "carregar_brasao").pop());
@@ -1077,6 +1115,7 @@ test("brasão: remover esconde a preview e o próprio botão",
     window.__brasao = "data:image/png;base64,QQ==";
   });
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="municipio"]').click();
   await page.locator("#btn-brasao-remover").click();
   const chamada = await page.evaluate(() => window.__chamadas
     .filter(c => c.metodo === "remover_brasao").pop());
@@ -1092,6 +1131,7 @@ test("brasão: erro ao carregar aparece na tela, sem preview",
       { ok: false, erro: "imagem muito grande (máx. 3 MB)" };
   });
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="municipio"]').click();
   await page.locator("#btn-brasao-carregar").click();
   await expect(page.locator("#brasao-status"))
     .toContainText("imagem muito grande");

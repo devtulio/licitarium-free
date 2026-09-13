@@ -478,126 +478,137 @@
 <!-- ═══ CONFIG ═══ -->
 <div id="veu-config" class="veu oculto" role="dialog" aria-modal="true"
      aria-label="Configurações">
-  <div class="modal" style="background:none; border:none; box-shadow:none">
-    <div class="card cfg">
-      <div style="display:flex; justify-content:space-between">
-        <h2>Aparência</h2>
-        <button class="fechar" data-fecha="veu-config" aria-label="Fechar">×</button>
-      </div>
-      <div class="tcards">
-        <button class="tcard" data-tema="pergaminho">
-          <div class="sw" style="background:linear-gradient(135deg,#f5efe2 60%,#8b2e2e 60%)"></div>Pergaminho</button>
-        <button class="tcard" data-tema="portal">
-          <div class="sw" style="background:linear-gradient(135deg,#ffffff 60%,#1351b4 60%)"></div>Portal</button>
-        <button class="tcard" data-tema="observatorio">
-          <div class="sw" style="background:linear-gradient(135deg,#10151c 60%,#f0a836 60%)"></div>Observatório</button>
-        <button class="tcard" data-tema="civil">
-          <div class="sw" style="background:linear-gradient(135deg,#f6f9fa 60%,#1b7a4d 60%)"></div>Rótulo Civil</button>
-      </div>
-      <label for="cfg-largura">Largura da página</label>
-      <select id="cfg-largura" style="width:100%">
-        <option value="compacta">Compacta — margens laterais confortáveis</option>
-        <option value="expandida">Expandida — aproveita toda a tela útil</option>
-      </select>
-      <label for="cfg-fonte">Tamanho da fonte</label>
-      <select id="cfg-fonte" style="width:100%">
-        <option value="pequena">Pequena</option>
-        <option value="normal">Normal</option>
-        <option value="grande">Grande</option>
-        <option value="extra">Extra grande</option>
-      </select>
-      <label for="cfg-densidade">Densidade das listas</label>
-      <select id="cfg-densidade" style="width:100%">
-        <option value="confortavel">Confortável — linhas com respiro</option>
-        <option value="compacta">Compacta — mais registros na tela</option>
-      </select>
-      <label class="check-opcao" style="margin-top:14px">
-        <input type="checkbox" id="cfg-maximizar"> Abrir a janela maximizada
-      </label>
-      <label>Largura das colunas</label>
-      <button class="btn ghost" id="btn-restaurar-colunas">
-        Restaurar larguras padrão</button>
-      <div class="dim" style="font-size:11.5px; margin-top:6px">
-        Nas listas, arraste a borda direita de um cabeçalho para ajustar a
-        coluna; dê duplo clique nela para caber no conteúdo.
-      </div>
+  <div class="modal modal-cheia modal-cfg">
+    <div class="topo-cheia">
+      <h2>Configurações</h2>
+      <button class="fechar" data-fecha="veu-config" aria-label="Fechar">×</button>
     </div>
-    <div class="card cfg">
-      <h2>Município</h2>
-      <div style="font-size:13.5px" id="cfg-municipio"></div>
-      <div class="aviso">Para trocar de município, use o assistente inicial:
-        a troca reinicia o acervo e refaz o download histórico.
-        <button class="btn ghost" id="btn-trocar" style="margin-left:8px">Trocar…</button>
-      </div>
-    </div>
-    <div class="card cfg">
-      <h2>Brasão do município</h2>
-      <div class="ajuda">Impresso no cabeçalho dos relatórios, no lugar do
-        estandarte do Licitarium. PNG ou JPG, até 3 MB.</div>
-      <div style="display:flex; align-items:center; gap:12px; margin-top:8px">
-        <img id="cfg-brasao-preview" class="oculto" alt="Brasão atual"
-             style="height:56px; width:auto; border-radius:3px">
-        <button class="btn ghost" id="btn-brasao-carregar">📁 Selecionar
-          imagem</button>
-        <button class="btn ghost oculto" id="btn-brasao-remover">✕
-          Remover</button>
-        <span class="dim" id="brasao-status" role="status"></span>
-      </div>
-    </div>
-    <div class="card cfg">
-      <h2>Limites de dispensa — art. 75, Lei 14.133</h2>
-      <div style="display:flex; gap:10px; flex-wrap:wrap">
-        <div style="flex:1; min-width:180px">
-          <label for="cfg-lim-compras">Compras e serviços (inciso II)</label>
-          <input type="text" inputmode="numeric" id="cfg-lim-compras" style="width:100%">
+    <nav class="nav-cfg" aria-label="Seções de configuração">
+      <button data-secao-cfg="aparencia" class="on">🎨 Aparência</button>
+      <button data-secao-cfg="municipio">🏛️ Município e brasão</button>
+      <button data-secao-cfg="limites">⚖️ Limites de dispensa</button>
+      <button data-secao-cfg="dados">💾 Dados e backup</button>
+      <button data-secao-cfg="sobre">ℹ️ Sobre</button>
+    </nav>
+    <div class="painel-cfg">
+      <div class="secao-cfg" data-secao="aparencia">
+        <div class="tcards">
+          <button class="tcard" data-tema="pergaminho">
+            <div class="sw" style="background:linear-gradient(135deg,#f5efe2 60%,#8b2e2e 60%)"></div>Pergaminho</button>
+          <button class="tcard" data-tema="portal">
+            <div class="sw" style="background:linear-gradient(135deg,#ffffff 60%,#1351b4 60%)"></div>Portal</button>
+          <button class="tcard" data-tema="observatorio">
+            <div class="sw" style="background:linear-gradient(135deg,#10151c 60%,#f0a836 60%)"></div>Observatório</button>
+          <button class="tcard" data-tema="civil">
+            <div class="sw" style="background:linear-gradient(135deg,#f6f9fa 60%,#1b7a4d 60%)"></div>Rótulo Civil</button>
         </div>
-        <div style="flex:1; min-width:180px">
-          <label for="cfg-lim-obras">Obras/eng. (inciso I)</label>
-          <input type="text" inputmode="numeric" id="cfg-lim-obras" style="width:100%">
+        <div class="grade-2c">
+          <div>
+            <label for="cfg-largura">Largura da página</label>
+            <select id="cfg-largura" style="width:100%">
+              <option value="compacta">Compacta — margens laterais confortáveis</option>
+              <option value="expandida">Expandida — aproveita toda a tela útil</option>
+            </select>
+            <label for="cfg-densidade">Densidade das listas</label>
+            <select id="cfg-densidade" style="width:100%">
+              <option value="confortavel">Confortável — linhas com respiro</option>
+              <option value="compacta">Compacta — mais registros na tela</option>
+            </select>
+          </div>
+          <div>
+            <label for="cfg-fonte">Tamanho da fonte</label>
+            <select id="cfg-fonte" style="width:100%">
+              <option value="pequena">Pequena</option>
+              <option value="normal">Normal</option>
+              <option value="grande">Grande</option>
+              <option value="extra">Extra grande</option>
+            </select>
+            <label class="check-opcao" style="margin-top:14px">
+              <input type="checkbox" id="cfg-maximizar"> Abrir a janela maximizada
+            </label>
+          </div>
+        </div>
+        <h4>Largura das colunas</h4>
+        <button class="btn ghost" id="btn-restaurar-colunas">
+          Restaurar larguras padrão</button>
+        <div class="dim" style="font-size:11.5px; margin-top:6px">
+          Nas listas, arraste a borda direita de um cabeçalho para ajustar a
+          coluna; dê duplo clique nela para caber no conteúdo.
         </div>
       </div>
-      <div class="aviso">Usados no Alerta de Fracionamento. Atualizados por
-        decreto federal — confira o valor vigente.</div>
-      <div style="margin-top:12px">
-        <label for="cfg-frac-janela">Janela de análise do fracionamento</label>
-        <select id="cfg-frac-janela" style="width:100%">
-          <option value="exercicio">Exercício financeiro — 1º jan a 31 dez (recomendado)</option>
-          <option value="12">Período móvel — últimos 12 meses</option>
-          <option value="18">Período móvel — últimos 18 meses</option>
-          <option value="24">Período móvel — últimos 24 meses</option>
-        </select>
+      <div class="secao-cfg oculto" data-secao="municipio">
+        <h4>Município</h4>
+        <div style="font-size:13.5px" id="cfg-municipio"></div>
+        <div class="aviso">Para trocar de município, use o assistente inicial:
+          a troca reinicia o acervo e refaz o download histórico.
+          <button class="btn ghost" id="btn-trocar" style="margin-left:8px">Trocar…</button>
+        </div>
+        <h4 style="margin-top:22px">Brasão do município</h4>
+        <div class="ajuda">Impresso no cabeçalho dos relatórios, no lugar do
+          estandarte do Licitarium. PNG ou JPG, até 3 MB.</div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:8px">
+          <img id="cfg-brasao-preview" class="oculto" alt="Brasão atual"
+               style="height:56px; width:auto; border-radius:3px">
+          <button class="btn ghost" id="btn-brasao-carregar">📁 Selecionar
+            imagem</button>
+          <button class="btn ghost oculto" id="btn-brasao-remover">✕
+            Remover</button>
+          <span class="dim" id="brasao-status" role="status"></span>
+        </div>
       </div>
-      <div class="ajuda" style="margin-top:6px">Exercício financeiro é a
-        interpretação usada pelos TCEs e pela AGU (Lei 4.320/64, art. 34).
-        Período móvel é mais rigoroso — pega dispensas divididas entre
-        dezembro e janeiro, que o corte por exercício não vê.</div>
-    </div>
-    <div class="card cfg">
-      <h2>Cópia do acervo</h2>
-      <div class="ajuda">O acervo se refaz sozinho a partir do PNCP, mas
-        baixar todo o histórico desde 2021 leva alguns minutos. A cópia guarda
-        tudo num arquivo .zip e protege contra perda do banco.</div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
-        <button class="btn ghost" id="btn-exportar-acervo">Salvar cópia…</button>
-        <button class="btn ghost" id="btn-importar-acervo">Restaurar cópia…</button>
+      <div class="secao-cfg oculto" data-secao="limites">
+        <h4>Limites de dispensa — art. 75, Lei 14.133</h4>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+          <div style="flex:1; min-width:180px">
+            <label for="cfg-lim-compras">Compras e serviços (inciso II)</label>
+            <input type="text" inputmode="numeric" id="cfg-lim-compras" style="width:100%">
+          </div>
+          <div style="flex:1; min-width:180px">
+            <label for="cfg-lim-obras">Obras/eng. (inciso I)</label>
+            <input type="text" inputmode="numeric" id="cfg-lim-obras" style="width:100%">
+          </div>
+        </div>
+        <div class="aviso">Usados no Alerta de Fracionamento. Atualizados por
+          decreto federal — confira o valor vigente.</div>
+        <div style="margin-top:12px">
+          <label for="cfg-frac-janela">Janela de análise do fracionamento</label>
+          <select id="cfg-frac-janela" style="width:100%">
+            <option value="exercicio">Exercício financeiro — 1º jan a 31 dez (recomendado)</option>
+            <option value="12">Período móvel — últimos 12 meses</option>
+            <option value="18">Período móvel — últimos 18 meses</option>
+            <option value="24">Período móvel — últimos 24 meses</option>
+          </select>
+        </div>
+        <div class="ajuda" style="margin-top:6px">Exercício financeiro é a
+          interpretação usada pelos TCEs e pela AGU (Lei 4.320/64, art. 34).
+          Período móvel é mais rigoroso — pega dispensas divididas entre
+          dezembro e janeiro, que o corte por exercício não vê.</div>
       </div>
-      <div id="acervo-msg" class="dim" style="margin-top:8px"></div>
-    </div>
-    <div class="card cfg">
-      <h2>Exportar dados</h2>
-      <div class="ajuda">Diferente da cópia acima (que só serve pra restaurar
-        aqui dentro), isto é um <b>.json</b> aberto — pra abrir no Excel
-        (Power Query), Python ou Power BI, sem depender do Licitarium.</div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
-        <button class="btn ghost" id="btn-exportar-json">Exportar .json…</button>
+      <div class="secao-cfg oculto" data-secao="dados">
+        <h4>Cópia do acervo</h4>
+        <div class="ajuda">O acervo se refaz sozinho a partir do PNCP, mas
+          baixar todo o histórico desde 2021 leva alguns minutos. A cópia guarda
+          tudo num arquivo .zip e protege contra perda do banco.</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+          <button class="btn ghost" id="btn-exportar-acervo">Salvar cópia…</button>
+          <button class="btn ghost" id="btn-importar-acervo">Restaurar cópia…</button>
+        </div>
+        <div id="acervo-msg" class="dim" style="margin-top:8px"></div>
+        <h4 style="margin-top:22px">Exportar dados</h4>
+        <div class="ajuda">Diferente da cópia acima (que só serve pra restaurar
+          aqui dentro), isto é um <b>.json</b> aberto — pra abrir no Excel
+          (Power Query), Python ou Power BI, sem depender do Licitarium.</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+          <button class="btn ghost" id="btn-exportar-json">Exportar .json…</button>
+        </div>
+        <div id="json-msg" class="dim" style="margin-top:8px"></div>
       </div>
-      <div id="json-msg" class="dim" style="margin-top:8px"></div>
-    </div>
-    <div class="card cfg sobre">
-      <svg viewBox="0 0 64 64" aria-hidden="true" id="svg-estandarte-sobre"></svg>
-      <p><b style="color:var(--text)">Licitarium <span id="sobre-versao"></span></b><br>
-      Repositório local de contratações públicas, espelhando o PNCP.<br>
-      Código aberto (MIT) · sub hasta publica · MMXXVI</p>
+      <div class="secao-cfg oculto sobre" data-secao="sobre">
+        <svg viewBox="0 0 64 64" aria-hidden="true" id="svg-estandarte-sobre"></svg>
+        <p><b style="color:var(--text)">Licitarium <span id="sobre-versao"></span></b><br>
+        Repositório local de contratações públicas, espelhando o PNCP.<br>
+        Código aberto (MIT) · sub hasta publica · MMXXVI</p>
+      </div>
     </div>
   </div>
 </div>
@@ -607,72 +618,70 @@
      fricção nova; o ▾ ao lado abre isto pra quem quer restringir. -->
 <div id="veu-sync-opcoes" class="veu oculto" role="dialog" aria-modal="true"
      aria-label="Sincronização">
-  <div class="modal" style="background:none; border:none; box-shadow:none; width:min(680px,100%)">
-    <div class="card cfg">
-      <div style="display:flex; justify-content:space-between">
+  <div class="modal modal-cheia modal-sync">
+    <div class="topo-cheia topo-sync">
+      <div class="linha1">
         <h2>Sincronização</h2>
         <button class="fechar" data-fecha="veu-sync-opcoes" aria-label="Fechar">×</button>
       </div>
       <div class="ajuda">A coleta roda em segundo plano e pode demorar na
         primeira vez. Parar não corrompe nada: o que já entrou fica, e a
         próxima coleta refaz de onde faltou.</div>
-      <div style="display:flex; align-items:center; gap:12px; margin:10px 0 16px">
-        <button class="btn primario" id="btn-sync-opcoes-ir">Sincronizar</button>
-        <button class="btn ghost" id="btn-parar-sync" disabled>Parar
-          sincronização</button>
-        <span class="dim" id="parar-sync-status" role="status"></span>
-      </div>
-      <h3>Escopo desta sincronização</h3>
-      <div class="opcoes-sync" id="opcoes-sync-lista"></div>
-    </div>
-    <div class="card cfg">
-      <span class="rotulo-persistente">Configuração persistente</span>
-      <h2 style="margin-top:-2px">O que entra na coleta</h2>
-      <div class="grade-2">
-        <div class="subcard">
-          <h3>Órgãos monitorados</h3>
-          <div id="cfg-orgaos"></div>
-          <!-- rótulo de verdade, não só placeholder: o placeholder some no
-               primeiro caractere digitado e não é nome acessível -->
-          <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end; flex-wrap:wrap">
-            <label class="campo" style="flex:1; min-width:100px"><span>CNPJ</span>
-              <input type="text" id="novo-cnpj" placeholder="14 dígitos"></label>
-            <label class="campo" style="flex:2; min-width:140px"><span>Nome do órgão</span>
-              <input type="text" id="novo-nome" placeholder="ex.: Câmara Municipal"></label>
-            <button class="btn ghost" id="btn-add-orgao">+ Adicionar</button>
-          </div>
-        </div>
-        <div class="subcard">
-          <h3>Municípios de referência</h3>
-          <button class="btn ghost" id="btn-cobertura" style="margin-bottom:10px">
-            Relatório de cobertura da coleta</button>
-          <label for="ref-ordem" style="font-size:12.5px">Ordenar por</label>
-          <select id="ref-ordem" style="width:100%; margin-bottom:8px">
-            <option value="tamanho">Tamanho em disco (maior primeiro)</option>
-            <option value="nome">Nome (A-Z)</option>
-            <option value="itens">Preços no banco (mais primeiro)</option>
-          </select>
-          <div id="cfg-referencia"></div>
-          <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end; flex-wrap:wrap">
-            <label class="campo" style="width:90px"><span>UF</span>
-              <select id="ref-uf"><option value="">Todos</option></select></label>
-            <label class="campo" style="flex:1; min-width:140px"><span>Município de referência</span>
-              <input type="text" id="ref-busca" placeholder="ex.: Olímpia"
-                     autocomplete="off"></label>
-          </div>
-          <div id="ref-sugestoes" class="oculto"></div>
+      <div class="linha-escopo">
+        <div class="opcoes-sync" id="opcoes-sync-lista"></div>
+        <div class="acoes-sync">
+          <button class="btn primario" id="btn-sync-opcoes-ir">Sincronizar</button>
+          <button class="btn ghost" id="btn-parar-sync" disabled>Parar
+            sincronização</button>
+          <span class="dim" id="parar-sync-status" role="status"></span>
         </div>
       </div>
-      <p class="dim" style="font-size:12.5px; margin-top:10px">
-        Os itens dos municípios de referência entram <b>apenas no banco de
-        preços</b>, para dar base de comparação à aba Preços. O acervo e os
-        relatórios continuam só do seu município.</p>
     </div>
-    <div class="card cfg">
-      <h2>Sincronizações recentes</h2>
-      <div id="cfg-log"></div>
+    <div class="corpo-sync">
+      <div class="col-sync">
+        <span class="rotulo-persistente">Configuração persistente</span>
+        <h4>Órgãos monitorados</h4>
+        <div id="cfg-orgaos"></div>
+        <!-- rótulo de verdade, não só placeholder: o placeholder some no
+             primeiro caractere digitado e não é nome acessível -->
+        <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end; flex-wrap:wrap">
+          <label class="campo" style="flex:1; min-width:100px"><span>CNPJ</span>
+            <input type="text" id="novo-cnpj" placeholder="14 dígitos"></label>
+          <label class="campo" style="flex:2; min-width:140px"><span>Nome do órgão</span>
+            <input type="text" id="novo-nome" placeholder="ex.: Câmara Municipal"></label>
+          <button class="btn ghost" id="btn-add-orgao">+ Adicionar</button>
+        </div>
+      </div>
+      <div class="col-sync">
+        <span class="rotulo-persistente">Configuração persistente</span>
+        <h4>Municípios de referência</h4>
+        <button class="btn ghost" id="btn-cobertura" style="margin-bottom:10px">
+          Relatório de cobertura da coleta</button>
+        <label for="ref-ordem" style="font-size:12.5px">Ordenar por</label>
+        <select id="ref-ordem" style="width:100%; margin-bottom:8px">
+          <option value="tamanho">Tamanho em disco (maior primeiro)</option>
+          <option value="nome">Nome (A-Z)</option>
+          <option value="itens">Preços no banco (mais primeiro)</option>
+        </select>
+        <div id="cfg-referencia"></div>
+        <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end; flex-wrap:wrap">
+          <label class="campo" style="width:90px"><span>UF</span>
+            <select id="ref-uf"><option value="">Todos</option></select></label>
+          <label class="campo" style="flex:1; min-width:140px"><span>Município de referência</span>
+            <input type="text" id="ref-busca" placeholder="ex.: Olímpia"
+                   autocomplete="off"></label>
+        </div>
+        <div id="ref-sugestoes" class="oculto"></div>
+        <p class="dim" style="font-size:12.5px; margin-top:10px">
+          Entram <b>apenas no banco de preços</b>. O acervo e os relatórios
+          continuam só do seu município.</p>
+      </div>
+      <div class="col-sync">
+        <h4>Sincronizações recentes</h4>
+        <div id="cfg-log"></div>
+      </div>
     </div>
-    <div style="display:flex; justify-content:flex-end; gap:8px">
+    <div class="rodape-cheia">
       <button class="btn ghost" data-fecha="veu-sync-opcoes">Fechar</button>
     </div>
   </div>

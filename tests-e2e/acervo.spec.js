@@ -5,6 +5,7 @@ test.beforeEach(async ({ page }) => abrirApp(page));
 
 test("salvar cópia relata o que foi guardado", async ({ page }) => {
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="dados"]').click();
   await page.locator("#btn-exportar-acervo").click();
   const msg = page.locator("#acervo-msg");
   await expect(msg).toContainText("Cópia salva (12.3 MB)");
@@ -13,6 +14,7 @@ test("salvar cópia relata o que foi guardado", async ({ page }) => {
 
 test("exportar json relata o tamanho salvo", async ({ page }) => {
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="dados"]').click();
   await page.locator("#btn-exportar-json").click();
   await expect(page.locator("#json-msg")).toContainText("Exportado (8.4 MB)");
 });
@@ -22,6 +24,7 @@ test("exportar json cancelado não mostra erro", async ({ page }) => {
     window.__respostaExportarJson = { ok: false, erro: null };
   });
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="dados"]').click();
   await page.locator("#btn-exportar-json").click();
   await expect(page.locator("#json-msg")).toHaveText("");
 });
@@ -29,6 +32,7 @@ test("exportar json cancelado não mostra erro", async ({ page }) => {
 test("restaurar pede confirmação e avisa que precisa reabrir",
     async ({ page }) => {
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="dados"]').click();
 
   // recusando, nada é chamado: trocar o acervo inteiro não pode ser acidente
   page.once("dialog", d => d.dismiss());
@@ -49,6 +53,7 @@ test("arquivo recusado explica o motivo e não some com o aviso",
       erro: "o banco dentro do arquivo está corrompido" };
   });
   await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="dados"]').click();
   page.on("dialog", d => d.accept());
   await page.locator("#btn-importar-acervo").click();
   await expect(page.locator("#acervo-msg"))

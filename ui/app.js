@@ -2026,6 +2026,18 @@ $("btn-config").addEventListener("click", async () => {
   $("cfg-frac-janela").value = e.frac_janela || "exercicio";
 });
 
+// sidebar de seções do modal Configurações (pedido do usuário, 2026-09-13:
+// modal quase-tela-cheia, uma seção por vez, em vez da coluna única que
+// exigia rolagem por todos os cards) — troca só classe/aria, sem recarregar
+// dado nenhum, os campos de cada seção já foram populados na abertura.
+$("veu-config").querySelectorAll("[data-secao-cfg]").forEach(b =>
+  b.addEventListener("click", () => {
+    $("veu-config").querySelectorAll("[data-secao-cfg]").forEach(x =>
+      x.classList.toggle("on", x === b));
+    $("veu-config").querySelectorAll(".secao-cfg").forEach(s =>
+      s.classList.toggle("oculto", s.dataset.secao !== b.dataset.secaoCfg));
+  }));
+
 // órgãos monitorados, municípios de referência e log de sincronizações:
 // configuração PERSISTENTE de sync, movida do modal Configurações pro modal
 // de Sincronização (pedido do usuário, 2026-09-12) — recarrega toda vez

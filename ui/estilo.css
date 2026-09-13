@@ -715,24 +715,67 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
    quando tudo é âmbar, nada é (auditoria de interface, 2026-08-14). */
 .aviso { font-size:12px; color:var(--warn); margin-top:8px; }
 .ajuda { font-size:12px; color:var(--muted); margin-top:8px; }
-/* modal "O que sincronizar" (portado do Pretiarium Free, 2026-09-07) */
-.opcoes-sync { display:flex; flex-direction:column; gap:2px; }
-.opcao-sync { display:flex; gap:10px; align-items:flex-start; padding:9px 4px;
-  border-radius:var(--radius); cursor:pointer; font-size:13px; }
-.opcao-sync:hover { background:var(--surface2); }
-.opcao-sync input { margin-top:3px; flex:none; }
 .cfg h3 { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
   color:var(--muted); margin:0 0 10px; font-weight:600; }
-/* "O que entra na coleta" (config persistente movida pra dentro do modal
-   de sync, 2026-09-12): grade lado a lado só quando cabe; empilha no
-   mínimo do app (900px) */
-.grade-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-@media (max-width:760px) { .grade-2 { grid-template-columns:1fr; } }
-.subcard { background:var(--surface2); border-radius:var(--radius); padding:14px 16px; }
 .rotulo-persistente { font-size:11px; font-weight:700; letter-spacing:.08em;
   text-transform:uppercase; padding:2px 8px; border-radius:99px;
   background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--ok);
   display:inline-block; margin-bottom:10px; }
+
+/* ── modais quase-tela-cheia: Configurações e Sincronização (pedido do
+   usuário, 2026-09-13 — as duas ficavam extensas de coluna única, exigindo
+   rolagem). Centralizado, altura própria (não a soma dos cards), overflow
+   fica DENTRO de cada painel/coluna, nunca no modal inteiro. */
+#veu-config, #veu-sync-opcoes { align-items:center; }
+.modal-cheia { width:min(1040px, 92vw); height:min(660px, 86vh);
+  background:var(--surface); border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.4);
+  display:flex; flex-direction:column; overflow:hidden; }
+.topo-cheia { padding:16px 22px; border-bottom:1px solid var(--border); flex:none; }
+.topo-cheia > h2, .topo-cheia .linha1 { margin:0; }
+.modal-cheia:not(.topo-cheia) h2 { font-size:15px; }
+.topo-cheia h2 { font-size:15px; margin:0; }
+.topo-cheia .linha1 { display:flex; justify-content:space-between; align-items:center; }
+.rodape-cheia { display:flex; justify-content:flex-end; padding:14px 22px;
+  border-top:1px solid var(--border); flex:none; }
+.painel-cfg h4, .col-sync h4 { font-size:11px; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--muted); margin:18px 0 10px; font-weight:600; }
+.painel-cfg h4:first-child, .col-sync h4:first-of-type { margin-top:0; }
+
+/* Configurações: sidebar de seções + painel — uma seção visível por vez */
+.modal-cfg { flex-direction:row; flex-wrap:wrap; }
+.modal-cfg .topo-cheia { flex:1 0 100%; display:flex; justify-content:space-between; align-items:center; }
+.nav-cfg { width:220px; flex:none; background:var(--surface2);
+  border-right:1px solid var(--border); padding:12px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:2px; }
+.nav-cfg button { display:block; text-align:left; background:none; border:none;
+  color:var(--muted); padding:10px 12px; border-radius:6px; font-size:13px; cursor:pointer; }
+.nav-cfg button.on { background:var(--surface); color:var(--text); font-weight:600; }
+.painel-cfg { flex:1; min-width:0; padding:20px 26px; overflow-y:auto; }
+.grade-2c { display:grid; grid-template-columns:1fr 1fr; gap:0 20px; }
+@media (max-width:640px) { .grade-2c { grid-template-columns:1fr; } }
+
+/* Sincronização: topo compacto + 3 colunas — o que era `.grade-2` (2
+   colunas) virou 3, log entrou junto em vez de card à parte embaixo */
+.modal-sync { flex-direction:column; }
+.topo-sync .ajuda { margin:6px 0 12px; }
+.linha-escopo { display:flex; justify-content:space-between; align-items:flex-start;
+  flex-wrap:wrap; gap:14px; }
+.acoes-sync { display:flex; align-items:center; gap:12px; flex:none; }
+.opcoes-sync { display:flex; flex-wrap:wrap; gap:8px; flex:1; min-width:260px; }
+.opcao-sync { display:flex; gap:8px; align-items:flex-start; padding:8px 13px;
+  border:1px solid var(--border); border-radius:12px; cursor:pointer;
+  font-size:12.5px; max-width:220px; }
+.opcao-sync:hover { background:var(--surface2); }
+.opcao-sync:has(input:checked) { border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 10%, transparent); }
+.opcao-sync input { margin-top:2px; flex:none; }
+.opcao-sync .dim { display:block; font-size:11px; line-height:1.35; }
+.corpo-sync { flex:1; min-height:0; display:grid;
+  grid-template-columns:1.1fr 1.1fr .8fr; }
+.col-sync { padding:18px 22px; overflow-y:auto; border-right:1px solid var(--border); }
+.col-sync:last-child { border-right:none; }
+@media (max-width:760px) { .corpo-sync { grid-template-columns:1fr; overflow-y:auto; }
+  .col-sync { border-right:none; border-bottom:1px solid var(--border); overflow-y:visible; } }
 .bolinha-status { display:inline-block; width:8px; height:8px;
   border-radius:50%; margin-right:7px; vertical-align:middle; }
 .bolinha-status.status-vermelho { background:var(--erro); }

@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.13.9 — 2026-09-13
+
+**Mudança — modais de Configurações e Sincronização ficam quase tela
+cheia, sem rolagem de coluna única**
+
+Pedido do usuário: as duas telas empilhavam cartão sobre cartão numa
+coluna só, exigindo rolar bastante pra chegar às últimas seções. Design
+apresentado (mockup) e aprovado antes de implementar.
+
+- **Configurações** virou um diálogo largo (~1040px) com barra lateral
+  de seções — Aparência / Município e brasão / Limites de dispensa /
+  Dados e backup / Sobre — mostrando uma seção por vez, sem precisar
+  rolar pra ver as demais. Município+Brasão viraram uma seção só;
+  Cópia do acervo+Exportar .json viraram "Dados e backup".
+- **Sincronização** ganhou topo compacto (escopo desta execução em
+  chips horizontais, Sincronizar/Parar na mesma linha) e o corpo em
+  3 colunas — Órgãos monitorados | Municípios de referência |
+  Sincronizações recentes — cada uma rolando por conta própria se a
+  lista crescer, sem rolar o modal inteiro.
+- Nenhum campo/id mudou de nome — só de moldura; toda a lógica (salvar
+  config, listar órgãos, etc.) continua igual.
+
+194 testes Playwright verdes (318 Python inalterados).
+
 ## 2.13.8 — 2026-09-13
 
 **Adição — filtro de município na pesquisa de preços**
