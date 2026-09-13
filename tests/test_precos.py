@@ -269,16 +269,26 @@ def test_opcoes_sync_traz_proprio_e_referencia(api):
                     "nunca_sincronizado": True, "status": "vermelho"}
 
 
-def test_opcoes_sync_reflete_last_sync(api):
+def test_opcoes_sync_reflete_dado_real_mesmo_sem_last_sync_limpo(api):
+    # achado do usuário (2026-09-13): cidade grande o bastante pra ter
+    # dezenas de consultas quase sempre esbarra em algum 429/500/504 do
+    # PNCP, e a sincronização nunca terminava 100% limpa — `last_sync_ref`
+    # nunca era marcado, e o selo ficava "nunca sincronizado" pra sempre
+    # mesmo com a esmagadora maioria do dado já gravado. O selo agora
+    # olha se HÁ contratação no banco, não se a ÚLTIMA tentativa foi
+    # perfeita (a config `last_sync_ref_*` sozinha não basta mais).
     api.adicionar_municipio_referencia("3536604", "Orindiúva", "SP")
     db = licitarium.abrir_db()
     try:
-        pncp._config(db, "last_sync_ref_3536604", "2026-09-07T10:00:00")
+        db.execute(
+            "INSERT INTO contratacoes (numero_controle, municipio_ibge,"
+            " referencia, raw) VALUES ('R-1','3536604',1,'{}')")
         db.commit()
     finally:
         db.close()
     d = api.opcoes_sync()
     assert d["referencia"][0]["nunca_sincronizado"] is False
+    assert d["referencia"][0]["status"] == "verde"
 
 
 def test_rodar_sync_repassa_escopo_e_ibge_escolhido(api, monkeypatch):

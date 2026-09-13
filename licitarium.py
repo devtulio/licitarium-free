@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.13.9"
+VERSAO = "2.13.10"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -748,13 +748,22 @@ def _selecionar_ids(db, termo, ids):
 
 
 def _status_municipio_referencia(db, ibge):
-    """Semáforo de um município de referência: "vermelho" nunca
-    sincronizou (sem `last_sync_ref_<ibge>`), "amarelo" sincronizou mas tem
-    contratação com item ainda pendente (mesmo critério de
+    """Semáforo de um município de referência: "vermelho" nunca trouxe
+    NENHUMA contratação (achado do usuário, 2026-09-13: cidade grande
+    o bastante pra ter 78 consultas — 13 modalidades × páginas — quase
+    sempre esbarra em 429/500/504 do PNCP em pelo menos uma delas; exigir
+    zero falha pra marcar `last_sync_ref_<ibge>` deixava o semáforo
+    vermelho pra sempre mesmo com a imensa maioria do dado já gravado.
+    "amarelo" tem contratação com item ainda pendente (mesmo critério de
     `pncp.sync_itens`: `itens_versao` nulo ou desatualizado), "verde"
-    completo. Portado do Pretiarium Free — mesma regra em Configurações e
-    no modal de escopo do Sincronizar."""
-    if not pncp._config(db, f"last_sync_ref_{ibge}"):
+    completo. O semáforo reflete o que está NO BANCO, não se a última
+    tentativa terminou sem nenhum erro transitório — `last_sync_ref`
+    continua existindo, só não decide mais isto (seu papel real é a
+    janela incremental em `pncp.janela_de`)."""
+    tem_dado = db.execute(
+        "SELECT 1 FROM contratacoes WHERE municipio_ibge=? LIMIT 1",
+        (ibge,)).fetchone()
+    if not tem_dado:
         return "vermelho"
     pendentes = db.execute(
         """SELECT COUNT(*) FROM contratacoes
@@ -929,12 +938,13 @@ class Api:
     def opcoes_sync(self):
         """Dados pro modal de escopo do botão Sincronizar (portado do
         Pretiarium Free 2026-09-07): nome do município próprio e, de cada
-        referência, se já sincronizou alguma vez (`last_sync_ref_<ibge>`
-        — mesma chave que `pncp.sincronizar_tudo` usa pro escopo
-        "pendentes", não um cálculo à parte que pudesse divergir) e um
-        semáforo de status (`_status_municipio_referencia`, mesmo usado
-        em Configurações — mesma regra nos dois lugares, não um cálculo
-        cada um por sua conta)."""
+        referência, um semáforo de status (`_status_municipio_referencia`,
+        mesmo usado em Configurações — mesma regra nos dois lugares, não
+        um cálculo cada um por sua conta). `nunca_sincronizado` (rótulo
+        pro usuário, achado 2026-09-13) segue o MESMO critério do
+        semáforo — se há dado real no banco, não é mais "nunca
+        sincronizado", mesmo que a última tentativa tenha esbarrado num
+        429/500/504 do PNCP no meio das dezenas de consultas."""
         db = abrir_db()
         try:
             proprio_nome = db.execute(
@@ -942,12 +952,12 @@ class Api:
             ).fetchone()
             referencia = [{
                 "ibge": r["ibge"], "nome": r["nome"], "uf": r["uf"],
-                "nunca_sincronizado": not pncp._config(
-                    db, f"last_sync_ref_{r['ibge']}"),
                 "status": _status_municipio_referencia(db, r["ibge"])}
                 for r in db.execute(
                     "SELECT ibge, nome, uf FROM municipios_referencia "
                     "ORDER BY nome")]
+            for m in referencia:
+                m["nunca_sincronizado"] = m["status"] == "vermelho"
             return {"proprio_nome": proprio_nome[0] if proprio_nome else "",
                     "referencia": referencia}
         finally:

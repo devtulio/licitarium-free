@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.13.10 — 2026-09-13
+
+**Correção — município de referência ficava marcado como "nunca
+sincronizado" mesmo com dado real no banco**
+
+Achado do usuário: sincronizou Santa Fé do Sul duas vezes, e em ambas
+Configurações continuou mostrando o município como nunca visitado.
+Verificado ao vivo no app: o log de sincronização mostrava
+"Contratações: 2 de 78 consultas falharam — HTTP 429/500/504" a cada
+tentativa — cidade grande o bastante (13 modalidades × páginas) pra
+sempre esbarrar em pelo menos um erro transitório do PNCP. A pesquisa
+de preços já trazia os itens de Santa Fé do Sul normalmente — os dados
+chegaram e foram gravados —, mas o selo de status exigia que a ÚLTIMA
+tentativa terminasse com zero erros pra marcar `last_sync_ref_<ibge>`,
+e isso nunca acontecia.
+
+- `_status_municipio_referencia` agora olha se HÁ contratação no banco
+  pra esse município, não mais só a flag da última tentativa limpa —
+  reflete o dado real, não o acaso de uma consulta específica ter
+  esbarrado num 429 daquela vez.
+- `opcoes_sync()` (rótulo "X município(s) ainda não visitado(s)" no
+  modal de Sincronização) segue a mesma regra.
+- `last_sync_ref_<ibge>` continua existindo — seu papel real é decidir
+  a janela incremental da próxima coleta, não mudou.
+
+318 testes Python + 194 testes Playwright verdes.
+
 ## 2.13.9 — 2026-09-13
 
 **Mudança — modais de Configurações e Sincronização ficam quase tela
