@@ -718,7 +718,7 @@ test("curva ABC com plano grande (>30 itens) ganha zoom (achado do usuário, 202
       valor_total: 40 - i }));
   });
   await page.locator("#btn-pca").click();
-  await expect(page.locator("#pca-abc .graf-echart svg")).toBeVisible();
+  await expect(page.locator("#pca-abc .graf-echart svg").first()).toBeVisible();
   const temZoom = await page.evaluate(() =>
     document.querySelector("#pca-abc .graf-echart").__echart
       .getOption().dataZoom.length > 0);

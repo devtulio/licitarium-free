@@ -1131,6 +1131,29 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .graf-tt .cab { font-weight:600; color:var(--text); margin-bottom:4px; }
 .graf-tt .linha { display:flex; align-items:center; gap:7px; }
 .graf-tt .linha + .linha { margin-top:3px; }
+/* controle de zoom (curva de concentração/ABC, 2026-09-13) — botão HTML
+   de verdade no lugar do slider do ECharts, que aqui saía cortado (o
+   crosshair desenhado à mão por cima cobre a área toda) e, mesmo onde
+   não saía, nunca é alcançável por Tab. Fica no canto do próprio
+   gráfico, não do cartão — a mesma função desenha em 3 lugares com
+   moldura de cartão diferente (ou nenhuma). */
+.zoom-ctrl { position:absolute; top:2px; right:2px; z-index:2;
+  display:flex; align-items:center; gap:6px; }
+.zoom-ctrl .botoes { display:flex; }
+.zoom-ctrl button { width:24px; height:24px; display:flex; align-items:center;
+  justify-content:center; background:var(--surface2); border:1px solid var(--border);
+  color:var(--muted); cursor:pointer; padding:0; }
+.zoom-ctrl button svg { width:13px; height:13px; }
+.zoom-ctrl button:not(:last-child) { border-right:none; }
+.zoom-ctrl button:first-child { border-radius:5px 0 0 5px; }
+.zoom-ctrl button:last-child { border-radius:0 5px 5px 0; }
+.zoom-ctrl button:hover:not(:disabled) { background:var(--surface); color:var(--text); }
+.zoom-ctrl button:disabled { opacity:.35; cursor:default; }
+.zoom-ctrl button:focus-visible { outline:2px solid var(--accent); outline-offset:1px;
+  z-index:1; position:relative; }
+.zoom-chip { font-size:10.5px; font-weight:600; color:var(--accent);
+  background:var(--surface2); border:1px solid var(--border); border-radius:99px;
+  padding:2px 9px; white-space:nowrap; }
 /* traço, não caixa: à densidade de um tooltip a caixa cheia é tinta a
    mais fazendo trabalho de rótulo (dataviz: "line keys, not boxes") */
 .graf-tt i { width:10px; height:2px; border-radius:1px; flex:none; }

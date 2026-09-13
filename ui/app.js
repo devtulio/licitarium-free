@@ -3224,7 +3224,7 @@ function desenharConcentracaoLorenz(el, d) {
   el.__echart = chart;
   chart.setOption({
     animation: false,
-    grid: { left: 40, right: 12, top: 12, bottom: n > 30 ? 42 : 24 },
+    grid: { left: 40, right: 12, top: 12, bottom: 24 },
     xAxis: { type: "value", min: 0, max: n,
       axisLine: { lineStyle: { color: muted } },
       axisLabel: { color: muted } },
@@ -3232,13 +3232,11 @@ function desenharConcentracaoLorenz(el, d) {
       axisLabel: { color: muted, formatter: "{value}%" },
       splitLine: { lineStyle: { color: muted, opacity: .2 } } },
     // item disputado por muitos fornecedores — zoom pra ler o começo da
-    // curva de perto (padrão portado do Licitarium Pro, 2026-09-13)
-    dataZoom: n > 30
-      ? [{ type: "inside", xAxisIndex: 0 },
-         { type: "slider", xAxisIndex: 0, height: 14, bottom: 0,
-           borderColor: muted, fillerColor: "var(--surface2)",
-           handleStyle: { color: accent }, textStyle: { color: muted } }]
-      : [{ type: "inside", xAxisIndex: 0 }],
+    // curva de perto; roda do mouse é atalho rápido, o controle com
+    // botões (montarControleZoom) é quem dá acesso por teclado — o
+    // "slider" nativo do ECharts não é alcançável por Tab (achado do
+    // usuário, 2026-09-13, comparando com o Licitarium Pro)
+    dataZoom: n > 30 ? [{ type: "inside", xAxisIndex: 0 }] : [],
     tooltip: { trigger: "axis", axisPointer: { type: "line" },
       formatter: params => {
         const p = params.find(x => x.seriesName === "Concentração real");
@@ -3263,6 +3261,7 @@ function desenharConcentracaoLorenz(el, d) {
     ],
   });
   requestAnimationFrame(() => chart.resize());
+  if (n > 30) montarControleZoom(el, chart, n);
 }
 
 function desenharConcentracaoLista(container, d) {

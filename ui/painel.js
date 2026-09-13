@@ -213,6 +213,73 @@ function _iniciarEchart(el) {
   return chart;
 }
 
+// ── controle de zoom acessível (curva de concentração/ABC) ─────────────────
+// Substitui o `dataZoom` tipo "slider" do ECharts nos 3 gráficos de eixo
+// sem teto (pedido do usuário, 2026-09-13, depois de discutir o design):
+// o slider é um SVG desenhado pela própria lib, nunca alcançável por Tab
+// nem ativável com Enter/Espaço — e no `grafConcentracao` ele saía
+// cortado, coberto pelo crosshair desenhado à mão por cima. `<button>` de
+// verdade resolve os dois problemas de uma vez, nos 3 gráficos.
+// `container` precisa ter (ou ganhar aqui) `position:relative` — o
+// controle fica ancorado no canto do PRÓPRIO gráfico, não do cartão, já
+// que a mesma função desenha em cartão, sem cartão, ou com cartão de
+// outro layout, dependendo de onde é chamada.
+function montarControleZoom(container, chart, total) {
+  if (getComputedStyle(container).position === "static")
+    container.style.position = "relative";
+  const div = document.createElement("div");
+  div.className = "zoom-ctrl";
+  div.innerHTML = `<span class="zoom-chip oculto"></span>
+    <div class="botoes">
+      <button type="button" data-zoom="out" aria-label="Afastar (voltar ao zoom anterior)">${ICONE.zoom_out}</button>
+      <button type="button" data-zoom="in" aria-label="Aproximar (examinar de perto)">${ICONE.zoom_in}</button>
+      <button type="button" data-zoom="reset" aria-label="Redefinir zoom">${ICONE.zoom_reset}</button>
+    </div>`;
+  container.appendChild(div);
+  const chip = div.querySelector(".zoom-chip");
+  const [btnOut, btnIn, btnReset] = div.querySelectorAll("button");
+
+  const janela = () => {
+    const dz = chart.getOption().dataZoom[0];
+    return { start: dz.start ?? 0, end: dz.end ?? 100 };
+  };
+  const aplicar = (start, end) => chart.dispatchAction(
+    { type: "dataZoom", start: Math.max(0, start), end: Math.min(100, end) });
+
+  function atualizar() {
+    const { start, end } = janela();
+    const zoomado = start > 0.1 || end < 99.9;
+    btnOut.disabled = !zoomado;
+    btnReset.disabled = !zoomado;
+    btnIn.disabled = (end - start) < 8;   // não deixa zoom a ponto de sumir a curva
+    if (zoomado && total) {
+      const de = Math.max(1, Math.round(start / 100 * total) + 1);
+      const ate = Math.min(total, Math.round(end / 100 * total));
+      chip.textContent = `Zoom · ${de}–${ate} de ${total}`;
+      chip.classList.remove("oculto");
+    } else {
+      chip.classList.add("oculto");
+    }
+  }
+  // ancorado no início (item 1), nunca centralizado: a curva é sempre
+  // ordenada do maior pro menor, o interesse está sempre na ponta
+  // esquerda — "aproximar" quer dizer "examinar os primeiros de perto",
+  // não "olhar o meio de onde a roda do mouse deixou". A roda continua
+  // livre pra ajustar fino a partir de qualquer ponto (ver o `wheel` no
+  // próprio gráfico), os botões são o atalho grosso e previsível.
+  btnIn.addEventListener("click", () => {
+    const { end } = janela();
+    aplicar(0, Math.max(8, end * 0.55));
+  });
+  btnOut.addEventListener("click", () => {
+    const { end } = janela();
+    aplicar(0, Math.min(100, end / 0.55));
+  });
+  btnReset.addEventListener("click", () => aplicar(0, 100));
+  chart.on("datazoom", atualizar);
+  atualizar();
+}
+
 // ── colunas pareadas: estimado (claro) × homologado (cheio) ────────────────
 // 350px é a altura mínima padrão de todo gráfico do app (pedido do
 // usuário, 2026-09-12) — antes era 260px (média das alturas herdadas de
@@ -682,6 +749,7 @@ function grafConcentracao(el, curva, total) {
     }, { passive: false });
     hit.addEventListener("dblclick", () =>
       chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 }));
+    montarControleZoom(alvoChart.parentElement, chart, curva.length);
   }
 }
 
@@ -724,8 +792,7 @@ function grafCurvaABC(el, itens, larg = 660) {
   const chart = _iniciarEchart(alvo);
   chart.setOption({
     animation: false,
-    grid: { left: 8, right: 12, top: 12,
-      bottom: validos.length > 30 ? 26 : 8, containLabel: true },
+    grid: { left: 8, right: 12, top: 12, bottom: 8, containLabel: true },
     // achado da auditoria (2026-09-12): a faixa sombreada usava xAxis:0→
     // fimA (largura em UNIDADES DE ÍNDICE — com 1 item em A, fimA=0, faixa
     // de largura zero), enquanto a legenda logo abaixo reserva espaço por
@@ -737,15 +804,11 @@ function grafCurvaABC(el, itens, larg = 660) {
         formatter: "{value}%" },
       splitLine: { lineStyle: { color: COR_EIXO, opacity: .55 } } },
     // PCA grande (centenas de itens) — zoom pra examinar de perto o
-    // "cotovelo" A→B; roda do mouse sempre liga, a régua arrastável só
-    // aparece com curva grande o bastante pra valer o espaço (padrão
-    // portado do Licitarium Pro, 2026-09-13)
-    dataZoom: validos.length > 30
-      ? [{ type: "inside", xAxisIndex: 0 },
-         { type: "slider", xAxisIndex: 0, height: 14, bottom: 0,
-           borderColor: COR_EIXO, fillerColor: "var(--surface2)",
-           handleStyle: { color: "var(--s1)" }, textStyle: { color: "var(--muted)" } }]
-      : [{ type: "inside", xAxisIndex: 0 }],
+    // "cotovelo" A→B; roda do mouse sempre liga (atalho rápido), o
+    // controle com botões (montarControleZoom, abaixo) é quem dá acesso
+    // por teclado — o "slider" nativo do ECharts não é alcançável por Tab
+    // (achado do usuário, 2026-09-13, comparando com o Licitarium Pro)
+    dataZoom: validos.length > 30 ? [{ type: "inside", xAxisIndex: 0 }] : [],
     series: [{
       type: "line", symbol: "none", silent: true,
       data: curva.map((v, i) => [i, v]),
@@ -775,6 +838,7 @@ function grafCurvaABC(el, itens, larg = 660) {
     return [{ v: `${pct(curva[idx], 0)} do valor`, cor: "var(--s1)",
       l: `${idx + 1}º item · classe ${validos[idx].abc}` }];
   });
+  if (validos.length > 30) montarControleZoom(alvo, chart, validos.length);
   // devolvido pro chamador: os cartões de KPI acima do gráfico mostram a
   // mesma conta (nº de itens por classe, % do valor em A) — uma fonte só,
   // pra não divergir do que a curva desenha
@@ -1712,6 +1776,9 @@ function paraPapel(id) {
       el.innerHTML = "";                    // some o SVG capturado na tela
     });
     desenharGraficos(copia);                // ECharts redesenha na medida do papel
+    // controle de zoom (botões HTML) não tem uso nenhum no papel — some,
+    // igual ao slider do ECharts já não ia (impressão é imagem estática)
+    copia.querySelectorAll(".zoom-ctrl").forEach(el => el.remove());
     copia.querySelectorAll("svg[width]").forEach(svg => {
       if (svg.getAttribute("viewBox")) return;      // os à mão já têm
       const l = parseFloat(svg.getAttribute("width"));

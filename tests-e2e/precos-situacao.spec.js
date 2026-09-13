@@ -48,7 +48,7 @@ test("concentração com muitos fornecedores (>30) ganha zoom (achado do usuári
       descricao: "PAPEL SULFITE A4", total: 40, fornecedores, corte: 30 };
   });
   await page.locator('button[data-vista-precos="situacao"]').click();
-  await expect(page.locator("#painel-concentracao-svg svg")).toBeVisible();
+  await expect(page.locator("#painel-concentracao-svg svg").first()).toBeVisible();
   const temZoom = await page.locator("#painel-concentracao-svg").evaluate(
     el => el.__echart.getOption().dataZoom.length > 0);
   expect(temZoom).toBe(true);

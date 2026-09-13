@@ -43,4 +43,12 @@ const ICONE = {
   imprimir: _SVG(`<path d="M7 9.2V3.8h10v5.4"/>
                   <path d="M7 17.5H5.2A2.2 2.2 0 0 1 3 15.3v-3.9a2.2 2.2 0 0 1 2.2-2.2h13.6A2.2 2.2 0 0 1 21 11.4v3.9a2.2 2.2 0 0 1-2.2 2.2H17"/>
                   <path d="M7 14.6h10v5.6H7z"/>`, 1.6),
+
+  // controle de zoom dos gráficos de curva sem teto (concentração/ABC,
+  // 2026-09-13) — botão HTML de verdade no lugar do slider do ECharts:
+  // esse componente é um SVG desenhado pela própria lib, não um <button>,
+  // então nunca ganha foco por Tab nem ativa com Enter/Espaço.
+  zoom_in: _SVG(`<circle cx="11" cy="11" r="7"/><path d="M11 8v6M8 11h6M21 21l-4.3-4.3"/>`),
+  zoom_out: _SVG(`<circle cx="11" cy="11" r="7"/><path d="M8 11h6M21 21l-4.3-4.3"/>`),
+  zoom_reset: _SVG(`<path d="M20 11a8 8 0 1 0-2.6 5.9M20 5v6h-6"/>`),
 };

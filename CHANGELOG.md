@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.13.16 — 2026-09-13
+
+**Mudança — zoom das curvas de concentração/ABC ganha botões acessíveis
+no lugar do slider do ECharts**
+
+Discutido com o usuário depois da 2.13.14: o `slider` nativo do ECharts
+é um SVG desenhado pela própria lib, nunca alcançável por Tab nem
+ativável com Enter/Espaço — e no `grafConcentracao` (Painel · Análise e
+Preços · Concentração de fornecedores) ele saía cortado, coberto pelo
+crosshair desenhado à mão por cima do gráfico. Design apresentado
+(mockup) e aprovado antes de implementar.
+
+- 3 botões `<button>` de verdade — Afastar / Aproximar / Redefinir —
+  ancorados no canto do próprio gráfico, com `aria-label` e foco
+  visível. Substituem o `slider` nos 3 gráficos (Curva ABC do PCA,
+  Concentração de mercado/fornecedores, Concentração do banco de
+  preços).
+- "Aproximar" sempre parte do item 1 (nunca centraliza) — a curva é
+  ordenada do maior pro menor, o interesse está sempre na ponta
+  esquerda. Um selo "Zoom · X–Y de N" aparece enquanto zoomado.
+- Roda do mouse continua funcionando nos 3 (atalho fino, ajusta a
+  partir de qualquer ponto) — os botões são o controle grosso e
+  garantidamente alcançável.
+- Ícones novos em `ui/icones.js` (`zoom_in`/`zoom_out`/`zoom_reset`),
+  mesmo padrão dos demais (contorno, `currentColor`, sem emoji).
+- O relatório impresso do Painel (reusa o mesmo HTML da tela) remove o
+  controle antes de gerar o papel — nunca teve slider nele, e o botão
+  novo também não tem uso lá.
+
+319 testes Python + 197 testes Playwright verdes.
+
 ## 2.13.15 — 2026-09-13
 
 **Mudança — Painel volta a 2 colunas (Execução, Análise, Situação do
