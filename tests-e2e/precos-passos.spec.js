@@ -50,6 +50,24 @@ test("passo 3: marcar tudo e comparar mostra o resumo escopado pela seleção",
     fullPage: true });
 });
 
+test("passo 3 mostra só os itens marcados, não a lista de candidatos inteira (achado do usuário)",
+    async ({ page }) => {
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await page.locator("#pr-continuar").click();
+  // marca só o 1º item, não todos
+  await page.locator("#pr-lista input[data-item]").first().check();
+  await page.locator("#pr-continuar").click();
+  await page.waitForTimeout(150);
+  await expect(page.locator("#pr-lista .linha:not(.cab)")).toHaveCount(1);
+  // sem cabeçalho "selecionar tudo" no Passo 3 — não faz sentido aqui
+  await expect(page.locator("#pr-selecionar-cabecalho")).toHaveCount(0);
+  // desmarcar o único item marcado esvazia a seleção e volta pro Passo 2
+  await page.locator("#pr-lista input[data-item]").first().uncheck();
+  await page.waitForTimeout(150);
+  await expect(page.locator(".passos-precos .passo.on")).toContainText("Selecionar");
+});
+
 test("teto de renderização protege o DOM num recorte grande (achado do usuário: pico de 1.8GB de RAM)",
     async ({ page }) => {
   // sobrescreve listar() no próprio pywebview.api mockado, devolvendo 400

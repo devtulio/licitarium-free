@@ -2547,9 +2547,10 @@ async function carregarPrecos() {
   const cols = colunasPrecos(corrigir, conteudo);
   const cab = `<div class="linha cab ${g}">` + cols.map(([rotulo, chave], i) => {
     if (i === 0) {
-      // coluna 0: checkbox geral só existe nos Passos 2/3 — o Passo 1 é
-      // só leitura (candidatos, nada é válido ainda)
-      if (passo === 1) return `<span></span>`;
+      // coluna 0: checkbox "selecionar tudo" só faz sentido no Passo 2 —
+      // no Passo 1 nada é selecionável ainda, e no Passo 3 a lista já é
+      // só o que foi marcado (marcar tudo de novo não faria nada)
+      if (passo !== 2) return `<span></span>`;
       return `<span><input type="checkbox"
         id="pr-selecionar-cabecalho"
         aria-label="Selecionar todos os itens desta pesquisa"></span>`;
@@ -2567,7 +2568,13 @@ async function carregarPrecos() {
   // consulta), só a RENDERIZAÇÃO é limitada — refinar a busca/filtro é o
   // caminho, não rolar uma lista de milhares de linhas.
   const TETO_RENDER = 300;
-  const itensOrdenadosTodos = ordenarClientePrecos(r.itens);
+  // Passo 3 (achado do usuário, 2026-09-14): mostra só o que foi marcado
+  // no Passo 2 — a lista inteira de candidatos já cumpriu o papel dela
+  // nos passos anteriores, aqui é hora de revisar só o que entra na
+  // comparação.
+  const base3 = r.itens.filter(d => precosSelecionados.has(String(d.id)));
+  const itensOrdenadosTodos = ordenarClientePrecos(
+    passo === 3 ? base3 : r.itens);
   const itensOrdenados = itensOrdenadosTodos.slice(0, TETO_RENDER);
   const linhas = itensOrdenados.map(d => {
     const id = String(d.id);
@@ -2609,11 +2616,15 @@ async function carregarPrecos() {
       const id = cb.dataset.item;
       if (cb.checked) { precosSelecionados.add(id); await api.selecionar_preco(termo, id); }
       else { precosSelecionados.delete(id); await api.desselecionar_preco(termo, id); }
-      atualizarCabecalhoSelecao();
       if (estado.passoPrecos === 3) {
         if (!precosSelecionados.size) { irParaPasso(2); return; }
+        await carregarPrecos();   // Passo 3 só mostra o marcado — item
+                                  // desmarcado some da lista na hora
         mostrarResumoPrecos();
+        return;
       }
+      atualizarCabecalhoSelecao();
+      $("pr-continuar").disabled = precosSelecionados.size === 0;
       atualizarIndicadorPassos();
     }));
   $("pr-lista").querySelectorAll("button[data-descartar]").forEach(b =>

@@ -239,7 +239,16 @@ test("checkbox de cabeçalho marca tudo respeitando o filtro de unidade ativo",
 
 test("desmarcar o checkbox de cabeçalho limpa só o recorte filtrado",
     async ({ page }) => {
-  await buscarESelecionarTudo(page);
+  // cabeçalho "selecionar tudo" só existe no Passo 2 (2026-09-14) — o
+  // Passo 3 já filtra a lista pro que está marcado, marcar tudo de novo
+  // não faria sentido lá
+  await page.evaluate(() => { window.__selecionados = {}; });
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await page.locator("#pr-continuar").click();
+  await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
   await page.locator("#pr-unidade").selectOption("Caixa");
   await page.waitForTimeout(100);
   await page.locator("#pr-selecionar-cabecalho").uncheck();

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.14.5 — 2026-09-14
+
+**Alterado — Passo 3 (Comparar) mostra só os itens marcados**
+
+Achado do usuário testando um relatório real: o Passo 3 reaproveitava a
+lista inteira de candidatos (com checkbox), em vez de filtrar pro que
+foi marcado no Passo 2 — o relatório impresso já filtrava certo, só a
+tela mostrava demais. Agora a lista do Passo 3 só traz o que está
+selecionado; desmarcar um item ali some com ele na hora (some da lista
+e, se zerar a seleção, volta sozinho pro Passo 2). Cabeçalho
+"selecionar tudo" só aparece no Passo 2, onde faz sentido.
+
+**Corrigido — botão Continuar do Passo 2 não reagia a marcar 1 item só**
+
+Achado de teste: marcar um único item (sem usar o cabeçalho nem a
+seleção em lote) não habilitava o botão Continuar até a lista
+recarregar por outro motivo.
+
 ## 2.14.4 — 2026-09-14
 
 **Adicionado — município de referência para de guardar dado bruto**
