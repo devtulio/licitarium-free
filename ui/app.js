@@ -2542,7 +2542,15 @@ async function carregarPrecos() {
       aria-sort="${ativa ? (precosDir === "asc" ? "ascending" : "descending") : "none"}"` : "";
     return `<span${sort}>${esc(rotulo)} ${seta}</span>`;
   }).join("") + `</div>`;
-  const itensOrdenados = ordenarClientePrecos(r.itens);
+  // teto de renderização (achado do usuário, 2026-09-14): busca genérica
+  // num acervo grande trazia milhares de linhas de uma vez pro DOM —
+  // WebView2 chegou a passar de 1.8GB de RAM. `todos=true` continua
+  // buscando o recorte inteiro (conta/soma corretos, Passo 2 sem nova
+  // consulta), só a RENDERIZAÇÃO é limitada — refinar a busca/filtro é o
+  // caminho, não rolar uma lista de milhares de linhas.
+  const TETO_RENDER = 300;
+  const itensOrdenadosTodos = ordenarClientePrecos(r.itens);
+  const itensOrdenados = itensOrdenadosTodos.slice(0, TETO_RENDER);
   const linhas = itensOrdenados.map(d => {
     const id = String(d.id);
     const unit = d.valor_unitario_homologado != null
@@ -2570,9 +2578,14 @@ async function carregarPrecos() {
         <span>${d.sequencial ?? "–"}/${d.ano ?? ""}</span></span>
     </div>`;
   }).join("");
+  const truncado = itensOrdenadosTodos.length > TETO_RENDER
+    ? `<div class="dim" style="padding:10px 4px">Mostrando ${TETO_RENDER}
+        de ${itensOrdenadosTodos.length} — estreite a busca ou os filtros
+        para ver os demais.</div>`
+    : "";
   $("pr-lista").innerHTML = cab + (linhas || `<div class="vazio"><p>${
     termo ? "Nenhum item para esta busca." : "Digite algo para pesquisar preços."
-  }</p></div>`);
+  }</p></div>`) + truncado;
   $("pr-lista").querySelectorAll("input[data-item]").forEach(cb =>
     cb.addEventListener("change", async () => {
       const id = cb.dataset.item;

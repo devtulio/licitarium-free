@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.14.2 — 2026-09-14
+
+**Corrigido — Preços · Pesquisar chegava a passar de 1,8GB de RAM no WebView2**
+
+Segundo achado do usuário testando o app: o índice de 2.14.1 corrigiu o
+backend, mas o Passo 1 da pesquisa de preços (`todos=true`, sem
+paginação) renderizava CADA item que batia a busca de uma vez no DOM —
+uma busca genérica num acervo grande trazia milhares de linhas. Teto de
+renderização (300 linhas) resolve: `todos=true` continua trazendo o
+recorte inteiro pra contagem/soma corretas e pro Passo 2 reaproveitar
+sem nova consulta, só a exibição fica limitada, com aviso pra estreitar
+a busca/filtros quando passa do teto.
+
 ## 2.14.1 — 2026-09-14
 
 **Corrigido — pico de ~9GB de RAM abrindo as opções de sincronização**

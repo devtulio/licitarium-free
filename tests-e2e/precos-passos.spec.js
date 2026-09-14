@@ -50,6 +50,26 @@ test("passo 3: marcar tudo e comparar mostra o resumo escopado pela seleção",
     fullPage: true });
 });
 
+test("teto de renderização protege o DOM num recorte grande (achado do usuário: pico de 1.8GB de RAM)",
+    async ({ page }) => {
+  // sobrescreve listar() no próprio pywebview.api mockado, devolvendo 400
+  // itens — recorte grande de verdade, sem depender dos dados fixos do
+  // harness
+  await page.evaluate(() => {
+    window.pywebview.api.listar = async () => ({
+      itens: Array.from({ length: 400 }, (_, i) => ({
+        id: `EXTRA#${i}`, descricao: `PAPEL EXTRA ${i}`, unidade: "UN",
+        quantidade_homologada: 1, valor_unitario_homologado: 10,
+        fornecedor_nome: "Fornecedor Extra", municipio_nome: "Orindiúva",
+        sequencial: 1, ano: 2026 })),
+      total: 400, total_base: 400 });
+  });
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await expect(page.locator("#pr-lista .linha:not(.cab)")).toHaveCount(300);
+  await expect(page.locator("#pr-lista")).toContainText("Mostrando 300 de");
+});
+
 test("voltar do passo 2 pro 1 preserva a busca", async ({ page }) => {
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
