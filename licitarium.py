@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.14.2"
+VERSAO = "2.14.3"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -127,7 +127,19 @@ CREATE INDEX IF NOT EXISTS ix_contratacoes_mod ON contratacoes (modalidade_id);
 -- RAM abrindo as opções de sincronização com vários municípios de
 -- referência num acervo grande.
 CREATE INDEX IF NOT EXISTS ix_contratacoes_municipio ON contratacoes (municipio_ibge);
+-- filtro de órgão (`f["orgao"]`) entra em TODA lista (Contratações,
+-- Contratos, Atas, Preços) quando o usuário filtra por órgão — auditoria
+-- de índices depois do achado de municipio_ibge (2026-09-14): nenhuma das
+-- 4 tabelas tinha índice nisso, sempre table scan com o filtro ativo.
+CREATE INDEX IF NOT EXISTS ix_contratacoes_orgao ON contratacoes (orgao_cnpj);
+CREATE INDEX IF NOT EXISTS ix_contratos_orgao ON contratos (orgao_cnpj);
+CREATE INDEX IF NOT EXISTS ix_atas_orgao ON atas (orgao_cnpj);
+CREATE INDEX IF NOT EXISTS ix_itens_orgao ON itens (orgao_cnpj);
 CREATE INDEX IF NOT EXISTS ix_contratos_pub ON contratos (data_publicacao);
+-- "Vence em 60 dias"/"Vigentes" (Painel + aba Contratos) contavam vigência
+-- de `contratos` sem índice — `atas` já tinha o equivalente (ix_atas_vig,
+-- mesma finalidade), só faltou aqui.
+CREATE INDEX IF NOT EXISTS ix_contratos_vig ON contratos (vigencia_fim);
 CREATE INDEX IF NOT EXISTS ix_atas_vig ON atas (vigencia_fim);
 CREATE INDEX IF NOT EXISTS ix_pca_ano ON pca_itens (ano);
 CREATE INDEX IF NOT EXISTS ix_itens_desc ON itens (descricao);
@@ -2705,6 +2717,34 @@ class Api:
                     "mb": round(Path(caminho).stat().st_size / 1e6, 1)}
         finally:
             db.close()
+
+    def compactar_banco(self):
+        """VACUUM completo: reconstrói o arquivo do zero, compactado e
+        desfragmentado. `auto_vacuum=INCREMENTAL` já devolve página livre
+        ao SO sozinho a cada fechamento (`_fechar_db`/`PRAGMA
+        incremental_vacuum`) — isto não é a única forma de encolher o
+        banco, é o rebuild completo que o incremental não faz: reordena
+        fisicamente linhas/índices no disco, então tende a render menos
+        ganho de tamanho do que num banco sem auto_vacuum, mas ainda ajuda
+        depois de muito DELETE (remover município de referência, trocar
+        de acervo, re-sincronizar). Trava contra sync ativo: VACUUM prende
+        o banco inteiro por segundos/minutos, e uma coleta em paralelo
+        ficaria travada tentando escrever."""
+        if not self._sync_ativo.acquire(blocking=False):
+            return {"ok": False, "erro": MSG_SYNC_ATIVO}
+        try:
+            antes = ARQUIVO_DB.stat().st_size
+            db = abrir_db()
+            try:
+                db.execute("VACUUM")
+            finally:
+                db.close()
+            depois = ARQUIVO_DB.stat().st_size
+            return {"ok": True, "antes_mb": round(antes / 1e6, 1),
+                     "depois_mb": round(depois / 1e6, 1),
+                     "liberado_mb": round((antes - depois) / 1e6, 1)}
+        finally:
+            self._sync_ativo.release()
 
     def importar_acervo(self):
         """Põe no lugar do acervo atual o de um arquivo .zip exportado.

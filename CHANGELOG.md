@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.14.3 — 2026-09-14
+
+**Adicionado — botão "Compactar banco" (VACUUM) em Configurações → Dados e backup**
+
+Segue direto do achado de RAM desta sessão: o app já devolve página
+livre ao SO sozinho (`auto_vacuum=INCREMENTAL`, a cada fechamento), mas
+não faz o rebuild completo/desfragmentado. Botão novo roda `VACUUM`
+manual e mostra antes/depois em MB. Trava contra sincronização em
+andamento (mesma regra de exportar/importar acervo).
+
+**Corrigido — mais 4 índices faltantes, mesmo padrão do achado de RAM**
+
+Auditoria de todo `WHERE`/`ORDER BY` do código contra os índices
+existentes, depois do achado do `municipio_ibge`: filtro de órgão
+(`orgao_cnpj`) entra em toda lista (Contratações, Contratos, Atas,
+Preços) e nenhuma das 4 tabelas tinha índice nisso — sempre table scan
+com o filtro ativo. `contratos.vigencia_fim` também ficou sem índice
+(usado em "Vigentes"/"Vence em 60 dias" no Painel e na aba Contratos);
+`atas` já tinha o equivalente. Novos: `ix_contratacoes_orgao`,
+`ix_contratos_orgao`, `ix_atas_orgao`, `ix_itens_orgao`,
+`ix_contratos_vig`.
+
 ## 2.14.2 — 2026-09-14
 
 **Corrigido — Preços · Pesquisar chegava a passar de 1,8GB de RAM no WebView2**

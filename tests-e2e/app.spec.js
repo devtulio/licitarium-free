@@ -1093,6 +1093,33 @@ test("selos de situação atingem o contraste AA nos quatro temas",
   }
 });
 
+test("compactar banco: chama a ponte e mostra antes/depois",
+    async ({ page }) => {
+  await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="dados"]').click();
+  await page.locator("#btn-compactar-banco").click();
+  await expect(page.locator("#compactar-msg")).toContainText("142.3 MB");
+  await expect(page.locator("#compactar-msg")).toContainText("98.7 MB");
+  await expect(page.locator("#compactar-msg")).toContainText("43.6 MB");
+  const chamada = await page.evaluate(() => window.__chamadas
+    .find(c => c.metodo === "compactar_banco"));
+  expect(chamada).toBeTruthy();
+});
+
+test("compactar banco: erro (sync em andamento) aparece sem quebrar a tela",
+    async ({ page }) => {
+  await page.evaluate(() => {
+    window.__respostaCompactarBanco = { ok: false,
+      erro: "uma sincronização está em andamento — aguarde terminar e "
+        + "tente de novo" };
+  });
+  await page.locator("#btn-config").click();
+  await page.locator('[data-secao-cfg="dados"]').click();
+  await page.locator("#btn-compactar-banco").click();
+  await expect(page.locator("#compactar-msg")).toContainText("sincronização");
+  await expect(page.locator("#btn-compactar-banco")).toBeEnabled();
+});
+
 test("brasão: sem upload, a tela abre sem preview nem botão de remover",
     async ({ page }) => {
   await page.locator("#btn-config").click();

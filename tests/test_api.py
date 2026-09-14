@@ -942,3 +942,28 @@ def test_importar_acervo_recusa_com_sync_em_andamento(api, monkeypatch):
         assert not chamou   # nem chegou a abrir o diálogo de arquivo
     finally:
         api._sync_ativo.release()
+
+
+def test_compactar_banco_recusa_com_sync_em_andamento(api):
+    api._sync_ativo.acquire()
+    try:
+        r = api.compactar_banco()
+        assert r == {"ok": False, "erro": licitarium.MSG_SYNC_ATIVO}
+    finally:
+        api._sync_ativo.release()
+
+
+def test_compactar_banco_roda_vacuum_e_devolve_tamanhos(api):
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " descricao, raw, ano) VALUES ('X#1','C',1,'ITEM',?,2026)",
+        ("x" * 200000,))   # linha grande o bastante pra crescer o arquivo
+    db.commit()
+    db.execute("DELETE FROM itens WHERE id='X#1'")
+    db.commit()
+    db.close()
+    r = api.compactar_banco()
+    assert r["ok"] is True
+    assert set(r) == {"ok", "antes_mb", "depois_mb", "liberado_mb"}
+    assert r["depois_mb"] <= r["antes_mb"]

@@ -486,6 +486,11 @@ function scriptPonte(temaBanco = "portal") {
         return window.__respostaExportarJson ?? { ok: true,
           arquivo: "C:/tmp/licitarium.json", mb: 8.4 };
       },
+      compactar_banco: async () => {
+        window.__chamadas.push({ metodo: "compactar_banco" });
+        return window.__respostaCompactarBanco ?? { ok: true,
+          antes_mb: 142.3, depois_mb: 98.7, liberado_mb: 43.6 };
+      },
       sincronizar: async (forcado, escopo, ibge_escolhido) => {
         window.__chamadas.push({ metodo: "sincronizar", forcado, escopo,
                                  ibge_escolhido });

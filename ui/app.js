@@ -2008,6 +2008,24 @@ $("btn-exportar-json")?.addEventListener("click", async () => {
   msg.textContent = `Exportado (${r.mb} MB).`;
 });
 
+// ── compactar banco (VACUUM) ─────────────────────────────────────────────
+$("btn-compactar-banco")?.addEventListener("click", async () => {
+  const msg = $("compactar-msg");
+  const botao = $("btn-compactar-banco");
+  botao.disabled = true;
+  msg.textContent = "Compactando — pode levar alguns minutos num banco grande…";
+  try {
+    const r = await api.compactar_banco();
+    if (!r.ok) { msg.textContent = r.erro ? `Falhou: ${r.erro}` : ""; return; }
+    msg.textContent = r.liberado_mb > 0
+      ? `Concluído: ${r.antes_mb} MB → ${r.depois_mb} MB`
+        + ` (${r.liberado_mb} MB liberados).`
+      : `Concluído: ${r.depois_mb} MB — já estava compacto, nada a liberar.`;
+  } finally {
+    botao.disabled = false;
+  }
+});
+
 // ── config ────────────────────────────────────────────────────────────────
 // A modal demorava a abrir porque as ~5 chamadas à ponte pywebview
 // (get_estado, brasao, listar_orgaos, referência, log) rodavam uma
