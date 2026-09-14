@@ -10,12 +10,17 @@ async function buscarESelecionarTudo(page) {
   // fresca, sem nada marcado — o mock por padrão devolve "tudo
   // selecionado" (atalho pra não reescrever todo teste que não é sobre
   // seleção), então zera aqui pra exercitar o checkbox de cabeçalho de
-  // verdade (senão ele já nasce marcado e .check() vira no-op)
+  // verdade (senão ele já nasce marcado e .check() vira no-op). Checkbox
+  // só existe a partir do Passo 2 (2026-09-14); resumo só a partir do
+  // Passo 3.
   await page.evaluate(() => { window.__selecionados = {}; });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
+  await page.locator("#pr-continuar").click();
   await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
+  await page.locator("#pr-continuar").click();
   await page.waitForTimeout(100);
 }
 
@@ -124,7 +129,11 @@ test("preço fora da curva vira aviso com botão de descarte em lote",
 
 test("seleção em lote: fornecedor, faixa de valor e texto na descrição",
     async ({ page }) => {
-  await buscarESelecionarTudo(page);
+  // barra de seleção em lote só existe no Passo 2 (2026-09-14)
+  await page.locator('nav.abas button[data-tipo="precos"]').click();
+  await page.locator("#pr-busca").fill("papel");
+  await page.waitForTimeout(400);
+  await page.locator("#pr-continuar").click();
   await page.locator("#pr-sel-fornecedor").selectOption("11.111.111/0001-11");
   await expect.poll(() => page.evaluate(() => window.__chamadas
     .some(c => c.metodo === "selecionar_por_fornecedor"))).toBe(true);
@@ -146,29 +155,40 @@ test("seleção em lote: fornecedor, faixa de valor e texto na descrição",
 
 test("escolher uma unidade classifica a pesquisa, não só filtra",
     async ({ page }) => {
+  // classificar_por_unidade só dispara a partir do Passo 2 — no Passo 1
+  // (só leitura) nada é selecionável ainda
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
+  await page.locator("#pr-continuar").click();
   await page.locator("#pr-unidade").selectOption({ index: 1 });
   await expect.poll(() => page.evaluate(() => window.__chamadas
     .some(c => c.metodo === "classificar_por_unidade"))).toBe(true);
 });
 
-test("ordenar a lista de preços por clique manda ord/dir à ponte",
+test("ordenar a lista de preços por clique reordena client-side (Passo 1 é cache único)",
     async ({ page }) => {
+  // desde o fluxo guiado (2026-09-14) o Passo 1 busca tudo de uma vez
+  // (`todos=true`) e o Passo 2 reaproveita — ordenar não gera nova
+  // consulta, só reordena o cache em memória
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
   const cabFornecedor = page.locator('#pr-lista .cab span[data-ord="fornecedor"]');
   await cabFornecedor.click();
   await expect(cabFornecedor).toHaveAttribute("aria-sort", "ascending");
+  const primeiroAsc = await page.locator("#pr-lista .linha:not(.cab)")
+    .first().locator(".dim").nth(2).textContent();
   await cabFornecedor.click();
   await expect(cabFornecedor).toHaveAttribute("aria-sort", "descending");
-  const chamadas = await page.evaluate(() => window.__chamadas
-    .filter(c => c.metodo === "listar" && c.tipo === "itens").slice(-2));
-  expect(chamadas[0].filtros.ord).toBe("fornecedor");
-  expect(chamadas[0].filtros.dir).toBe("asc");
-  expect(chamadas[1].filtros.dir).toBe("desc");
+  const primeiroDesc = await page.locator("#pr-lista .linha:not(.cab)")
+    .first().locator(".dim").nth(2).textContent();
+  expect(primeiroAsc).not.toBe(primeiroDesc);
+  // 2 consultas ao todo (abrir a aba com busca vazia + digitar "papel"),
+  // nenhuma a mais pros 2 cliques de ordenar — sem round-trip por ordenação
+  const chamadasListar = await page.evaluate(() => window.__chamadas
+    .filter(c => c.metodo === "listar" && c.tipo === "itens"));
+  expect(chamadasListar.length).toBe(2);
 });
 
 test("arrastar a alça redimensiona a coluna de preços e persiste",
@@ -207,6 +227,7 @@ test("checkbox de cabeçalho marca tudo respeitando o filtro de unidade ativo",
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
+  await page.locator("#pr-continuar").click();
   await page.locator("#pr-unidade").selectOption("Caixa");
   await page.waitForTimeout(100);
   await page.locator("#pr-selecionar-cabecalho").check();
@@ -229,59 +250,21 @@ test("desmarcar o checkbox de cabeçalho limpa só o recorte filtrado",
   expect(chamada.unidade).toBe("Caixa");
 });
 
-test("comparação com municípios de referência aparece já na busca, sem seleção",
+// "Comparação com municípios de referência" foi abandonada (2026-09-14,
+// fluxo guiado de 3 passos) — sempre resultava no mesmo gráfico "por
+// município" que o resumo do Passo 3 já mostra. Sem #precos-vizinhos.
+test("comparação com vizinhos não existe mais — só o resumo do Passo 3",
     async ({ page }) => {
-  // a comparação olha a pesquisa INTEIRA (incluidos=null), não só o que
-  // está selecionado — "onde está mais barato" é uma pergunta diferente
-  // da do resumo ("a minha seleção"), por isso aparece independente dela
-  await page.evaluate(() => { window.__selecionados = {}; });
-  await page.locator('nav.abas button[data-tipo="precos"]').click();
-  await page.locator("#pr-busca").fill("papel");
-  await page.waitForTimeout(400);
-  await expect(page.locator("#precos-resumo")).toBeVisible();
-  await expect(page.locator("#precos-resumo")).toContainText("0 de");
-  await expect(page.locator("#pr-sel-fornecedor")).toBeVisible();
-
-  await expect(page.locator("#precos-vizinhos")).toBeVisible();
-  await expect(page.locator("#precos-vizinhos")).toContainText(
-    "Comparação com municípios de referência");
-  await expect(page.locator("#precos-vizinhos-grafico svg")).toBeVisible();
-  const chamada = await page.evaluate(() => window.__chamadas
-    .filter(c => c.metodo === "estatisticas_preco").pop());
-  expect(chamada.incluidos).toBeNull();
+  await buscarESelecionarTudo(page);
+  await expect(page.locator("#precos-vizinhos")).toHaveCount(0);
+  await expect(page.locator("#precos-resumo")).toContainText("Por município");
 });
 
-test("limpar a busca esconde a comparação com vizinhos da pesquisa anterior",
+test("limpar a busca no Passo 3 esconde o resumo da pesquisa anterior",
     async ({ page }) => {
-  // achado do usuário (2026-09-08): só o resumo escondia ao apagar a
-  // busca — a comparação com vizinhos da pesquisa anterior ficava lá
-  await page.evaluate(() => { window.__selecionados = {}; });
-  await page.locator('nav.abas button[data-tipo="precos"]').click();
-  await page.locator("#pr-busca").fill("papel");
-  await page.waitForTimeout(400);
-  await page.locator("#pr-selecionar-cabecalho").check();
-  await page.waitForTimeout(100);
-  await expect(page.locator("#precos-vizinhos")).toBeVisible();
+  await buscarESelecionarTudo(page);
+  await expect(page.locator("#precos-resumo")).toBeVisible();
   await page.locator("#pr-busca").fill("");
   await page.waitForTimeout(400);
   await expect(page.locator("#precos-resumo")).toBeHidden();
-  await expect(page.locator("#precos-vizinhos")).toBeHidden();
-});
-
-test("descartar um sinal na comparação com vizinhos exige motivo",
-    async ({ page }) => {
-  await page.locator('nav.abas button[data-tipo="precos"]').click();
-  await page.locator("#pr-busca").fill("papel");
-  await page.waitForTimeout(400);
-  await page.locator("#pr-selecionar-cabecalho").check();
-  await page.waitForTimeout(100);
-  await expect(page.locator("#precos-vizinhos")).toContainText("preço destoa");
-  await page.locator("#pr-descartar-sinal-vizinhos").click();
-  await expect(page.locator("#veu-descarte")).toBeVisible();
-  await page.locator("#desc-motivo").selectOption("erro");
-  await page.locator("#desc-confirmar").click();
-  const chamadas = await page.evaluate(() => window.__chamadas
-    .filter(c => c.metodo === "descartar_preco"));
-  expect(chamadas.map(c => c.item_id)).toEqual(["X-3#10"]);
-  expect(chamadas[0].motivo).toBe("erro");
 });

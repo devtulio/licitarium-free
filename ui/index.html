@@ -167,8 +167,12 @@
         </div>
       </div>
       <div id="precos-pesquisar" class="vista">
+      <div class="passos-precos" role="tablist" aria-label="Passos da pesquisa de preços">
+        <span class="passo" data-passo="1"><b>1</b> Buscar</span>
+        <span class="passo" data-passo="2"><b>2</b> Selecionar</span>
+        <span class="passo" data-passo="3"><b>3</b> Comparar</span>
+      </div>
       <div class="card precos oculto" id="precos-resumo"></div>
-      <div class="card precos oculto" id="precos-vizinhos"></div>
       <div class="filtros" id="filtros-precos">
         <input type="search" id="pr-busca" autocomplete="off"
                placeholder="Buscar item — ex.: papel A4, óleo, pneu…"
@@ -193,13 +197,14 @@
           <input type="checkbox" id="pr-conteudo"> Comparar por conteúdo</label>
         <button class="btn ghost" id="pr-csv">Exportar planilha</button>
       </div>
+      <div class="dim" id="pr-contador" role="status" style="margin-bottom:8px"></div>
+      <div class="disp alerta oculto" id="pr-aviso-volume"></div>
+      <div id="pr-toolbar-selecao"></div>
       <div class="card lista" id="pr-lista"></div>
       <div class="rodape" id="pr-rodape">
-        <div class="paginacao">
-          <button class="btn ghost" id="pr-pag-ant" aria-label="Página anterior">‹</button>
-          <span id="pr-pag-info" class="dim"></span>
-          <button class="btn ghost" id="pr-pag-prox" aria-label="Próxima página">›</button>
-        </div>
+        <button class="btn ghost oculto" id="pr-voltar">‹ Voltar</button>
+        <div style="flex:1"></div>
+        <button class="btn oculto" id="pr-continuar">Continuar ›</button>
       </div>
       </div>
     </section>

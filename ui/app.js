@@ -2292,10 +2292,27 @@ window.onSyncFim = async st => {
 // temporal, o resumo fica em cartões numéricos com os mesmos dados.
 let precosSelecionados = new Set();
 let ultimoTermoPrecos = "";
-estado.paginaPrecos = 1;
 // ordenação própria da lista de preços — estado separado do `estado.ord`
 // da lista genérica pra trocar de aba sem perder o critério de cada uma
 let precosOrd = null, precosDir = "desc";
+
+// ── sequência guiada de 3 passos (2026-09-14): Buscar → Selecionar →
+// Comparar. Nada conta pra estatística/comparação até ser marcado no
+// Passo 2 — a lista do Passo 1 é só leitura, "candidatos". Descarte fica
+// disponível nos 3 passos (ficar indo e voltando pra descartar seria
+// contraproducente). O Passo 1 busca a pesquisa INTEIRA de uma vez
+// (`todos=true`) — o Passo 2 reaproveita esse mesmo resultado em cache,
+// sem nova consulta; só um filtro/busca novo invalida o cache.
+estado.passoPrecos = 1;
+atualizarIndicadorPassos();
+let precosCache = null;        // { termo, chave, itens, total } — Passo 1
+let precosChaveCache = null;   // assinatura busca+filtros que gerou o cache
+
+function chaveFiltrosPrecos() {
+  const f = filtrosPrecosLista();
+  return JSON.stringify([f.busca, f.ano, f.orgao, f.unidade, f.municipio,
+    f.so_homologados]);
+}
 
 function filtrosPrecosLista() {
   return { ano: $("pr-ano").value || null,
@@ -2440,8 +2457,52 @@ function garantirSelecaoPrecos(termo) {
 // resumo lê a seleção do termo anterior — achado do teste manual
 // 2026-09-07 ("0 de N selecionados" com item de fato selecionado).
 async function recarregarPrecos() {
+  precosCache = null;   // filtro/busca mudou — cache do Passo 1 invalidado
   await carregarPrecos();
-  mostrarResumoPrecos();
+  if (estado.passoPrecos === 3) mostrarResumoPrecos();
+}
+
+function atualizarIndicadorPassos() {
+  document.querySelectorAll(".passos-precos .passo").forEach(el => {
+    const n = +el.dataset.passo;
+    el.classList.toggle("on", n === estado.passoPrecos);
+    el.classList.toggle("feito", n < estado.passoPrecos);
+  });
+  $("precos-resumo").classList.toggle("oculto", estado.passoPrecos !== 3);
+  $("pr-voltar").classList.toggle("oculto", estado.passoPrecos === 1);
+  $("pr-continuar").classList.toggle("oculto", estado.passoPrecos === 3);
+  $("pr-continuar").textContent = estado.passoPrecos === 1
+    ? "Continuar ›" : "Comparar ›";
+}
+
+async function irParaPasso(n) {
+  estado.passoPrecos = n;
+  atualizarIndicadorPassos();
+  await carregarPrecos();
+  if (n === 3) mostrarResumoPrecos();
+}
+
+// contador dinâmico do Passo 1 (achado do usuário, 2026-09-14): reflete
+// o estado ATUAL de "Só com preço fechado" — marcado, mostra só a
+// contagem homologada; desmarcado, mostra a quebra homologado/estimado.
+function atualizarContadorPrecos(itens, total) {
+  const caixa = $("pr-contador");
+  const aviso = $("pr-aviso-volume");
+  if (!itens) { caixa.textContent = ""; aviso.classList.add("oculto"); return; }
+  if ($("pr-homologados").checked) {
+    caixa.textContent = `${total} ${total === 1 ? "item homologado" : "itens homologados"}`;
+  } else {
+    const homolog = itens.filter(d => d.valor_unitario_homologado != null).length;
+    caixa.textContent = `${total} candidatos — ${homolog} homologados,
+      ${total - homolog} estimados`;
+  }
+  if (estado.passoPrecos === 1 && total > 200) {
+    aviso.classList.remove("oculto");
+    aviso.textContent = `${total} candidatos é muita coisa pra revisar um a um —
+      considere estreitar por ano, órgão, unidade ou município.`;
+  } else {
+    aviso.classList.add("oculto");
+  }
 }
 
 async function carregarPrecos() {
@@ -2449,35 +2510,48 @@ async function carregarPrecos() {
   await garantirSelecaoPrecos(termo);
   const conteudo = $("pr-conteudo").checked;
   const corrigir = $("pr-ipca").checked;
+  const passo = estado.passoPrecos;
+  const chave = chaveFiltrosPrecos();
+  let r;
+  if (precosCache && precosChaveCache === chave) {
+    r = precosCache;
+  } else {
+    r = await api.listar("itens", filtrosPrecosLista(), 1, true);
+    precosCache = r;
+    precosChaveCache = chave;
+  }
+  atualizarContadorPrecos(r.itens, r.total);
   // mesmas classes/larguras que ui/estilo.css já reserva para a aba Preços
   // (.g-itens / .conteudo / .corrigido): a coluna extra de dinheiro entra
   // sempre entre o valor pago e o fornecedor.
-  const g = "g-itens" + (conteudo ? " conteudo" : "") + (corrigir ? " corrigido" : "");
+  const g = "g-itens" + (conteudo ? " conteudo" : "") + (corrigir ? " corrigido" : "")
+    + (passo === 1 ? " leitura" : "");
   const cols = colunasPrecos(corrigir, conteudo);
   const cab = `<div class="linha cab ${g}">` + cols.map(([rotulo, chave], i) => {
-    // coluna 0: checkbox geral, substitui o botão "Selecionar todos" da
-    // barra de filtros (achado do usuário, 2026-09-07) — marca/desmarca
-    // tudo que bate a pesquisa + os filtros ATIVOS no momento (não a
-    // página só, nem o termo inteiro sem filtro)
-    if (i === 0) return `<span><input type="checkbox"
-      id="pr-selecionar-cabecalho"
-      aria-label="Selecionar todos os itens desta pesquisa"></span>`;
+    if (i === 0) {
+      // coluna 0: checkbox geral só existe nos Passos 2/3 — o Passo 1 é
+      // só leitura (candidatos, nada é válido ainda)
+      if (passo === 1) return `<span></span>`;
+      return `<span><input type="checkbox"
+        id="pr-selecionar-cabecalho"
+        aria-label="Selecionar todos os itens desta pesquisa"></span>`;
+    }
     const ativa = chave && precosOrd === chave;
     const seta = ativa ? `<span class="seta">${precosDir === "asc" ? "▲" : "▼"}</span>` : "";
     const sort = chave ? ` data-ord="${chave}" role="button" tabindex="0"
       aria-sort="${ativa ? (precosDir === "asc" ? "ascending" : "descending") : "none"}"` : "";
     return `<span${sort}>${esc(rotulo)} ${seta}</span>`;
   }).join("") + `</div>`;
-  const r = await api.listar("itens", filtrosPrecosLista(), estado.paginaPrecos);
-  const linhas = r.itens.map(d => {
+  const itensOrdenados = ordenarClientePrecos(r.itens);
+  const linhas = itensOrdenados.map(d => {
     const id = String(d.id);
     const unit = d.valor_unitario_homologado != null
       ? dinheiro(d.valor_unitario_homologado)
       : `<span class="est">${dinheiro(d.valor_unitario_estimado)} <small>est.</small></span>`;
     return `<div class="linha ${g}" data-id="${esc(id)}">
-      <span class="sel"><input type="checkbox" data-item="${esc(id)}"
+      <span class="sel">${passo === 1 ? "" : `<input type="checkbox" data-item="${esc(id)}"
         ${precosSelecionados.has(id) ? "checked" : ""}
-        aria-label="Usar na pesquisa: ${esc(d.descricao ?? "item")}"></span>
+        aria-label="Usar na pesquisa: ${esc(d.descricao ?? "item")}">`}</span>
       <span class="obj">${esc(d.descricao ?? "–")}</span>
       <span class="dim">${esc(d.unidade ?? "–")}</span>
       <span class="dim">${d.quantidade_homologada ?? d.quantidade ?? "–"}</span>
@@ -2505,7 +2579,11 @@ async function carregarPrecos() {
       if (cb.checked) { precosSelecionados.add(id); await api.selecionar_preco(termo, id); }
       else { precosSelecionados.delete(id); await api.desselecionar_preco(termo, id); }
       atualizarCabecalhoSelecao();
-      mostrarResumoPrecos();
+      if (estado.passoPrecos === 3) {
+        if (!precosSelecionados.size) { irParaPasso(2); return; }
+        mostrarResumoPrecos();
+      }
+      atualizarIndicadorPassos();
     }));
   $("pr-lista").querySelectorAll("button[data-descartar]").forEach(b =>
     b.addEventListener("click", () => abrirDescarte(b.dataset.descartar)));
@@ -2517,7 +2595,7 @@ async function carregarPrecos() {
       if (e.target.closest("input, button")) return;
       abrirDetalhe(linha.dataset.id, "itens");
     }));
-  const idsPaginaAtual = r.itens.map(d => String(d.id));
+  const idsPaginaAtual = itensOrdenados.map(d => String(d.id));
   function atualizarCabecalhoSelecao() {
     const cab = $("pr-selecionar-cabecalho");
     if (!cab) return;
@@ -2538,8 +2616,12 @@ async function carregarPrecos() {
       else
         await api.desselecionar_preco(termo, null, ano, orgao, unidade, municipio);
       await carregarSelecaoPrecos(termo);
-      carregarPrecos();
-      mostrarResumoPrecos();
+      await carregarPrecos();
+      if (estado.passoPrecos === 3) {
+        if (!precosSelecionados.size) { irParaPasso(2); return; }
+        mostrarResumoPrecos();
+      }
+      atualizarIndicadorPassos();
     });
   }
   $("pr-lista").querySelectorAll(".cab span[data-ord]").forEach(s => {
@@ -2547,7 +2629,6 @@ async function carregarPrecos() {
       const chave = s.dataset.ord;
       if (precosOrd === chave) precosDir = precosDir === "asc" ? "desc" : "asc";
       else { precosOrd = chave; precosDir = "asc"; }
-      estado.paginaPrecos = 1;
       carregarPrecos();
     };
     s.addEventListener("click", ordenar);
@@ -2557,10 +2638,20 @@ async function carregarPrecos() {
   });
   aplicarLargurasPrecos(cols.length);
   ligarAlcasPrecos(cols.length);
-  const paginas = Math.max(1, Math.ceil(r.total / 50));
-  $("pr-pag-info").textContent = `${estado.paginaPrecos}/${paginas} · ${r.total} registros`;
-  $("pr-pag-ant").disabled = estado.paginaPrecos <= 1;
-  $("pr-pag-prox").disabled = estado.paginaPrecos >= paginas;
+  $("pr-continuar").disabled = passo === 1
+    ? !(termo.length >= 3 && r.total > 0)
+    : precosSelecionados.size === 0;
+  // barra de seleção em lote (fornecedor/faixa/texto) só faz sentido no
+  // Passo 2 — no Passo 1 nada está selecionável ainda, e no Passo 3 ela
+  // saiu daqui pro botão "descartar fora da curva" do resumo
+  const toolbar = $("pr-toolbar-selecao");
+  if (passo === 2) {
+    const ano = $("pr-ano").value ? +$("pr-ano").value : null;
+    toolbar.innerHTML = await toolbarSelecaoPrecos(termo, ano, null);
+    ligarToolbarSelecaoPrecos(termo, ano, null);
+  } else {
+    toolbar.innerHTML = "";
+  }
   if (!r.itens.length && termo.length >= 3 && api.sugerir_termo) {
     const sug = await api.sugerir_termo(termo);
     $("pr-sugestao").classList.toggle("oculto", !sug);
@@ -2568,12 +2659,31 @@ async function carregarPrecos() {
       ? `Você quis dizer <button class="btn ghost" id="pr-usar-sugestao"
           style="padding:0 4px">${esc(sug)}</button>?` : "";
     $("pr-usar-sugestao")?.addEventListener("click", () => {
-      $("pr-busca").value = sug; estado.paginaPrecos = 1;
+      $("pr-busca").value = sug;
       recarregarPrecos();
     });
   } else {
     $("pr-sugestao").classList.add("oculto");
   }
+}
+
+// ordenação do Passo 1/2/3: já é o recorte inteiro em memória (`todos`),
+// então ordenar é client-side — sem round-trip nem perder a seleção.
+function ordenarClientePrecos(itens) {
+  if (!precosOrd) return itens;
+  const chave = { descricao: "descricao", unidade: "unidade",
+    quantidade: "quantidade_homologada", unitario: "valor_unitario_homologado",
+    fornecedor: "fornecedor_nome", municipio: "municipio_nome",
+    origem: "sequencial" }[precosOrd] || precosOrd;
+  const sinal = precosDir === "asc" ? 1 : -1;
+  return [...itens].sort((a, b) => {
+    const va = a[chave], vb = b[chave];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === "string") return sinal * va.localeCompare(vb, "pt-BR");
+    return sinal * (va - vb);
+  });
 }
 
 // ── avisos textuais do resumo (portados do Pretiarium Free, 2026-09-07)
@@ -2911,56 +3021,35 @@ function ligarToolbarSelecaoPrecos(termo, ano, origemVal) {
   });
 }
 
+// Passo 3 — só roda com seleção do Passo 2 (o gate de `irParaPasso`/
+// `pr-continuar` garante 1+ antes de chegar aqui; o ramo "nada
+// selecionado" do backend fica inatingível por construção). A
+// "comparação com vizinhos" foi abandonada (2026-09-14) — o gráfico "por
+// município" abaixo já é o mesmo dado, agora escopado pela seleção.
 async function mostrarResumoPrecos() {
   const caixa = $("precos-resumo");
   const termo = $("pr-busca").value.trim();
-  if (termo.length < 3 || !api.estatisticas_preco) {
+  if (termo.length < 3 || !api.estatisticas_preco || !precosSelecionados.size) {
     caixa.classList.add("oculto");
-    // achado do usuário (2026-09-08): limpar a busca deixava o gráfico
-    // da comparação com vizinhos da pesquisa anterior visível — só o
-    // resumo escondia, porque mostrarComparacaoVizinhos só é chamado
-    // daqui pra baixo.
-    $("precos-vizinhos")?.classList.add("oculto");
     return;
   }
   await garantirSelecaoPrecos(termo);
   const ano = $("pr-ano").value ? +$("pr-ano").value : null;
-  // Licitarium não tem filtro "só meu município" na aba Preços (o
-  // Pretiarium tinha) — a seleção em lote por fornecedor/faixa/texto
-  // sempre olha a pesquisa inteira, próprio + referência
-  const origemVal = null;
+  const orgao = $("pr-orgao").value || null;
   const unidade = $("pr-unidade").value || null;
+  const municipio = $("pr-municipio").value || null;
   // item descartado (motivo obrigatório) não pode seguir contando na
-  // mediana/quartis nem nos "sinais" da comparação com vizinhos — achado
-  // do teste manual 2026-09-07: `_where_pesquisa_precos` deliberadamente
-  // não olha descarte (documentado na própria função), e é responsa-
-  // bilidade de quem chama `estatisticas_preco` passar os excluídos; a
-  // tela nunca buscava essa lista.
+  // mediana/quartis — achado do teste manual 2026-09-07:
+  // `_where_pesquisa_precos` deliberadamente não olha descarte
+  // (documentado na própria função), e é responsabilidade de quem chama
+  // `estatisticas_preco` passar os excluídos; a tela nunca buscava essa
+  // lista.
   const excluidos = api.descartes
     ? (await api.descartes(termo)).map(d => String(d.item_id)) : [];
-  const s = await api.estatisticas_preco(termo, ano, origemVal, excluidos,
+  const s = await api.estatisticas_preco(termo, ano, null, excluidos,
     $("pr-conteudo").checked, $("pr-ipca").checked, [...precosSelecionados],
-    unidade);
-  mostrarComparacaoVizinhos(termo, ano, origemVal, unidade, excluidos);
+    unidade, municipio, orgao);
   if (!s) { caixa.classList.add("oculto"); return; }
-  if (s.nada_selecionado) {
-    caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
-      <div class="dim" role="status">0 de ${s.total} selecionados</div>
-      <div>Nenhum item selecionado ainda. Marque os que quer comparar na
-        lista abaixo, ou
-        <button class="btn ghost" id="pr-selecionar-todos-resumo"
-          style="margin-left:4px">Selecionar todos</button></div>
-      ${await toolbarSelecaoPrecos(termo, ano, origemVal)}`;
-    caixa.classList.remove("oculto");
-    $("pr-selecionar-todos-resumo").addEventListener("click", () => {
-      const cab = $("pr-selecionar-cabecalho");
-      if (!cab) return;
-      cab.checked = true;
-      cab.dispatchEvent(new Event("change"));
-    });
-    ligarToolbarSelecaoPrecos(termo, ano, origemVal);
-    return;
-  }
   if (!s.n) {
     caixa.innerHTML = `<h3>Preços pagos para "${esc(termo)}"</h3>
       <div>Nenhum dos itens selecionados tem dado suficiente para o
@@ -2989,8 +3078,7 @@ async function mostrarResumoPrecos() {
     <div id="precos-boxplot" class="oculto" style="height:350px"></div>
     ${dispersaoHtml(s)}${foraDaCurvaHtml(s)}
     ${serieTemporalHtml(s)}
-    ${porMunicipioHtml(s)}
-    ${await toolbarSelecaoPrecos(termo, ano, origemVal)}`;
+    ${porMunicipioHtml(s)}`;
   caixa.classList.remove("oculto");
   desenharBoxplotPreco($("precos-boxplot"), s);
   desenharGraficoSerie($("precos-serie"), s);
@@ -3003,67 +3091,49 @@ async function mostrarResumoPrecos() {
     $("rel-status").textContent = "";
     abrirModal("veu-relatorios");
   });
-  $("pr-descartar-fora")?.addEventListener("click", () =>
-    abrirDescarte((s.fora_da_curva ?? []).map(String)));
-  ligarToolbarSelecaoPrecos(termo, ano, origemVal);
-}
-
-// ── comparação com municípios de referência (redesenho 2026-09-07) ──────
-// Item não marcado pra pesquisa oficial não é descartado nem some — vira
-// matéria-prima desta seção: `estatisticas_preco` com `incluidos=null`
-// (não `[]`) devolve a pesquisa INTEIRA, marcada ou não, no mesmo termo
-// já filtrado (mesmo motor de quartis/Tukey/MAD/por_municipio da seção
-// acima). Sinal de sobrepreço = item fora da curva de QUALQUER
-// município no conjunto todo; descartar um sinal usa o mesmo modal de
-// motivo obrigatório de sempre — sem categoria de "ignorar sem rastro".
-async function mostrarComparacaoVizinhos(termo, ano, origemVal, unidade,
-                                         excluidos) {
-  const caixa = $("precos-vizinhos");
-  if (termo.length < 3 || !api.estatisticas_preco) {
-    caixa.classList.add("oculto");
-    return;
-  }
-  if (excluidos === undefined)
-    excluidos = api.descartes
-      ? (await api.descartes(termo)).map(d => String(d.item_id)) : [];
-  const s = await api.estatisticas_preco(termo, ano, origemVal, excluidos,
-    $("pr-conteudo").checked, $("pr-ipca").checked, null, unidade);
-  if (!s || !s.n || !s.por_municipio?.length) {
-    caixa.classList.add("oculto");
-    return;
-  }
-  const fora = s.fora_da_curva ?? [];
-  caixa.innerHTML = `<h3>Comparação com municípios de referência</h3>
-    <div class="dim" style="font-size:12px; margin-bottom:8px">
-      Todos os ${s.n} itens desta pesquisa (marcados ou não) — "onde está
-      mais barato", independente do que você já selecionou acima.</div>
-    <div id="precos-vizinhos-grafico" style="height:${
-      40 + s.por_municipio.length * 34}px"></div>
-    ${fora.length ? `<div class="fora">
-      <span>${fora.length === 1 ? "1 preço destoa" : `${fora.length} preços destoam`}
-        do conjunto — pode ser sobrepreço, ou só um item diferente do que
-        parece. Confira antes de decidir.</span>
-      <button class="btn ghost" id="pr-descartar-sinal-vizinhos">
-        Descartar ${fora.length === 1 ? "o sinal" : "os sinais"}</button></div>`
-      : `<div class="dim" style="font-size:12px">Nenhum item foge do
-          padrão do conjunto.</div>`}`;
-  caixa.classList.remove("oculto");
-  desenharGraficoMunicipio($("precos-vizinhos-grafico"), s);
-  $("pr-descartar-sinal-vizinhos")?.addEventListener("click", () =>
-    abrirDescarte(fora.map(String)));
+  // descarte em lote "fora da curva" (2026-09-14): separado por direção —
+  // preço acima da faixa esperada tem motivo pré-selecionado "excessivo",
+  // abaixo tem "inexequível". Um modal por direção presente, em fila.
+  $("pr-descartar-fora")?.addEventListener("click", () => {
+    const limSup = s.limite_sup ?? s.limite_sup_robusto;
+    const limInf = s.limite_inf ?? s.limite_inf_robusto;
+    const porId = new Map((s.itens ?? []).map(it => [String(it.id), it.valor]));
+    const acima = [], abaixo = [];
+    for (const id of (s.fora_da_curva ?? []).map(String)) {
+      const v = porId.get(id);
+      if (limSup != null && v > limSup) acima.push(id);
+      else if (limInf != null && v < limInf) abaixo.push(id);
+      else acima.push(id);   // sem limite pra decidir lado — trata como acima
+    }
+    const fila = [];
+    if (acima.length) fila.push({ ids: acima, motivo: "excessivo" });
+    if (abaixo.length) fila.push({ ids: abaixo, motivo: "inexequivel" });
+    abrirDescarteFila(fila);
+  });
 }
 
 // razão do descarte, sempre exigida (pedido do usuário) — diferente do
 // Pretiarium, que aceitava descartar sem motivo e cobrava só no relatório.
-// Aceita um id só (linha da lista) ou uma lista (descarte em lote dos
-// itens fora da curva) — um motivo só vale pra todos do lote.
+// Aceita um id só (linha da lista) ou uma lista (descarte em lote).
+// `motivoPreSelecionado`: pré-marca o motivo no select, mas continua
+// editável — usado pelo descarte em lote "fora da curva".
 let descarteAlvo = null;
-async function abrirDescarte(id) {
+let filaDescarte = [];   // descarte em lote com motivos diferentes por
+                         // direção (fora da curva acima × abaixo): um
+                         // modal por vez, em sequência
+async function abrirDescarte(id, motivoPreSelecionado = null) {
   descarteAlvo = id;
   const motivos = api.motivos_descarte ? await api.motivos_descarte() : [];
   $("desc-motivo").innerHTML = motivos.map(m =>
-    `<option value="${esc(m.id)}">${esc(m.texto)}</option>`).join("");
+    `<option value="${esc(m.id)}" ${m.id === motivoPreSelecionado ? "selected" : ""}
+      >${esc(m.texto)}</option>`).join("");
   abrirModal("veu-descarte");
+}
+function abrirDescarteFila(fila) {
+  filaDescarte = fila.slice(1);
+  const primeiro = fila[0];
+  if (!primeiro) return;
+  abrirDescarte(primeiro.ids, primeiro.motivo);
 }
 $("desc-confirmar").addEventListener("click", async () => {
   if (!descarteAlvo) return;
@@ -3077,46 +3147,66 @@ $("desc-confirmar").addEventListener("click", async () => {
   }
   fecharModal("veu-descarte");
   descarteAlvo = null;
-  recarregarPrecos();
+  const proximo = filaDescarte.shift();
+  if (proximo) { abrirDescarte(proximo.ids, proximo.motivo); return; }
+  recarregarPrecosMantendoPasso();
 });
+
+// recarrega a lista/resumo sem trocar de passo — descarte volta pro
+// Passo 2 sozinho se zerar a seleção (feito dentro de carregarPrecos()
+// via o handler do checkbox; aqui só cobre o caminho do botão ✕, que não
+// passa por lá).
+async function recarregarPrecosMantendoPasso() {
+  precosCache = null;
+  await carregarSelecaoPrecos($("pr-busca").value.trim());
+  await carregarPrecos();
+  if (estado.passoPrecos === 3) {
+    if (!precosSelecionados.size) { irParaPasso(2); return; }
+    await mostrarResumoPrecos();
+  }
+  atualizarIndicadorPassos();
+}
 
 $("pr-csv").addEventListener("click", async () => {
   const r = await api.exportar_planilha("itens", filtrosPrecosLista());
   if (r.erro) alert(r.erro);
 });
 ["pr-ano", "pr-orgao", "pr-municipio", "pr-homologados"].forEach(id =>
-  $(id).addEventListener("change", () => {
-    estado.paginaPrecos = 1; recarregarPrecos();
-  }));
+  $(id).addEventListener("change", () => recarregarPrecosMantendoPasso()));
 // escolher uma unidade já filtra a lista, mas sozinho não classificava a
 // pesquisa — buscar "alface" mistura maço, quilo e unidade, e comparar por
 // uma só exigia marcar item por item na mão. Agora a escolha já seleciona
-// os da unidade também (soma à seleção atual, não substitui).
+// os da unidade também (soma à seleção atual, não substitui) — só faz
+// sentido a partir do Passo 2 (Passo 1 é só leitura, nada a selecionar).
 $("pr-unidade").addEventListener("change", async () => {
-  estado.paginaPrecos = 1;
   const unidade = $("pr-unidade").value;
   const termo = $("pr-busca").value.trim();
-  if (unidade && termo && api.classificar_por_unidade) {
+  if (unidade && termo && estado.passoPrecos > 1 && api.classificar_por_unidade) {
     await api.classificar_por_unidade(termo, unidade,
       $("pr-ano").value ? +$("pr-ano").value : null, null);
     await carregarSelecaoPrecos(termo);
   }
-  carregarPrecos();
-  mostrarResumoPrecos();
+  recarregarPrecosMantendoPasso();
 });
 ["pr-ipca", "pr-conteudo"].forEach(id =>
-  $(id).addEventListener("change", () => { recarregarPrecos(); }));
+  $(id).addEventListener("change", () => recarregarPrecosMantendoPasso()));
 let buscaPrecosTimer;
 $("pr-busca").addEventListener("input", () => {
   clearTimeout(buscaPrecosTimer);
   buscaPrecosTimer = setTimeout(() => {
-    estado.paginaPrecos = 1; carregarPrecos(); mostrarResumoPrecos();
+    // busca nova reinicia a sequência guiada — o Passo 1 é sempre o
+    // ponto de partida de uma pesquisa diferente
+    estado.passoPrecos = 1;
+    atualizarIndicadorPassos();
+    recarregarPrecos();
   }, 300);
 });
-$("pr-pag-ant").addEventListener("click", () => {
-  estado.paginaPrecos--; carregarPrecos(); });
-$("pr-pag-prox").addEventListener("click", () => {
-  estado.paginaPrecos++; carregarPrecos(); });
+$("pr-continuar").addEventListener("click", () => {
+  if (estado.passoPrecos < 3) irParaPasso(estado.passoPrecos + 1);
+});
+$("pr-voltar").addEventListener("click", () => {
+  if (estado.passoPrecos > 1) irParaPasso(estado.passoPrecos - 1);
+});
 
 // ── situação do banco de preços (portado do Pretiarium Free, 2026-09-07) ──
 // Os gráficos aqui são desenhados uma vez, na medida do container no

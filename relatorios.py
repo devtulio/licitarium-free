@@ -1787,12 +1787,40 @@ MOTIVOS_DESCARTE = {
     "excessivo": "Preço excessivamente elevado",
     "antigo": "Contratação antiga demais para servir de parâmetro",
     "lote": "Valor de lote lançado como item único",
+    # ampliação pedida pelo usuário, 2026-09-14 — fluxo guiado de 3 passos
+    "sem_concorrencia": "Contratação sem ampla concorrência",
+    "especificacao": "Especificação técnica divergente",
+    "sancao": "Fornecedor com sanção/impedimento conhecido",
+    "quantidade": "Quantidade muito discrepante",
+    "frete": "Frete, instalação ou outros custos embutidos no valor",
+    "emergencial": "Contratação emergencial",
+    "duplicado": "Registro duplicado",
+    "cancelado": "Contratação cancelada ou anulada posteriormente",
+    "outro": "Outro motivo",
 }
 
 
 def chave_termo(busca):
     """Identifica a pesquisa. "Papel  A4 " e "papel a4" são a mesma."""
     return " ".join((busca or "").lower().split())
+
+
+def chave_pesquisa(busca, ano=None, orgao=None, unidade=None, municipio=None):
+    """Identifica o CONTEXTO da pesquisa — termo + os filtros que mudam
+    QUAIS itens aparecem (ano, órgão, unidade, município). Descarte e
+    seleção usam esta chave, não só `chave_termo` (achado do usuário,
+    2026-09-14): descartar um item filtrando unidade=RESMA não pode
+    sumir com ele numa busca depois filtrando unidade=CAIXA — são
+    conjuntos de itens diferentes, mesmo com o mesmo texto de busca.
+
+    Toggles que só mudam COMO o item é exibido/calculado (corrigir pelo
+    IPCA, "por conteúdo") ficam DE FORA de propósito — não mudam o
+    conjunto de itens, só a coluna extra na tela; incluí-los fragmentaria
+    a mesma pesquisa em contextos diferentes à toa.
+    """
+    return "|".join([chave_termo(busca), f"ano={ano or ''}",
+                     f"orgao={orgao or ''}", f"unidade={unidade or ''}",
+                     f"municipio={municipio or ''}"])
 
 
 def mes_por_extenso(competencia_):

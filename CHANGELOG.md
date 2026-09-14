@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.14.0 — 2026-09-14
+
+**Adicionado — Preços · Pesquisar vira sequência guiada de 3 passos**
+
+Redesenho negociado passo a passo com o usuário antes de implementar
+(revive o fluxo Buscar→Selecionar→Comparar do antigo v1.60.0, agora com
+descarte disponível nos 3 passos). Nada conta pra estatística até ser
+marcado no Passo 2 — a lista do Passo 1 é só leitura ("candidatos").
+
+- **Passo 1 (Buscar)**: lista completa, sem paginação, sem checkbox.
+  Contador dinâmico acompanha "Só com preço fechado" — marcado, mostra
+  só a contagem homologada; desmarcado, mostra a quebra homologado ×
+  estimado. Aviso (não bloqueante) acima de 200 candidatos.
+- **Passo 2 (Selecionar)**: mesma lista, agora com checkbox por linha +
+  cabeçalho "selecionar tudo" + barra de seleção em lote (fornecedor,
+  faixa de valor, texto na descrição) — sem nova consulta ao banco,
+  reaproveita o resultado do Passo 1.
+- **Passo 3 (Comparar)**: estatística/boxplot/série temporal/"por
+  município" calculados só sobre a seleção do Passo 2. A antiga
+  "comparação com municípios de referência" foi abandonada — sempre
+  resultava no mesmo gráfico da análise estatística. Descarte em lote
+  "itens fora da curva" agora separa por direção: acima da faixa vem
+  com motivo pré-marcado "Preço excessivamente elevado", abaixo vem com
+  "Preço manifestamente inexequível" (editável). Zerar a seleção aqui
+  volta sozinho pro Passo 2.
+- Descarte (✕) disponível nos 3 passos, sempre escopado por termo + ano
+  + órgão + unidade + município (corrige um bug real: descartar um item
+  filtrando por "Resma" não pode sumir com ele numa busca futura
+  filtrada por "Caixa"). Seleção continua com escopo só pelo termo — os
+  filtros da tela decidem QUAIS itens um "selecionar tudo"/"desmarcar
+  tudo" alcança, não onde a marcação fica guardada.
+- Lista de motivos de descarte ampliada de 6 para 16 opções + "Outro
+  motivo (especificar)".
+
 ## 2.13.16 — 2026-09-13
 
 **Mudança — zoom das curvas de concentração/ABC ganha botões acessíveis

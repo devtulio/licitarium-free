@@ -11,7 +11,7 @@ test("abrir a aba Preços esconde as outras telas", async ({ page }) => {
   await expect(page.locator("#kpis-topo")).toBeHidden();
 });
 
-test("buscar um termo lista os itens; resumo sem seleção convida a marcar",
+test("passo 1 (Buscar): lista os itens, só leitura — resumo só existe no Passo 3",
   async ({ page }) => {
   await page.evaluate(() => { window.__selecionados = {}; });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
@@ -19,23 +19,25 @@ test("buscar um termo lista os itens; resumo sem seleção convida a marcar",
   await page.waitForTimeout(400);   // debounce da busca
   await expect(page.locator("#pr-lista .linha:not(.cab)").first())
     .toBeVisible();
-  // sem seleção, o resumo aparece mesmo assim — convida a marcar em vez
-  // de esconder (mostra "0 de N selecionados" + botão "Selecionar todos")
-  await expect(page.locator("#precos-resumo")).toBeVisible();
-  await expect(page.locator("#precos-resumo")).toContainText("0 de");
-  await expect(page.locator("#pr-selecionar-todos-resumo")).toBeVisible();
+  await expect(page.locator("#pr-lista input[data-item]")).toHaveCount(0);
+  await expect(page.locator("#precos-resumo")).toBeHidden();
 
+  // Passo 2: marcar tudo → Passo 3: resumo aparece escopado pela seleção
+  await page.locator("#pr-continuar").click();
   await page.locator("#pr-selecionar-cabecalho").check();
+  await page.waitForTimeout(100);
+  await page.locator("#pr-continuar").click();
   await page.waitForTimeout(100);
   await expect(page.locator("#precos-resumo")).toContainText("mediana");
 });
 
-test("marcar um item chama selecionar_preco e atualiza o resumo",
+test("marcar um item no Passo 2 chama selecionar_preco",
   async ({ page }) => {
   await page.evaluate(() => { window.__selecionados = {}; });
   await page.locator('nav.abas button[data-tipo="precos"]').click();
   await page.locator("#pr-busca").fill("papel");
   await page.waitForTimeout(400);
+  await page.locator("#pr-continuar").click();
   const caixa = page.locator("#pr-lista input[data-item]").first();
   await caixa.check();
   await expect

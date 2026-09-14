@@ -3,6 +3,7 @@ ui/tema.js
 node_modules/
 test-results/
 playwright-report/
+tests-e2e/screens/
 .pytest_cache/
 .coverage
 htmlcov/
