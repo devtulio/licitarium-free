@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.14.1 — 2026-09-14
+
+**Corrigido — pico de ~9GB de RAM abrindo as opções de sincronização**
+
+Achado do usuário testando o app: `contratacoes` não tinha índice em
+`municipio_ibge`. `listar_municipios_referencia()`/
+`_status_municipio_referencia()` (chamadas ao abrir Sincronizar → ▾
+opções) faziam um table scan inteiro da tabela — lendo o `raw` (JSON
+completo) de TODA contratação do acervo — para CADA município de
+referência cadastrado. Num acervo grande com vários municípios de
+referência, isso multiplicava a leitura de blobs grandes várias vezes
+seguidas. Índice novo (`ix_contratacoes_municipio`) resolve — `itens` já
+tinha o equivalente desde 2026-08-09, só faltou em `contratacoes`.
+
 ## 2.14.0 — 2026-09-14
 
 **Adicionado — Preços · Pesquisar vira sequência guiada de 3 passos**

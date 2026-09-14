@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.14.0"
+VERSAO = "2.14.1"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -121,6 +121,12 @@ CREATE TABLE IF NOT EXISTS sync_log (
   janela_ini TEXT, janela_fim TEXT, registros INTEGER, status TEXT, erro TEXT);
 CREATE INDEX IF NOT EXISTS ix_contratacoes_pub ON contratacoes (data_publicacao);
 CREATE INDEX IF NOT EXISTS ix_contratacoes_mod ON contratacoes (modalidade_id);
+-- sem isto, listar_municipios_referencia()/_status_municipio_referencia()
+-- faziam table scan inteiro de `contratacoes` (lendo o `raw` de cada
+-- linha) por MUNICÍPIO — achado do usuário (2026-09-14): pico de ~9GB de
+-- RAM abrindo as opções de sincronização com vários municípios de
+-- referência num acervo grande.
+CREATE INDEX IF NOT EXISTS ix_contratacoes_municipio ON contratacoes (municipio_ibge);
 CREATE INDEX IF NOT EXISTS ix_contratos_pub ON contratos (data_publicacao);
 CREATE INDEX IF NOT EXISTS ix_atas_vig ON atas (vigencia_fim);
 CREATE INDEX IF NOT EXISTS ix_pca_ano ON pca_itens (ano);
