@@ -122,6 +122,24 @@ def test_sync_contratacoes_idempotente(db):
     assert "numeroControlePNCP" in linha["raw"]
 
 
+def test_sync_contratacoes_referencia_nao_guarda_raw(db):
+    """Pedido do usuário (2026-09-14): município de referência serve só
+    pra comparação de preço — o JSON bruto inteiro é o campo mais pesado
+    da linha e nunca é lido pra referência (raciocínio já valia pra
+    contratos/atas/pca, que nem sincronizam; agora vale pro `raw` também).
+    Acervo próprio (referencia=0) continua gravando o bruto inteiro."""
+    raws = [contratacao("PNCP-REF-1")]
+    motor = FakeMotor(contratacoes=lambda i, a, b: (Contratacao(r) for r in raws))
+    pncp.sync_contratacoes(db, "3536604", date(2026, 1, 1), date(2026, 3, 1),
+                           motor=motor, referencia=1)
+    linha = db.execute("SELECT * FROM contratacoes"
+                       " WHERE numero_controle='PNCP-REF-1'").fetchone()
+    assert linha["referencia"] == 1
+    assert linha["orgao_cnpj"] == "11111111000111"   # colunas estruturadas seguem
+    assert linha["valor_homologado"] == 90.0          # gravadas normalmente
+    assert linha["raw"] is None
+
+
 def test_sync_contratacoes_commita_em_lote_nao_so_no_fim(db):
     """"database is locked" em set_config (achado do usuário, v1.60.11):
     a fase só commitava no `finally`, depois do gerador inteiro — a
@@ -273,6 +291,38 @@ def test_sync_pca_achata_itens_do_plano(db):
 
 
 # ── fases de sincronização / itens ───────────────────────────────────────
+
+def test_sync_itens_referencia_nao_guarda_raw(db):
+    """Mesmo pedido de `test_sync_contratacoes_referencia_nao_guarda_raw`,
+    pro item: item de município de referência guarda as colunas de preço
+    (é pra isso que existe), não o par item+resultado bruto inteiro."""
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, data_atualizacao, data_publicacao, referencia,"
+        " municipio_ibge) VALUES ('CREF', 2026, 30, '111', '2026-07-01',"
+        " '2026-06-01', 1, '3536604')")
+    db.commit()
+    item_raw = {"numeroItem": 1, "descricao": "PAPEL A4", "unidadeMedida": "RESMA",
+               "quantidade": 100.0, "temResultado": True,
+               "dataAtualizacao": "2026-06-20"}
+    resultado_raw = {"niFornecedor": "999", "nomeRazaoSocialFornecedor": "FORN X",
+                     "valorUnitarioHomologado": 18.75, "dataResultado": "2026-06-20"}
+
+    def gerador(pendentes, *, pendente, on_erro):
+        for c in pendentes:
+            item = Item(dict(item_raw))
+            if pendente(c, item):
+                yield c, [(item, Resultado(resultado_raw))]
+            else:
+                yield c, []
+    motor = FakeMotor(itens_e_resultados=gerador)
+
+    assert pncp.sync_itens(db, motor=motor) == 1
+    r = db.execute("SELECT * FROM itens").fetchone()
+    assert r["valor_unitario_homologado"] == 18.75   # coluna de preço, gravada
+    assert r["referencia"] == 1
+    assert r["raw"] is None
+
 
 def test_sync_itens_grava_resultado_e_marca_versao(db):
     db.execute(

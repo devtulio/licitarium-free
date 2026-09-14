@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.14.4 — 2026-09-14
+
+**Adicionado — município de referência para de guardar dado bruto**
+
+Município de referência serve só pra comparação de preço — o JSON bruto
+inteiro (`raw`) do PNCP nunca é lido nesse caso, só as colunas
+estruturadas (preço, fornecedor, descrição...). `_upsert_contratacao`/
+`_upsert_item` (pncp.py) deixam de gravar `raw` quando `referencia=1`;
+acervo próprio não muda.
+
+Migração automática no próximo boot limpa o `raw` de quem já tinha
+município de referência antes desta versão — o upsert só regrava uma
+linha quando ela muda no PNCP, então sem a migração o ganho nunca
+apareceria em quem já tinha dado coletado. Medido numa cópia real de
+1,38GB com vários municípios de referência: **1.083 MB liberados
+(78,3%)**, ~57s de migração. Roda sozinha, com cópia de segurança
+automática antes do `VACUUM` (mesmo padrão da migração de
+`auto_vacuum` incremental).
+
 ## 2.14.3 — 2026-09-14
 
 **Adicionado — botão "Compactar banco" (VACUUM) em Configurações → Dados e backup**

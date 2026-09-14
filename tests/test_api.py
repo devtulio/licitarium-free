@@ -944,6 +944,53 @@ def test_importar_acervo_recusa_com_sync_em_andamento(api, monkeypatch):
         api._sync_ativo.release()
 
 
+def test_migracao_raw_referencia_limpa_so_referencia_uma_vez(tmp_path, monkeypatch):
+    """Pedido do usuário (2026-09-14): quem já tinha município de
+    referência ANTES do upsert parar de guardar `raw` precisa dessa
+    migração pra ver o ganho de espaço — sem ela, a linha antiga nunca
+    seria regravada sozinha (o upsert só toca o que mudou no PNCP)."""
+    monkeypatch.setattr(licitarium, "DIR_DADOS", tmp_path)
+    monkeypatch.setattr(licitarium, "ARQUIVO_DB", tmp_path / "m.db")
+    db = licitarium.abrir_db()
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, referencia, raw)"
+        " VALUES ('REF-1', 1, '{\"a\":1}')")
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, referencia, raw)"
+        " VALUES ('PROP-1', 0, '{\"a\":1}')")
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " referencia, raw) VALUES ('REF-1#1','REF-1',1,1,'{\"a\":1}')")
+    db.execute(
+        "INSERT INTO itens (id, contratacao_controle, numero_item,"
+        " referencia, raw) VALUES ('PROP-1#1','PROP-1',1,0,'{\"a\":1}')")
+    db.commit()
+
+    licitarium._migrar_raw_referencia(db)
+
+    assert db.execute("SELECT raw FROM contratacoes WHERE"
+                      " numero_controle='REF-1'").fetchone()[0] is None
+    assert db.execute("SELECT raw FROM contratacoes WHERE"
+                      " numero_controle='PROP-1'").fetchone()[0] is not None
+    assert db.execute("SELECT raw FROM itens WHERE"
+                      " id='REF-1#1'").fetchone()[0] is None
+    assert db.execute("SELECT raw FROM itens WHERE"
+                      " id='PROP-1#1'").fetchone()[0] is not None
+    assert pncp._config(db, "migrado_raw_referencia_v1") == "1"
+
+    # idempotente: rodar de novo não recalcula nem regrava nada (gate por
+    # config) — reinsere uma linha de referência com raw pra provar que a
+    # 2ª chamada nem chega a olhar
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, referencia, raw)"
+        " VALUES ('REF-2', 1, '{\"a\":1}')")
+    db.commit()
+    licitarium._migrar_raw_referencia(db)
+    assert db.execute("SELECT raw FROM contratacoes WHERE"
+                      " numero_controle='REF-2'").fetchone()[0] is not None
+    db.close()
+
+
 def test_compactar_banco_recusa_com_sync_em_andamento(api):
     api._sync_ativo.acquire()
     try:

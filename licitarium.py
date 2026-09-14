@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.14.3"
+VERSAO = "2.14.4"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -3030,6 +3030,54 @@ def _migrar_auto_vacuum(db):
         registrar_falha("não consegui apagar a cópia pré-VACUUM", e)
 
 
+def _migrar_raw_referencia(db):
+    """Município de referência parou de guardar `raw` no upsert
+    (`pncp._upsert_contratacao`/`_upsert_item`, 2026-09-14 — só serve pro
+    banco de preços, o JSON bruto nunca é lido) — mas isso só vale pra
+    sync NOVO. Linha já gravada antes da mudança fica com `raw` cheio pra
+    sempre, porque o upsert só regrava uma linha quando ela muda no PNCP
+    (a maioria nunca muda). Sem esta migração, quem já tinha municípios
+    de referência antes da mudança nunca veria o ganho de espaço.
+
+    Mesmo padrão de `_migrar_auto_vacuum`: gate por `config` pra rodar só
+    uma vez, cópia de segurança antes do VACUUM (que reescreve o arquivo
+    inteiro), roda em `main()` antes da janela abrir.
+    """
+    if pncp._config(db, "migrado_raw_referencia_v1"):
+        return
+    n = db.execute(
+        "SELECT COUNT(*) FROM contratacoes WHERE referencia=1"
+        " AND raw IS NOT NULL").fetchone()[0]
+    n += db.execute(
+        "SELECT COUNT(*) FROM itens WHERE referencia=1"
+        " AND raw IS NOT NULL").fetchone()[0]
+    if not n:
+        pncp._config(db, "migrado_raw_referencia_v1", "1")
+        return
+    copia = None
+    if ARQUIVO_DB.exists() and ARQUIVO_DB.stat().st_size >= 10_000_000:
+        carimbo = datetime.now().strftime("%Y%m%d-%H%M%S")
+        copia = ARQUIVO_DB.with_name(f"{ARQUIVO_DB.name}.pre-raw-{carimbo}")
+        try:
+            shutil.copy2(ARQUIVO_DB, copia)
+        except OSError as e:
+            registrar_falha("backup antes da limpeza de raw falhou,"
+                            " migração adiada", e)
+            return
+    db.execute("UPDATE contratacoes SET raw=NULL"
+              " WHERE referencia=1 AND raw IS NOT NULL")
+    db.execute("UPDATE itens SET raw=NULL"
+              " WHERE referencia=1 AND raw IS NOT NULL")
+    db.commit()
+    db.execute("VACUUM")
+    pncp._config(db, "migrado_raw_referencia_v1", "1")
+    if copia:
+        try:
+            copia.unlink()
+        except OSError as e:
+            registrar_falha("não consegui apagar a cópia pré-limpeza-raw", e)
+
+
 def _notificar_vencimento(db):
     """Toast do Windows se houver contrato/ata vencendo nos próximos 60
     dias — mesma janela do chip do cabeçalho (`Api._kpis`). Só notifica
@@ -3107,6 +3155,10 @@ def main():
         _migrar_auto_vacuum(db)
     except sqlite3.DatabaseError as e:
         registrar_falha("migração para auto_vacuum incremental falhou", e)
+    try:
+        _migrar_raw_referencia(db)
+    except sqlite3.DatabaseError as e:
+        registrar_falha("limpeza de raw de município de referência falhou", e)
     try:
         _notificar_vencimento(db)
     except sqlite3.DatabaseError as e:

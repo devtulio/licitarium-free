@@ -82,6 +82,15 @@ FRACAO_COM_RESULTADO = 0.84   # 2.257 dos 2.674 itens têm preço homologado
 # de uma cópia do acervo e comparando o arquivo depois de VACUUM — 14,57 /
 # 11,60 / 11,33 / 6,62 / 1,28 MB reais contra 8,16 / 6,46 / 6,46 / 3,69 /
 # 0,72 MB de JSON: a razão fica entre 1,75 e 1,80 nos cinco.
+# PENDENTE (2026-09-14): desde que município de referência parou de
+# guardar `raw` (pedido do usuário — só preço, ver `_upsert_contratacao`),
+# esta razão ficou desatualizada PRA REFERÊNCIA — estava calibrada com o
+# JSON bruto sendo gravado, então `estimar_volume` agora superestima o MB
+# de uma cidade de referência (erra pra mais, não pra menos — seguro por
+# ora). Recalibrar assim que o usuário tiver acervo real com essa mudança
+# aplicada: remover um município de referência de uma cópia, medir o
+# arquivo antes/depois do VACUUM, comparar contra o JSON que viria do
+# portal (mesmo método de 2026-08-02).
 FATOR_DISCO = 1.78
 
 
@@ -151,7 +160,9 @@ def sync_ipca(db, inicio=None):
     return gravados
 
 
-# ── upserts (raw sempre guardado; INSERT OR REPLACE é idempotente) ──────────
+# ── upserts (INSERT OR REPLACE é idempotente; `raw` só é guardado no
+# acervo próprio — município de referência não guarda, ver docstring de
+# `_upsert_contratacao`) ──────────────────────────────────────────────────
 
 def _upsert_contratacao(db, item, ibge=None, referencia=0):
     numero = item.get("numeroControlePNCP")
@@ -159,6 +170,15 @@ def _upsert_contratacao(db, item, ibge=None, referencia=0):
         return False
     orgao = item.get("orgaoEntidade") or {}
     unidade = item.get("unidadeOrgao") or {}
+    # município de referência serve só de comparação de preço (pedido do
+    # usuário, 2026-09-14: "só o preço unitário homologado") — o JSON bruto
+    # inteiro (objeto, valores, datas de proposta...) nunca é lido pra
+    # referência, e é o campo mais pesado da linha de longe. Guardar as
+    # colunas estruturadas de sempre (pra achar/ordenar os itens) e deixar
+    # `raw` vazio corta boa parte do peso por município adicionado, sem
+    # mudar em nada o acervo próprio (referencia=0 continua com o bruto
+    # inteiro, para a ficha "Dados completos" e a exportação em .json).
+    raw = json.dumps(item, ensure_ascii=False) if not referencia else None
     db.execute(
         """INSERT OR REPLACE INTO contratacoes
            (numero_controle, ano, sequencial, orgao_cnpj, orgao_nome, unidade,
@@ -174,8 +194,7 @@ def _upsert_contratacao(db, item, ibge=None, referencia=0):
          _num(item.get("valorTotalEstimado")), _num(item.get("valorTotalHomologado")),
          item.get("dataEncerramentoProposta"),
          item.get("dataPublicacaoPncp"), item.get("dataAtualizacao"),
-         referencia, ibge,
-         json.dumps(item, ensure_ascii=False), datetime.now().isoformat()))
+         referencia, ibge, raw, datetime.now().isoformat()))
     return True
 
 
@@ -425,6 +444,11 @@ def _upsert_item(db, contratacao, item, resultado):
     if numero is None:
         return 0
     r = resultado or {}
+    # mesmo raciocínio de `_upsert_contratacao`: item de município de
+    # referência guarda as colunas de preço (é pra isso que ele existe),
+    # não o par item+resultado bruto inteiro.
+    raw = (json.dumps({"item": item, "resultado": r}, ensure_ascii=False)
+           if not contratacao["referencia"] else None)
     db.execute(
         """INSERT OR REPLACE INTO itens
            (id, contratacao_controle, orgao_cnpj, ano, sequencial, numero_item,
@@ -448,8 +472,7 @@ def _upsert_item(db, contratacao, item, resultado):
          r.get("dataResultado"), item.get("situacaoCompraItemNome"),
          item.get("dataAtualizacao"),
          contratacao["referencia"], contratacao["municipio_ibge"],
-         json.dumps({"item": item, "resultado": r}, ensure_ascii=False),
-         datetime.now().isoformat()))
+         raw, datetime.now().isoformat()))
     return 1
 
 
