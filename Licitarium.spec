@@ -22,6 +22,18 @@ pyz = PYZ(a.pure)
 # sem Splash() do PyInstaller de propósito: a imagem estática é fixa (não
 # acompanha o tema) e aparecia antes da tela de abertura do app, dando a
 # impressão de duas aberturas em sequência. Só a splash temática ficou.
+#
+# TENTATIVA em 2026-09-14 (pedido do usuário: mensagem "Preparando
+# ambiente…" durante os 2-4s de extração do onefile) — REVERTIDA: o
+# ambiente de build local tem um Tcl/Tk incompleto (falta scaling.tcl —
+# instalação Python via winget/MS Store, mais enxuta que o instalador
+# oficial python.org), e o PyInstaller avisou "behavior of the splash
+# screen is undefined". No teste real (exe compilado, duplo-clique), a
+# splash simplesmente não apareceu — sem crash, mas sem o efeito também.
+# Não dava pra confirmar se a CI (ambiente Python diferente) teria o
+# mesmo problema sem arriscar um release. Ativo `design/splash_boot.png`
+# + `design/gerar_splash_boot.py` prontos pra quando isso for retestado
+# (Python completo local, ou aceitar o risco na CI).
 exe = EXE(
     pyz,
     a.scripts,

@@ -3180,6 +3180,15 @@ def main():
         width=1100, height=740, min_size=(900, 600), maximized=maximizar)
     threading.Thread(target=_conferir_interface, args=(api._janela,),
                      daemon=True).start()
+    # fecha a splash de extração do PyInstaller (Licitarium.spec) — sem
+    # isso ela fica na tela até o app inteiro fechar, não só até a janela
+    # aparecer. Só existe quando rodando como exe empacotado com Splash();
+    # `python licitarium.py` direto nunca importa este módulo.
+    try:
+        import pyi_splash
+        pyi_splash.close()
+    except ImportError:
+        pass
     # armazenamento persistente: sem isso o WebView2 abre um perfil novo a
     # cada execução e o localStorage (usado como reserva pela splash) some
     try:
