@@ -69,29 +69,24 @@ def _num(v):
 
 
 # servem para dizer ao usuário o tamanho da encrenca antes de ele mandar
-# baixar o município. Recalibrados em 2026-08-02 sobre os cinco municípios de
-# referência já coletados — 714 contratações, 12.587 itens, 25,5 MB de JSON e
-# 45,4 MB de arquivo —, amostra bem maior que as 131 contratações de
-# Orindiúva de onde saíram os primeiros números (20,4 itens e 2,4 KB).
-ITENS_POR_CONTRATACAO = 17.6
-KB_POR_ITEM = 2.1             # de JSON bruto; o disco cobra FATOR_DISCO a mais
-FRACAO_COM_RESULTADO = 0.84   # 2.257 dos 2.674 itens têm preço homologado
-# Razão entre o JSON que vem do portal e o espaço que ele ocupa depois de
-# gravado: as colunas projetadas, os índices e o FTS custam quase o mesmo que
-# o próprio JSON. Medida em 2026-08-02 removendo cada município de referência
-# de uma cópia do acervo e comparando o arquivo depois de VACUUM — 14,57 /
-# 11,60 / 11,33 / 6,62 / 1,28 MB reais contra 8,16 / 6,46 / 6,46 / 3,69 /
-# 0,72 MB de JSON: a razão fica entre 1,75 e 1,80 nos cinco.
-# PENDENTE (2026-09-14): desde que município de referência parou de
-# guardar `raw` (pedido do usuário — só preço, ver `_upsert_contratacao`),
-# esta razão ficou desatualizada PRA REFERÊNCIA — estava calibrada com o
-# JSON bruto sendo gravado, então `estimar_volume` agora superestima o MB
-# de uma cidade de referência (erra pra mais, não pra menos — seguro por
-# ora). Recalibrar assim que o usuário tiver acervo real com essa mudança
-# aplicada: remover um município de referência de uma cópia, medir o
-# arquivo antes/depois do VACUUM, comparar contra o JSON que viria do
-# portal (mesmo método de 2026-08-02).
-FATOR_DISCO = 1.78
+# baixar o município — só usados pro fluxo de município de REFERÊNCIA
+# (`Api.estimar_municipio_referencia`; município próprio nunca chama isto).
+# RECALIBRADOS em 2026-09-14 sobre acervo real do usuário — 43.281
+# contratações e 298.699 itens de referência já coletados —, amostra bem
+# maior que a de 2026-08-02 (5 municípios, 714 contratações/12.587 itens).
+#
+# Município de referência parou de guardar `raw` em 2026-09-14 (só as
+# colunas de preço — pedido do usuário, ver `_upsert_contratacao`), então
+# o modelo antigo de 2 passos (KB de JSON bruto × fator de conversão pro
+# disco) não faz sentido mais: não existe mais JSON bruto pra converter.
+# Mede direto quanto cada item de referência ocupa NO DISCO — colunas
+# projetadas + índices + FTS, já sem o bruto.
+ITENS_POR_CONTRATACAO = 6.9
+FRACAO_COM_RESULTADO = 0.66   # 197.147 dos 298.699 itens têm preço homologado
+# medido removendo os 43.281 contratações/298.699 itens de referência de
+# uma cópia do acervo real (299,4 MB) e comparando o arquivo depois de
+# VACUUM: 234,1 MB atribuíveis a referência ÷ 298.699 itens ≈ 0,78 KB/item.
+KB_DISCO_POR_ITEM_REFERENCIA = 0.78
 
 
 def estimar_volume(codigo_ibge, inicio=DATA_INICIO_PNCP, fim=None, motor=None):
@@ -111,9 +106,7 @@ def estimar_volume(codigo_ibge, inicio=DATA_INICIO_PNCP, fim=None, motor=None):
     requisicoes = total + itens * FRACAO_COM_RESULTADO
     minutos = round(requisicoes * 0.9 / max(CONFIG_MOTOR.conexoes_paralelas, 1) / 60)
     return {"contratacoes": total, "itens": itens,
-            # o que o usuário quer saber é quanto o disco vai crescer, não
-            # quanto JSON vem do portal
-            "mb": round(itens * KB_POR_ITEM * FATOR_DISCO / 1024, 1),
+            "mb": round(itens * KB_DISCO_POR_ITEM_REFERENCIA / 1024, 1),
             "minutos": minutos, "parcial": r["parcial"]}
 
 

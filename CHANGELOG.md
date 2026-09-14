@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.14.6 — 2026-09-14
+
+**Corrigido — coluna "MB" de município de referência sempre mostrava 0.0**
+
+Consequência direta da 2.14.4 (município de referência parou de guardar
+`raw`): `listar_municipios_referencia()` (Configurações → Municípios de
+referência) ainda somava `LENGTH(raw)` pra estimar o tamanho de cada
+cidade — como `raw` agora é sempre `NULL` pra referência, a soma sempre
+dava 0. Passa a estimar pelo total de itens da cidade (não só os
+homologados — item sem preço ainda ocupa disco).
+
+**Alterado — recalibrados os números de `pncp.estimar_volume`**
+
+Pedido do usuário: medidos de novo sobre o acervo real, agora com o
+modelo sem `raw` (43.281 contratações/298.699 itens de referência —
+amostra bem maior que os 714/12.587 de 2026-08-02). Itens por
+contratação: 17,6 → 6,9. Fração com resultado: 0,84 → 0,66. O antigo
+modelo de 2 passos (KB de JSON × fator de conversão pro disco) foi
+substituído por uma medida direta de disco por item (`KB_DISCO_POR_
+ITEM_REFERENCIA = 0,78`) — não existe mais JSON bruto pra converter.
+
 ## 2.14.5 — 2026-09-14
 
 **Alterado — Passo 3 (Comparar) mostra só os itens marcados**

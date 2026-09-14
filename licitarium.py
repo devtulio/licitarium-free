@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.14.5"
+VERSAO = "2.14.6"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -989,21 +989,24 @@ class Api:
     def listar_municipios_referencia(self):
         db = abrir_db()
         try:
+            # "MB" não pode mais somar LENGTH(raw) — município de referência
+            # parou de guardar `raw` (2026-09-14, só preço), então a soma
+            # sempre daria 0. Estima pelo total de itens (não só os
+            # homologados: item sem preço ainda ocupa disco também) vezes o
+            # custo por item medido em `pncp.KB_DISCO_POR_ITEM_REFERENCIA`.
             linhas = db.execute(
                 """SELECT m.ibge, m.nome, m.uf,
                           (SELECT COUNT(*) FROM itens i
                            WHERE i.municipio_ibge = m.ibge
                              AND i.valor_unitario_homologado IS NOT NULL) itens,
-                          (SELECT COALESCE(SUM(LENGTH(i.raw)),0) FROM itens i
-                           WHERE i.municipio_ibge = m.ibge)
-                          + (SELECT COALESCE(SUM(LENGTH(c.raw)),0)
-                             FROM contratacoes c
-                             WHERE c.municipio_ibge = m.ibge) bytes_raw
+                          (SELECT COUNT(*) FROM itens i
+                           WHERE i.municipio_ibge = m.ibge) itens_total
                    FROM municipios_referencia m
-                   ORDER BY bytes_raw DESC, m.nome""").fetchall()
+                   ORDER BY itens_total DESC, m.nome""").fetchall()
             return [{"ibge": r["ibge"], "nome": r["nome"], "uf": r["uf"],
                      "itens": r["itens"],
-                     "mb": round(r["bytes_raw"] * pncp.FATOR_DISCO / 1e6, 1),
+                     "mb": round(r["itens_total"]
+                                * pncp.KB_DISCO_POR_ITEM_REFERENCIA / 1024, 1),
                      "status": _status_municipio_referencia(db, r["ibge"])}
                     for r in linhas]
         finally:

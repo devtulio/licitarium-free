@@ -221,6 +221,28 @@ def test_adicionar_listar_remover_municipio_referencia(api):
         db.close()
 
 
+def test_listar_municipios_referencia_mb_estima_por_item_nao_por_raw(api):
+    """Achado do usuário (2026-09-14): "mb" somava LENGTH(raw), que
+    município de referência parou de guardar (só preço) — sempre daria 0
+    sem a correção. Agora estima pelo total de itens (não só os
+    homologados: item sem preço ainda ocupa disco)."""
+    db = licitarium.abrir_db()
+    db.execute("INSERT INTO municipios_referencia (ibge, nome, uf)"
+               " VALUES ('9999999','Muita Coisa','SP')")
+    for i in range(2000):
+        db.execute(
+            "INSERT INTO itens (id, contratacao_controle, numero_item,"
+            " descricao, referencia, municipio_ibge, raw) VALUES"
+            " (?,?,1,'ITEM',1,'9999999',NULL)", (f"REF#{i}", f"C{i}"))
+    db.commit()
+    db.close()
+    lista = api.listar_municipios_referencia()
+    m = next(m for m in lista if m["ibge"] == "9999999")
+    esperado = round(2000 * pncp.KB_DISCO_POR_ITEM_REFERENCIA / 1024, 1)
+    assert m["mb"] == esperado
+    assert m["mb"] > 0
+
+
 def test_adicionar_municipio_igual_ao_proprio_recusa(api):
     r = api.adicionar_municipio_referencia("3550308", "São Paulo", "SP")
     assert r["ok"] is False
