@@ -783,7 +783,9 @@ details.raw pre { background:var(--surface2); border-radius:var(--radius);
 .opcao-sync .dim { display:block; font-size:11px; line-height:1.35; }
 .corpo-sync { flex:1; min-height:0; display:grid;
   grid-template-columns:1.1fr 1.1fr .8fr; }
-.col-sync { padding:18px 22px; overflow-y:auto; border-right:1px solid var(--border); }
+/* mesmo respiro de .painel-cfg — os h4 das duas já compartilham regra
+   (.painel-cfg h4, .col-sync h4), o padding tinha divergido sem motivo */
+.col-sync { padding:20px 26px; overflow-y:auto; border-right:1px solid var(--border); }
 .col-sync:last-child { border-right:none; }
 @media (max-width:760px) { .corpo-sync { grid-template-columns:1fr; overflow-y:auto; }
   .col-sync { border-right:none; border-bottom:1px solid var(--border); overflow-y:visible; } }

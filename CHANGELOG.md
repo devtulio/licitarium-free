@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.14.8 — 2026-09-14
+
+**Alterado — padroniza o respiro entre Configurações e Sincronização**
+
+Auditoria dos dois modais de config (pedido do usuário): a maioria das
+diferenças visuais entre eles é particularidade legítima de propósito
+(Sincronização dispara 1 ação principal com config de apoio;
+Configurações é navegador de ajustes sem ação única) e continua assim.
+Só um drift real: `.col-sync` usava `18px 22px` de padding e
+`.painel-cfg` usava `20px 26px` — os cabeçalhos de seção (`h4`) das
+duas já compartilham a mesma regra CSS, o corpo só tinha divergido sem
+motivo. Unificado em `20px 26px`.
+
 ## 2.14.7 — 2026-09-14
 
 **Corrigido — Leilão entrava no banco de preços de município de referência**
