@@ -28,7 +28,7 @@ import pca_builder
 import pncp
 import relatorios
 
-VERSAO = "2.14.6"
+VERSAO = "2.14.7"
 # dentro do exe onefile os arquivos ficam na pasta temporária do bundle;
 # _MEIPASS é o caminho oficial para chegar até eles
 DIR_APP = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -782,7 +782,12 @@ def _status_municipio_referencia(db, ibge):
     completo. O semáforo reflete o que está NO BANCO, não se a última
     tentativa terminou sem nenhum erro transitório — `last_sync_ref`
     continua existindo, só não decide mais isto (seu papel real é a
-    janela incremental em `pncp.janela_de`)."""
+    janela incremental em `pncp.janela_de`). Leilão (modalidade 1/13) de
+    município de referência nunca entra na fila de itens de propósito
+    (`pncp.sync_itens` — é alienação, não compra, sinal errado pro banco
+    de preços) — sem excluir aqui também, `itens_versao` fica NULL pra
+    sempre nessas linhas e o semáforo travaria amarelo mesmo com a coleta
+    de verdade completa."""
     tem_dado = db.execute(
         "SELECT 1 FROM contratacoes WHERE municipio_ibge=? LIMIT 1",
         (ibge,)).fetchone()
@@ -792,7 +797,9 @@ def _status_municipio_referencia(db, ibge):
         """SELECT COUNT(*) FROM contratacoes
            WHERE municipio_ibge=? AND orgao_cnpj IS NOT NULL
              AND sequencial IS NOT NULL
-             AND (itens_versao IS NULL OR itens_versao <> data_atualizacao)""",
+             AND (itens_versao IS NULL OR itens_versao <> data_atualizacao)
+             AND (referencia=0 OR modalidade_id IS NULL
+                  OR modalidade_id NOT IN (1,13))""",
         (ibge,)).fetchone()[0]
     return "amarelo" if pendentes else "verde"
 

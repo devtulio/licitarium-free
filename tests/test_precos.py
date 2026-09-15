@@ -243,6 +243,27 @@ def test_listar_municipios_referencia_mb_estima_por_item_nao_por_raw(api):
     assert m["mb"] > 0
 
 
+def test_status_referencia_nao_trava_amarelo_por_leilao_nunca_visitado(api):
+    """Leilão de município de referência nunca entra na fila de itens
+    (pncp.sync_itens exclui de propósito, 2026-09-14 — é alienação, sinal
+    errado pro banco de preços). `itens_versao` fica NULL nessa
+    contratação pra sempre; sem excluir também no semáforo, o status
+    travaria amarelo mesmo com a coleta de verdade completa."""
+    db = licitarium.abrir_db()
+    db.execute("INSERT INTO municipios_referencia (ibge, nome, uf)"
+               " VALUES ('8888888','Leiloeira','SP')")
+    db.execute(
+        "INSERT INTO contratacoes (numero_controle, orgao_cnpj,"
+        " sequencial, referencia, municipio_ibge, modalidade_id,"
+        " itens_versao, data_atualizacao) VALUES"
+        " ('L1','111',1,1,'8888888',1,NULL,'2026-06-01')")
+    db.commit()
+    db.close()
+    d = api.opcoes_sync()
+    m = next(m for m in d["referencia"] if m["ibge"] == "8888888")
+    assert m["status"] == "verde"
+
+
 def test_adicionar_municipio_igual_ao_proprio_recusa(api):
     r = api.adicionar_municipio_referencia("3550308", "São Paulo", "SP")
     assert r["ok"] is False

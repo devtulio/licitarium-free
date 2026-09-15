@@ -486,7 +486,21 @@ def sync_itens(db, progresso=None, limite=None, motor=None, municipios_ibge=None
     """
     motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR, progresso=progresso)
     where = ["orgao_cnpj IS NOT NULL", "sequencial IS NOT NULL",
-            "(itens_versao IS NULL OR itens_versao <> data_atualizacao)"]
+            "(itens_versao IS NULL OR itens_versao <> data_atualizacao)",
+            # Leilão (modalidade 1 eletrônico/13 presencial) é ALIENAÇÃO —
+            # o governo VENDENDO um bem (Lei 14.133/2021, art. 6º LIV), não
+            # comprando. O "preço" ali não serve pro banco de preços de
+            # município de referência (único propósito da fase 3 pra ele,
+            # ver `sincronizar_tudo`) — sinal errado, não só requisição à
+            # toa. Acervo próprio continua pegando leilão normalmente (é
+            # gestão do próprio patrimônio, legítimo fora do banco de
+            # preços). Achado do usuário, 2026-09-14.
+            # modalidade_id NULL (dado incompleto) não pode ser tratado
+            # como leilão por causa do NULL de SQL propagando por IN —
+            # `IS NULL OR` garante que só exclui quando a modalidade é
+            # CONHECIDA e é leilão
+            "(referencia=0 OR modalidade_id IS NULL"
+            " OR modalidade_id NOT IN (1,13))"]
     args = []
     if municipios_ibge:
         alvos = list(municipios_ibge)

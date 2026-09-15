@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.14.7 — 2026-09-14
+
+**Corrigido — Leilão entrava no banco de preços de município de referência**
+
+Achado do usuário: sincronizar um município de referência buscava itens
+de Leilão eletrônico/presencial (modalidade 1/13) igual às demais.
+Leilão, pela Lei 14.133/2021 (art. 6º LIV), é modalidade de
+**alienação** — o governo VENDENDO um bem (veículo usado, sucata,
+apreendido), não comprando. O "preço" ali não é referência de compra
+nenhuma — é sinal errado no banco de preços, não só requisição
+desperdiçada. `pncp.sync_itens` passa a pular leilão só pra referência
+(único propósito dela é preço); acervo próprio continua coletando
+normal (gestão do próprio patrimônio). Semáforo de status ajustado
+junto — sem isso, travaria "amarelo" pra sempre numa cidade com leilão,
+já que aquela contratação nunca seria visitada de propósito.
+
 ## 2.14.6 — 2026-09-14
 
 **Corrigido — coluna "MB" de município de referência sempre mostrava 0.0**

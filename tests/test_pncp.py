@@ -324,6 +324,37 @@ def test_sync_itens_referencia_nao_guarda_raw(db):
     assert r["raw"] is None
 
 
+def test_sync_itens_pula_leilao_de_referencia_mas_nao_do_proprio(db):
+    """Achado do usuário (2026-09-14): leilão (modalidade 1/13) é
+    ALIENAÇÃO — o governo vendendo um bem, não comprando (Lei
+    14.133/2021, art. 6º LIV). Preço de leilão não serve pro banco de
+    preços de referência (único propósito da fase 3 pra ele) — sinal
+    errado, não só requisição à toa. Acervo próprio continua pegando
+    leilão normalmente (gestão do próprio patrimônio)."""
+    db.executemany(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, data_atualizacao, data_publicacao, referencia,"
+        " municipio_ibge, modalidade_id) VALUES (?,2026,30,'111',"
+        " '2026-07-01','2026-06-01',?,?,?)",
+        [("REF-LEILAO", 1, "3536604", 1),      # referência, leilão eletrônico
+         ("REF-PREGAO", 1, "3536604", 6),      # referência, pregão — normal
+         ("PROPRIO-LEILAO", 0, None, 13)])     # próprio, leilão presencial
+    db.commit()
+    visitadas = []
+
+    def gerador(pendentes, *, pendente, on_erro):
+        for c in pendentes:
+            visitadas.append(c["numero_controle"])
+            item = Item({"numeroItem": 1, "descricao": "X",
+                        "dataAtualizacao": "2026-06-20"})
+            yield c, [(item, None)] if pendente(c, item) else []
+    motor = FakeMotor(itens_e_resultados=gerador)
+    pncp.sync_itens(db, motor=motor)
+
+    assert set(visitadas) == {"REF-PREGAO", "PROPRIO-LEILAO"}
+    assert "REF-LEILAO" not in visitadas
+
+
 def test_sync_itens_grava_resultado_e_marca_versao(db):
     db.execute(
         "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
