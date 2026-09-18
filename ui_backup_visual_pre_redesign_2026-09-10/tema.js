@@ -1,1 +1,0 @@
-window.__TEMA = "observatorio";
