@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.14.9 — 2026-09-18
+
+**Alterado — `motor_pncp` v1.2.0 → v1.2.1 (patch de segurança do motor)**
+
+O motor ganhou uma passada de vulnerabilidade no repositório dele: o
+caminho da URL agora é escapado (`urllib.parse.quote`, mantendo `/`) — um
+`cnpj`/`ano`/`sequencial` com `?`, `#` ou espaço não reescreve mais a
+requisição. Chamadas com valores válidos ficam idênticas; nenhuma mudança
+de código aqui, só o pin em `requirements.txt`.
+
+- Suíte completa verde (327), `Config(conexoes_paralelas=1)` intocada.
+- Smoke real contra o PNCP: `api/pncp` (órgão, itens+resultados de uma
+  contratação real) respondeu normal; a entrada com `?`/`#` no CNPJ volta
+  erro limpo do portal (HTTP 400), sem reescrever a requisição. `api/
+  consulta` estava fora do ar no dia (timeout também no `curl` puro, fora
+  do motor) — falha externa, não regressão.
+- Comentário do job `auditoria` do CI atualizado: o `pip-audit` daqui
+  continuar pulando a dependência `git+URL` é esperado, não lacuna — a
+  checagem do motor existe e roda no repositório dele (pip-audit + bandit
+  a cada push e semanalmente, Dependabot, secret scanning).
+
 ## 2.14.8 — 2026-09-14
 
 **Alterado — padroniza o respiro entre Configurações e Sincronização**

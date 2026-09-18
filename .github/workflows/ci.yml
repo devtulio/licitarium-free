@@ -23,8 +23,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pip-audit
-      # motor_pncp vem de git+URL, não do PyPI — pip-audit pula ele sozinho
-      # (não é falha, é "não auditável"); as demais dependências, sim
+      # motor_pncp vem de git+URL, não do PyPI — pip-audit pula ele sozinho.
+      # Isso é esperado, não lacuna: a checagem de vulnerabilidade do motor
+      # existe e é feita no repositório dele (pip-audit + bandit a cada push
+      # e semanalmente, Dependabot, secret scanning; motor_pncp v1.2.1). Aqui
+      # o pip-audit cobre as demais dependências.
       - run: python -m pip_audit -r requirements.txt
 
   e2e:
