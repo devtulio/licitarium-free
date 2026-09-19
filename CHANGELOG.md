@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.14.10 — 2026-09-19
+
+**Corrigido — falha parcial de fase em lote não refaz mais a janela inteira
+(`motor_pncp` v1.2.1 → v1.3.0)**
+
+Antes, uma fase em lote (contratações, contratos, atas, PCA) que perdesse
+1 ou 2 consultas por 429 do WAF do portal levantava `PncpErro`, não avançava
+a marca d'água (correto) e a próxima sincronização refazia a janela inteira —
+desde 2021 numa 1ª sync. O motor v1.3.0 passou a dizer QUAIS consultas
+falharam (`PncpErro.consultas_falhas`) e a refazer só elas (`Motor.refazer`);
+além da repescagem automática do próprio motor (1×, 30 s), o Licitarium agora
+insiste mais duas vezes, com pausa de 60 s, só nas que sobraram
+(`pncp._baixar_lote`, receita do MANUAL do motor). A marca d'água só avança
+quando a passada termina sem erro, como sempre.
+
+- A espera é em fatias de 1 s que chamam o `progresso`: a tela mostra
+  "Contratações: repetindo 1 consulta que falhou — nova tentativa em 42s" e o
+  botão **Parar** age em até 1 s, sem esperar o minuto acabar.
+- 9 testes novos (repete só o que falhou; as 4 fases; 2ª tentativa completa;
+  esgotou → erro sobe sem avançar a marca d'água; erro sem lista de consultas
+  não tenta refazer; contagem regressiva e parada). Neutralizando a
+  repescagem, 6 deles falham.
+- Smoke real contra o PNCP com o motor 1.3.0: as 4 fases em lote OK (`api/
+  consulta`). O caminho de falha foi exercitado com o Motor real apontado pra
+  uma porta morta: `refazer` chamado 2× só com a consulta que sobrou, erro
+  final sobe, nada gravado. `api/pncp` (órgão, itens) estava em 503 no dia —
+  falha externa, sem regressão a atribuir ao motor.
+- `Config(conexoes_paralelas=1)` intocada. Não havia paliativo local de
+  repetir ano/janela a remover; nenhum teste comparava texto de erro de fase
+  (o texto do motor mudou e não é contrato).
+
 ## 2.14.9 — 2026-09-18
 
 **Alterado — `motor_pncp` v1.2.0 → v1.2.1 (patch de segurança do motor)**

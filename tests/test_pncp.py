@@ -38,6 +38,13 @@ def db():
     con.close()
 
 
+@pytest.fixture(autouse=True)
+def sem_espera_de_repescagem(monkeypatch):
+    """A repescagem espera 60 s entre tentativas (`pncp.REPESCAGEM_PAUSA`) —
+    nenhum teste pode dormir isso de verdade."""
+    monkeypatch.setattr(pncp, "REPESCAGEM_PAUSA", 0)
+
+
 def contratacao(numero, cnpj="11111111000111", **extra):
     base = {
         "numeroControlePNCP": numero, "anoCompra": 2026, "sequencialCompra": 1,
@@ -59,7 +66,8 @@ class FakeMotor:
 
     def __init__(self, *, contratacoes=None, contratos=None, atas=None,
                 pca=None, itens_e_resultados=None, ipca=None,
-                consultar_orgao=None, contar_contratacoes=None):
+                consultar_orgao=None, contar_contratacoes=None, refazer=None):
+        self._refazer = refazer or (lambda erro: iter(()))
         self._contratacoes = contratacoes or (lambda ibge, inicio, fim: iter(()))
         self._contratos = contratos or (lambda cnpj, inicio, fim: iter(()))
         self._atas = atas or (lambda cnpj, inicio, fim: iter(()))
@@ -82,6 +90,9 @@ class FakeMotor:
 
     def pca(self, cnpj, inicio, fim):
         return self._pca(cnpj, inicio, fim)
+
+    def refazer(self, erro):
+        return self._refazer(erro)
 
     def itens_e_resultados(self, pendentes, *, pendente=None, on_erro=None):
         return self._itens_e_resultados(pendentes, pendente=pendente,
@@ -170,6 +181,167 @@ def test_falha_no_meio_grava_o_que_veio_mas_nao_da_a_fase_por_completa(db):
                                motor=motor)
     assert db.execute("SELECT COUNT(*) FROM contratacoes").fetchone()[0] == 1
     assert pncp._config(db, "last_sync_contratacoes") is None
+
+
+# ── repescagem de fase em lote (motor_pncp v1.3.0) ──────────────────────
+
+def _erro_com_falhas(*rotulos):
+    """`PncpErro` como o motor v1.3.0 levanta numa fase em lote: com a
+    lista das consultas que falharam (rótulo, params)."""
+    erro = pncp.PncpErro(f"{len(rotulos)} de 13 consultas falharam "
+                         "(mesmo depois de repetidas)")
+    erro.consultas_falhas = [(r, {}) for r in rotulos]
+    return erro
+
+
+def test_fase_em_lote_repete_so_o_que_falhou_e_completa(db):
+    """Em vez de largar a janela inteira pra próxima passada (numa 1ª
+    sync, desde 2021), refaz só a consulta que falhou; a fase termina
+    completa e o `sincronizar_tudo` pode avançar a marca d'água."""
+    refeitas = []
+
+    def gerador(ibge, inicio, fim):
+        yield Contratacao(contratacao("PNCP-1"))
+        raise _erro_com_falhas("modalidade 8")
+
+    def refazer(erro):
+        refeitas.append(list(erro.consultas_falhas))
+        yield Contratacao(contratacao("PNCP-2"))
+    motor = FakeMotor(contratacoes=gerador, refazer=refazer)
+
+    n = pncp.sync_contratacoes(db, "3534203", date(2026, 1, 1),
+                               date(2026, 3, 1), motor=motor)
+
+    assert n == 2
+    assert {r[0] for r in db.execute(
+        "SELECT numero_controle FROM contratacoes")} == {"PNCP-1", "PNCP-2"}
+    assert refeitas == [[("modalidade 8", {})]]   # só a que falhou
+
+
+def test_sincronizar_tudo_avanca_marca_dagua_depois_da_repescagem(db):
+    motor = FakeMotor(
+        contratacoes=lambda i, a, b: _entao_falha(
+            Contratacao(contratacao("PNCP-1")), _erro_com_falhas("m8")),
+        refazer=lambda erro: iter([Contratacao(contratacao("PNCP-2"))]))
+    resumo = pncp.sincronizar_tudo(db, "3534203", motor=motor)
+    assert resumo["contratacoes"] == 2
+    assert pncp._config(db, "last_sync_contratacoes") is not None
+
+
+def _entao_falha(registro, erro):
+    """Gerador: entrega `registro` e depois levanta `erro`."""
+    yield registro
+    raise erro
+
+
+@pytest.mark.parametrize("fase, tabela, raw1, raw2, esperado", [
+    ("contratos", "contratos",
+     {"numeroControlePNCP": "K-1", "orgaoEntidade": {"cnpj": "111"}},
+     {"numeroControlePNCP": "K-2", "orgaoEntidade": {"cnpj": "111"}}, 2),
+    ("atas", "atas",
+     {"numeroControlePNCPAta": "A-1", "cnpjOrgao": "111"},
+     {"numeroControlePNCPAta": "A-2", "cnpjOrgao": "111"}, 2),
+    ("pca", "pca_itens",
+     {"idPcaPncp": "P-1", "anoPca": 2026,
+      "itens": [{"numeroItem": 1, "descricaoItem": "x"}]},
+     {"idPcaPncp": "P-2", "anoPca": 2026,
+      "itens": [{"numeroItem": 1, "descricaoItem": "y"}]}, 2),
+])
+def test_as_tres_fases_por_orgao_tambem_repescam(db, fase, tabela, raw1, raw2,
+                                                 esperado):
+    tipos = {"contratos": Contrato, "atas": Ata, "pca": PlanoPca}
+    tipo = tipos[fase]
+    kwargs = {fase: lambda cnpj, i, f: _entao_falha(
+        tipo(raw1), _erro_com_falhas("orgao 111"))}
+    motor = FakeMotor(refazer=lambda erro: iter([tipo(raw2)]), **kwargs)
+    n = getattr(pncp, f"sync_{fase}")(db, "111", date(2026, 1, 1),
+                                      date(2026, 3, 1), motor=motor)
+    assert n == esperado
+    assert db.execute(f"SELECT COUNT(*) FROM {tabela}").fetchone()[0] == 2
+
+
+def test_repescagem_esgotada_levanta_e_nao_avanca_marca_dagua(db):
+    """Depois de `REPESCAGEM_TENTATIVAS` refazeres ainda falhando: o erro
+    sobe, o que veio fica gravado, a marca d'água NÃO avança."""
+    chamadas = []
+
+    def refazer(erro):
+        chamadas.append(1)
+        raise _erro_com_falhas("m8")
+        yield   # torna isto um gerador: o erro só aparece ao consumir
+    motor = FakeMotor(
+        contratacoes=lambda i, a, b: _entao_falha(
+            Contratacao(contratacao("PNCP-1")), _erro_com_falhas("m8", "m9")),
+        refazer=refazer)
+
+    resumo = pncp.sincronizar_tudo(db, "3534203", motor=motor)
+
+    assert len(chamadas) == pncp.REPESCAGEM_TENTATIVAS
+    assert resumo["contratacoes"] is None
+    assert pncp._config(db, "last_sync_contratacoes") is None
+    assert db.execute("SELECT COUNT(*) FROM contratacoes").fetchone()[0] == 1
+    assert db.execute("SELECT COUNT(*) FROM sync_log WHERE status='erro'"
+                      ).fetchone()[0] >= 1
+
+
+def test_segunda_tentativa_da_repescagem_pode_completar(db):
+    chamadas = []
+
+    def refazer(erro):
+        chamadas.append(list(erro.consultas_falhas))
+        if len(chamadas) == 1:
+            yield Contratacao(contratacao("PNCP-2"))
+            raise _erro_com_falhas("m9")     # sobrou uma
+        yield Contratacao(contratacao("PNCP-3"))
+    motor = FakeMotor(
+        contratacoes=lambda i, a, b: _entao_falha(
+            Contratacao(contratacao("PNCP-1")), _erro_com_falhas("m8", "m9")),
+        refazer=refazer)
+
+    n = pncp.sync_contratacoes(db, "3534203", date(2026, 1, 1),
+                               date(2026, 3, 1), motor=motor)
+
+    assert n == 3
+    # a 2ª passada recebe SÓ o que sobrou da 1ª, não a lista original
+    assert chamadas == [[("m8", {}), ("m9", {})], [("m9", {})]]
+
+
+def test_erro_sem_consultas_falhas_nao_tenta_refazer(db):
+    """Erro de outra natureza (sem lista de consultas) sobe direto — o
+    motor recusaria o `refazer` mesmo (ValueError)."""
+    chamadas = []
+    motor = FakeMotor(
+        contratacoes=lambda i, a, b: _entao_falha(
+            Contratacao(contratacao("PNCP-1")), pncp.PncpErro("outra natureza")),
+        refazer=lambda erro: chamadas.append(1) or iter(()))
+    with pytest.raises(pncp.PncpErro, match="outra natureza"):
+        pncp.sync_contratacoes(db, "3534203", date(2026, 1, 1),
+                               date(2026, 3, 1), motor=motor)
+    assert chamadas == []
+
+
+def test_espera_da_repescagem_conta_regressivo_e_deixa_parar(monkeypatch):
+    """A pausa é em fatias de 1 s e avisa a tela a cada uma — é por onde o
+    "Parar" (SyncCancelado, levantado por `progresso`) age; dormir tudo de
+    uma vez seguraria o botão por até 60 s."""
+    relogio = [0.0]
+    monkeypatch.setattr(pncp.time, "monotonic", lambda: relogio[0])
+    monkeypatch.setattr(pncp.time, "sleep",
+                        lambda s: relogio.__setitem__(0, relogio[0] + s))
+    mensagens = []
+    pncp._esperar(3, mensagens.append, "Atas: repetindo 1 consulta que falhou")
+    assert mensagens == [
+        f"Atas: repetindo 1 consulta que falhou — nova tentativa em {n}s"
+        for n in (3, 2, 1)]
+
+    class Parar(Exception):
+        pass
+
+    def progresso(msg):
+        raise Parar
+    with pytest.raises(Parar):
+        pncp._esperar(60, progresso, "x")
+    assert relogio[0] == 3.0    # nem dormiu: parou no 1º aviso
 
 
 def test_descobrir_orgaos(db):

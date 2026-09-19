@@ -68,6 +68,16 @@ Fase 2 — CONTRATOS / ATAS / PCA (chave: CNPJ do órgão)
   (`sync_itens`) só ganhou a mesma regra na 1.44.4 — até então, uma
   contratação com erro de rede parava a fila inteira no meio, e as
   pendentes seguintes nem eram tentadas naquela passada.
+- **Repescagem (2.14.10, `motor_pncp` v1.3.0)**: quando a fase em lote
+  (contratações/contratos/atas/PCA) ainda sobra com consulta falha depois da
+  repescagem automática do motor, `pncp._baixar_lote` refaz SÓ as consultas
+  em `PncpErro.consultas_falhas` via `Motor.refazer` (até
+  `REPESCAGEM_TENTATIVAS`=2, esperando `REPESCAGEM_PAUSA`=60 s, em fatias de
+  1 s que chamam `progresso` — é por onde o "Parar" age e a tela mostra a
+  contagem). Só depois disso o erro sobe; a regra de sempre vale: marca d'água
+  (`last_sync_*`) só avança quando a passada termina sem erro. Antes, o
+  `PncpErro` largava a janela inteira pra próxima passada — desde 2021 numa 1ª
+  sync — mesmo com 1 ou 2 consultas de 26 perdidas por 429 do WAF.
 - **Concorrência**: uma thread de sync por vez (lock); UI nunca bloqueia —
   abre com dados locais na hora, sync roda atrás com banner de progresso.
 - **Paralelismo (1.1.x)**: as três fases baixam com até 4 conexões (`_baixar`

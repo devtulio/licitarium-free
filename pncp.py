@@ -20,6 +20,8 @@ O JSON bruto de cada registro é guardado na coluna `raw` (fonte da verdade);
 as demais colunas são projeção para filtro/listagem.
 """
 import json
+import math
+import time
 from datetime import date, datetime, timedelta
 
 from motor_pncp import (
@@ -257,29 +259,91 @@ def _upsert_ata(db, item):
 # mais fina.
 _COMMIT_A_CADA = 200
 
+# Repescagem de fase em lote, ALÉM da automática do motor (uma vez, após
+# `Config.repescagem_pausa`, 30 s): se a fase ainda sobra com consultas
+# falhas, refaz só elas (`Motor.refazer`, MANUAL do motor § "Falha parcial")
+# em vez de largar a janela inteira pra próxima passada — que numa 1ª sync
+# é desde 2021 (motor v1.3.0, 2026-09-19; segundo as notas do motor,
+# medido no histórico de sincronização de um consumidor: em 65 de 102 erros
+# de fase só 1 ou 2 de 26 consultas tinham falhado, quase todas 429 do WAF
+# que libera em ~15 s). Quantas vezes insistir e quanto esperar é decisão
+# daqui, não do motor.
+REPESCAGEM_TENTATIVAS = 2
+REPESCAGEM_PAUSA = 60   # segundos
 
-def sync_contratacoes(db, codigo_ibge, inicio, fim, motor=None, referencia=0):
+
+def _esperar(segundos, progresso, mensagem):
+    """Pausa em fatias de 1 s, avisando a tela a cada uma.
+
+    `progresso` é o ponto único por onde o pedido de "Parar" vira
+    `SyncCancelado` (ver `Api._progresso`) — dormir os 60 s de uma vez
+    seguraria o botão por até um minuto e deixaria o status parado numa
+    mensagem velha.
+    """
+    fim = time.monotonic() + segundos
+    while (restante := fim - time.monotonic()) > 0:
+        if progresso:
+            progresso(f"{mensagem} — nova tentativa em {math.ceil(restante)}s")
+        time.sleep(min(1, restante))
+
+
+def _baixar_lote(db, motor, registros, gravar, progresso=None, rotulo="Fase"):
+    """Grava uma fase em lote (contratações/contratos/atas/PCA) e, se sobrar
+    consulta falha, repete SÓ as que falharam antes de desistir.
+
+    Devolve o total gravado; se ainda houver falha depois das tentativas,
+    levanta o `PncpErro` — e o chamador não pode avançar a marca d'água
+    (`last_sync_*`): avançar sobre uma falha parcial abre buraco permanente
+    no acervo. O que já veio fica gravado de qualquer jeito (upsert é
+    idempotente; falha ≠ ausência).
+    """
+    total = 0
+
+    def drenar(recebidos):
+        nonlocal total
+        for registro in recebidos:
+            total += gravar(registro)
+            if total % _COMMIT_A_CADA == 0:
+                db.commit()
+
+    try:
+        try:
+            drenar(registros)
+        except PncpErro as erro:
+            for _ in range(REPESCAGEM_TENTATIVAS):
+                if not erro.consultas_falhas:
+                    raise erro   # erro de outra natureza — nada a refazer
+                n = len(erro.consultas_falhas)
+                _esperar(REPESCAGEM_PAUSA, progresso,
+                         f"{rotulo}: repetindo {n} "
+                         f"{'consulta que falhou' if n == 1 else 'consultas que falharam'}")
+                try:
+                    drenar(motor.refazer(erro))
+                    break   # agora sim a janela está completa
+                except PncpErro as de_novo:
+                    erro = de_novo
+            else:
+                raise erro   # esgotou: não avance a marca d'água
+    finally:
+        db.commit()
+    return total
+
+
+def sync_contratacoes(db, codigo_ibge, inicio, fim, motor=None, referencia=0,
+                      progresso=None):
     """Fase 1: contratações do município, por modalidade e janela de datas.
 
     `Motor.contratacoes` já cuida do loop de 13 modalidades, do
     paralelismo adaptativo e do disjuntor — aqui só sobra ler o gerador e
-    gravar. `referencia=1` grava como município de referência (só preço,
-    nunca entra nos relatórios oficiais — todos filtram `WHERE referencia=0`).
+    gravar (`_baixar_lote` repete só as consultas que ainda falharem).
+    `referencia=1` grava como município de referência (só preço, nunca
+    entra nos relatórios oficiais — todos filtram `WHERE referencia=0`).
     """
     motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
-    total = 0
-    try:
-        for contratacao in motor.contratacoes(codigo_ibge, inicio, fim):
-            total += _upsert_contratacao(db, contratacao.raw, codigo_ibge,
-                                         referencia)
-            if total % _COMMIT_A_CADA == 0:
-                db.commit()
-    finally:
-        # o que já veio fica gravado mesmo se PncpErro/SyncCancelado escapar
-        # do gerador no meio — upsert é idempotente, a próxima passada
-        # incremental refaz só o que faltou (falha ≠ ausência)
-        db.commit()
-    return total
+    return _baixar_lote(
+        db, motor, motor.contratacoes(codigo_ibge, inicio, fim),
+        lambda c: _upsert_contratacao(db, c.raw, codigo_ibge, referencia),
+        progresso, "Contratações")
 
 
 def consultar_orgao(cnpj, motor=None):
@@ -306,32 +370,19 @@ def descobrir_orgaos(db):
     db.commit()
 
 
-def sync_contratos(db, cnpj, inicio, fim, motor=None):
+def sync_contratos(db, cnpj, inicio, fim, motor=None, progresso=None):
     """Fase 2: contratos de um órgão (API não filtra por município)."""
     motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
-    total = 0
-    try:
-        for contrato in motor.contratos(cnpj, inicio, fim):
-            total += _upsert_contrato(db, contrato.raw)
-            if total % _COMMIT_A_CADA == 0:
-                db.commit()
-    finally:
-        db.commit()
-    return total
+    return _baixar_lote(db, motor, motor.contratos(cnpj, inicio, fim),
+                        lambda c: _upsert_contrato(db, c.raw),
+                        progresso, "Contratos")
 
 
-def sync_atas(db, cnpj, inicio, fim, motor=None):
+def sync_atas(db, cnpj, inicio, fim, motor=None, progresso=None):
     """Fase 2: atas de registro de preços de um órgão."""
     motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
-    total = 0
-    try:
-        for ata in motor.atas(cnpj, inicio, fim):
-            total += _upsert_ata(db, ata.raw)
-            if total % _COMMIT_A_CADA == 0:
-                db.commit()
-    finally:
-        db.commit()
-    return total
+    return _baixar_lote(db, motor, motor.atas(cnpj, inicio, fim),
+                        lambda a: _upsert_ata(db, a.raw), progresso, "Atas")
 
 
 def _upsert_pca(db, plano):
@@ -361,22 +412,15 @@ def _upsert_pca(db, plano):
     return n
 
 
-def sync_pca(db, cnpj, inicio, fim, motor=None):
+def sync_pca(db, cnpj, inicio, fim, motor=None, progresso=None):
     """Fase 2: itens do Plano de Contratações Anual de um órgão.
 
     `Motor.pca` já cuida da regra de data mínima do endpoint (rejeita
     início anterior a 01/04/2021) — não precisa repetir aqui.
     """
     motor = motor or Motor(user_agent=USER_AGENT, config=CONFIG_MOTOR)
-    total = 0
-    try:
-        for plano in motor.pca(cnpj, inicio, fim):
-            total += _upsert_pca(db, plano.raw)
-            if total % _COMMIT_A_CADA == 0:
-                db.commit()
-    finally:
-        db.commit()
-    return total
+    return _baixar_lote(db, motor, motor.pca(cnpj, inicio, fim),
+                        lambda p: _upsert_pca(db, p.raw), progresso, "PCA")
 
 
 # separador dos fornecedores concatenados em atas.fornecedor_ni/fornecedor_nome
@@ -682,7 +726,8 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True,
     if ibge_proprio_no_escopo:
         inicio = janela_de("contratacoes")
         try:
-            n = sync_contratacoes(db, codigo_ibge, inicio, hoje, motor=motor)
+            n = sync_contratacoes(db, codigo_ibge, inicio, hoje, motor=motor,
+                                  progresso=progresso)
             _config(db, "last_sync_contratacoes", hoje.isoformat())
             _log(db, "contratacoes", inicio, hoje, n, "ok")
             resumo["contratacoes"] = n
@@ -709,7 +754,8 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True,
                 inicio = janela_de(chave)
                 inicios.append(inicio)
                 try:
-                    total += func(db, cnpj, inicio, hoje, motor=motor)
+                    total += func(db, cnpj, inicio, hoje, motor=motor,
+                                  progresso=progresso)
                     _config(db, f"last_sync_{chave}", hoje.isoformat())
                 except PncpErro as e:
                     falhou = True
@@ -739,7 +785,7 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True,
             if progresso:
                 progresso(f"Preços de referência — {m['nome']}…")
             n = sync_contratacoes(db, m["ibge"], inicio, hoje, motor=motor,
-                                  referencia=1)
+                                  referencia=1, progresso=progresso)
             _config(db, chave, hoje.isoformat())
             _log(db, f"referencia:{m['nome']}", inicio, hoje, n, "ok")
         except PncpErro as e:
