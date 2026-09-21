@@ -94,9 +94,10 @@ class FakeMotor:
     def refazer(self, erro):
         return self._refazer(erro)
 
-    def itens_e_resultados(self, pendentes, *, pendente=None, on_erro=None):
+    def itens_e_resultados(self, pendentes, *, pendente=None, on_erro=None,
+                           on_item=None):
         return self._itens_e_resultados(pendentes, pendente=pendente,
-                                        on_erro=on_erro)
+                                        on_erro=on_erro, on_item=on_item)
 
     def ipca(self, inicio=None):
         return self._ipca(inicio)
@@ -480,7 +481,7 @@ def test_sync_itens_referencia_nao_guarda_raw(db):
     resultado_raw = {"niFornecedor": "999", "nomeRazaoSocialFornecedor": "FORN X",
                      "valorUnitarioHomologado": 18.75, "dataResultado": "2026-06-20"}
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             item = Item(dict(item_raw))
             if pendente(c, item):
@@ -514,7 +515,7 @@ def test_sync_itens_pula_leilao_de_referencia_mas_nao_do_proprio(db):
     db.commit()
     visitadas = []
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             visitadas.append(c["numero_controle"])
             item = Item({"numeroItem": 1, "descricao": "X",
@@ -543,7 +544,7 @@ def test_sync_itens_grava_resultado_e_marca_versao(db):
                      "valorUnitarioHomologado": 18.75, "valorTotalHomologado": 1875.0,
                      "quantidadeHomologada": 100.0, "dataResultado": "2026-06-20"}
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             item = Item(dict(item_raw))
             if pendente(c, item):
@@ -596,7 +597,7 @@ def test_sync_itens_preenche_fornecedor_da_ata_vinculada(db):
     resultado_raw = {"niFornecedor": "999", "nomeRazaoSocialFornecedor": "FORN X",
                      "dataResultado": "2026-06-20"}
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             yield c, [(Item(item_raw), Resultado(resultado_raw))]
     motor = FakeMotor(itens_e_resultados=gerador)
@@ -626,7 +627,7 @@ def test_item_inalterado_nao_custa_busca_nem_apaga_preco(db):
                "dataAtualizacao": "2026-05-05"}
     buscou_resultado = []
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             item = Item(item_raw)
             if not pendente(c, item):
@@ -659,7 +660,7 @@ def test_sync_itens_sem_resultado_nao_busca_vencedor(db):
     item_raw = {"numeroItem": 7, "descricao": "CANETA", "temResultado": False,
                "valorUnitarioEstimado": 1.9}
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             yield c, [(Item(item_raw), None)]
     motor = FakeMotor(itens_e_resultados=gerador)
@@ -683,7 +684,7 @@ def test_404_na_listagem_de_itens_nao_vira_ausencia(tmp_path, monkeypatch):
                " VALUES ('C','111',2026,7,'2026-01-01','x')")
     db.commit()
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             on_erro(c, pncp.ItensIndisponiveis("HTTP 404 na listagem"))
         yield from ()
@@ -716,7 +717,7 @@ def test_contratacao_quebrada_nao_trava_as_outras(db):
     item_raw = {"numeroItem": 1, "descricao": "PAPEL A4", "temResultado": False,
                "dataAtualizacao": "2026-06-20"}
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         for c in pendentes:
             if c["numero_controle"] == "QUEBRADA":
                 on_erro(c, pncp.PncpErro("HTTP 503 persistente"))
@@ -747,7 +748,7 @@ def test_sync_itens_propaga_pncperro_do_disjuntor(db):
 
     processada = {}
 
-    def gerador(pendentes, *, pendente, on_erro):
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
         processada["numero"] = pendentes[0]["numero_controle"]
         yield pendentes[0], [(Item({"numeroItem": 1, "temResultado": False,
                                     "dataAtualizacao": "x"}), None)]
@@ -1034,3 +1035,91 @@ def test_separar_fornecedores_uma_linha_por_fornecedor():
     assert r[1] == {"numero_controle": "A1", "fornecedor_ni": "222",
                     "fornecedor_nome": "FORN Y"}
     assert r[2] == linhas[1]  # sem fornecedor: passa direto, sem duplicar
+
+
+# --- on_item (motor_pncp 1.4.0): progresso dentro da contratação -----------
+
+def _duas_contratacoes(db):
+    db.executemany(
+        "INSERT INTO contratacoes (numero_controle, ano, sequencial,"
+        " orgao_cnpj, data_atualizacao, data_publicacao)"
+        " VALUES (?,2026,30,'111','2026-07-01',?)",
+        [("A", "2026-06-02"), ("B", "2026-06-01")])   # A vem primeiro (DESC)
+    db.commit()
+
+
+def _mensagens_de(db, roteiro):
+    """Roda sync_itens com um gerador que emite `roteiro` (lista de
+    (numero_controle, feitos, total)) via on_item; devolve as mensagens."""
+    msgs = []
+
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
+        for c in pendentes:
+            for nc, feitos, total in roteiro:
+                if nc == c["numero_controle"]:
+                    on_item(c, feitos, total)
+            yield c, []
+    pncp.sync_itens(db, motor=FakeMotor(itens_e_resultados=gerador),
+                    progresso=msgs.append)
+    return msgs
+
+
+def test_on_item_mostra_zero_de_total_e_cresce_ate_total(db):
+    _duas_contratacoes(db)
+    msgs = _mensagens_de(db, [("A", 0, 3), ("A", 1, 3), ("A", 3, 3)])
+    assert msgs == ["Itens — contratação 1 de 2 — 0 de 3 resultados",
+                    "Itens — contratação 1 de 2 — 1 de 3 resultados",
+                    "Itens — contratação 1 de 2 — 3 de 3 resultados"]
+
+
+def test_on_item_sem_resultado_a_buscar_nao_mostra_zero_de_zero(db):
+    _duas_contratacoes(db)
+    msgs = _mensagens_de(db, [("B", 0, 0)])
+    assert msgs == ["Itens — contratação 2 de 2"]
+
+
+def test_on_item_contratacao_que_falha_no_meio_nao_espera_o_total(db):
+    """feitos pára em 1 de 5: a contratação vai pro on_erro, a próxima
+    segue, e a mensagem nunca promete o '5 de 5'."""
+    _duas_contratacoes(db)
+    msgs = []
+
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
+        a, b = pendentes
+        on_item(a, 0, 5)
+        on_item(a, 1, 5)
+        on_erro(a, RuntimeError("500"))
+        on_item(b, 0, 0)
+        yield b, []
+    total = pncp.sync_itens(db, motor=FakeMotor(itens_e_resultados=gerador),
+                            progresso=msgs.append)
+    assert total == 0
+    assert msgs[-2:] == ["Itens — contratação 1 de 2 — 1 de 5 resultados",
+                         "Itens — contratação 2 de 2"]
+    assert not any("5 de 5" in m for m in msgs)
+    # a que falhou continua pendente; só a B foi carimbada
+    assert db.execute("SELECT numero_controle FROM contratacoes"
+                      " WHERE itens_versao IS NULL").fetchall()[0][0] == "A"
+
+
+def test_on_item_cancelamento_propaga_e_para_a_coleta(db):
+    _duas_contratacoes(db)
+
+    def parar(msg):
+        raise pncp.SyncCancelado()
+
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
+        on_item(pendentes[0], 0, 9)
+        yield pendentes[0], []          # nunca chega aqui
+    with pytest.raises(pncp.SyncCancelado):
+        pncp.sync_itens(db, motor=FakeMotor(itens_e_resultados=gerador),
+                        progresso=parar)
+
+
+def test_on_item_sem_progresso_nao_quebra(db):
+    _duas_contratacoes(db)
+
+    def gerador(pendentes, *, pendente, on_erro, on_item=None):
+        on_item(pendentes[0], 0, 2)
+        yield pendentes[0], []
+    pncp.sync_itens(db, motor=FakeMotor(itens_e_resultados=gerador))

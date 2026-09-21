@@ -595,9 +595,28 @@ def sync_itens(db, progresso=None, limite=None, motor=None, municipios_ibge=None
         else:
             falhas.append(f"{contratacao['numero_controle']}: {excecao}")
 
+    posicao = {c["numero_controle"]: i for i, c in enumerate(pendentes, 1)}
+
+    def on_item(contratacao, feitos, total_resultados):
+        # progresso DENTRO da contratação: o registro dela só sai depois de
+        # todos os resultados, e com o portal a ~5 s/chamada uma compra de
+        # centenas de itens ficava horas em "contratação 1 de N", igual a
+        # travamento. `feitos` pode não chegar a `total_resultados` (falha
+        # de um resultado manda a contratação pro on_erro). É também um
+        # ponto de parada: `progresso` levanta SyncCancelado, que o motor
+        # deixa propagar. Qualquer OUTRA exceção o motor engole — por isso
+        # só chama `progresso`, que não grava nada no banco.
+        if not progresso:
+            return
+        msg = (f"Itens — contratação {posicao.get(contratacao['numero_controle'], '?')}"
+               f" de {len(pendentes)}")
+        if total_resultados:
+            msg += f" — {feitos} de {total_resultados} resultados"
+        progresso(msg)
+
     try:
         for contratacao, pares in motor.itens_e_resultados(
-                pendentes, pendente=pendente, on_erro=on_erro):
+                pendentes, pendente=pendente, on_erro=on_erro, on_item=on_item):
             for item, resultado in pares:
                 total += _upsert_item(db, contratacao, item.raw,
                                       resultado.raw if resultado else None)
@@ -799,7 +818,7 @@ def sincronizar_tudo(db, codigo_ibge, progresso=None, forcado=True,
     # o mesmo resultado, mas manter None documenta que é o caso sem
     # recorte, e evita um IN(...) com muitos parâmetros à toa.
     try:
-        n = sync_itens(db, motor=motor,
+        n = sync_itens(db, progresso=progresso, motor=motor,
                        municipios_ibge=None if escopo == "tudo" else alvos_itens)
         _config(db, "last_sync_itens", hoje.isoformat())
         _log(db, "itens", hoje, hoje, n, "ok")

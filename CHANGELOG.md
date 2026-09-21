@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.15.0 — 2026-09-21
+
+**Adicionado — progresso dentro de cada contratação na coleta de itens
+(`motor_pncp` v1.3.0 → v1.4.0)**
+
+O registro de uma contratação só é gravado depois de TODOS os resultados dela.
+Numa compra com centenas de itens e o portal a ~5 s por chamada, a coleta
+ficava horas em "contratação 1 de N": processo vivo, nada gravado, igual a
+travamento. O motor v1.4.0 passou a avisar cada resultado que chega
+(`on_item`), e a barra de sincronização agora mostra, por exemplo,
+"Itens — contratação 3 de 11638 — 47 de 312 resultados".
+
+- Medido ao vivo numa contratação real de 174 itens: "0 de 174" aos 4 s e
+  contagem subindo a cada resultado.
+- O número de resultados pode não chegar ao total (falha de um resultado
+  deixa a contratação pendente para a próxima coleta); a tela não promete o
+  "312 de 312".
+- **Parar** age também dentro da contratação (mais um ponto de parada).
+- Contratação sem resultado a buscar mostra só "contratação N de M".
+- 5 testes novos (0 de total, crescimento até o total, sem resultado, falha
+  no meio, cancelamento); `FakeMotor` aceita o parâmetro.
+
 ## 2.14.10 — 2026-09-19
 
 **Corrigido — falha parcial de fase em lote não refaz mais a janela inteira

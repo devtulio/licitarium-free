@@ -68,6 +68,12 @@ Fase 2 — CONTRATOS / ATAS / PCA (chave: CNPJ do órgão)
   (`sync_itens`) só ganhou a mesma regra na 1.44.4 — até então, uma
   contratação com erro de rede parava a fila inteira no meio, e as
   pendentes seguintes nem eram tentadas naquela passada.
+- **Progresso por contratação (2.15.0, `motor_pncp` v1.4.0)**:
+  `pncp.sync_itens` passa `on_item` ao motor e repassa a `progresso` a
+  mensagem "Itens — contratação N de M — feitos de total resultados". Só
+  chama `progresso` (nunca grava no banco: exceção dentro do `on_item` o
+  motor engole). `progresso` levanta `SyncCancelado`, que propaga e para a
+  coleta. `feitos` pode não chegar a `total` (falha → `on_erro`).
 - **Repescagem (2.14.10, `motor_pncp` v1.3.0)**: quando a fase em lote
   (contratações/contratos/atas/PCA) ainda sobra com consulta falha depois da
   repescagem automática do motor, `pncp._baixar_lote` refaz SÓ as consultas
