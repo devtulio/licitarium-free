@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.15.1 — 2026-10-02
+
+**Alterado — `motor_pncp` v1.4.0 → v1.6.0 (sem mudança visível)**
+
+- Situação do item, porte do fornecedor e início de vigência/publicação da
+  ata passam a ser lidos pelas propriedades do motor (`Item.situacao`,
+  `Resultado.porte_fornecedor`, `Ata.vigencia_inicio`, `Ata.data_publicacao`)
+  em vez do JSON bruto — protege contra renome de campo no portal.
+- Smoke real: contratação de 8 itens gravada com situação e porte preenchidos.
+- Sem radar de ata nem inferência de item deserto/fracassado neste sistema:
+  nada mais a adotar das versões 1.5.0/1.6.0.
+
 ## 2.15.0 — 2026-09-21
 
 **Adicionado — progresso dentro de cada contratação na coleta de itens

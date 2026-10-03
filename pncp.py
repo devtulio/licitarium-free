@@ -33,6 +33,7 @@ from motor_pncp import (
     SyncCancelado,  # noqa: F401 — reexportado, usado como pncp.SyncCancelado
     ipca,
 )
+from motor_pncp.tipos import Ata, Item, Resultado
 
 USER_AGENT = "Licitarium/0.1 (repositorio local de contratacoes; open-source)"
 # conexoes_paralelas=1, não o padrão 4 (achado do usuário, 2026-09-09):
@@ -238,9 +239,9 @@ def _upsert_ata(db, item):
          _primeiro(item, "cnpjOrgao", "cnpj"),
          item.get("numeroAtaRegistroPreco"), item.get("anoAta"),
          item.get("objetoContratacao"),
-         _primeiro(item, "vigenciaInicio", "dataVigenciaInicio"),
+         Ata(item).vigencia_inicio,
          _primeiro(item, "vigenciaFim", "dataVigenciaFim"),
-         item.get("dataAssinatura"), item.get("dataPublicacaoPncp"),
+         item.get("dataAssinatura"), Ata(item).data_publicacao,
          _primeiro(item, "dataAtualizacao", "dataAtualizacaoGlobal"),
          json.dumps(item, ensure_ascii=False), datetime.now().isoformat()))
     return True
@@ -505,8 +506,8 @@ def _upsert_item(db, contratacao, item, resultado):
          _num(item.get("valorTotal")), 1 if item.get("temResultado") else 0,
          _num(r.get("valorUnitarioHomologado")), _num(r.get("valorTotalHomologado")),
          _num(r.get("quantidadeHomologada")), r.get("niFornecedor"),
-         r.get("nomeRazaoSocialFornecedor"), r.get("porteFornecedorNome"),
-         r.get("dataResultado"), item.get("situacaoCompraItemNome"),
+         r.get("nomeRazaoSocialFornecedor"), Resultado(r).porte_fornecedor,
+         r.get("dataResultado"), Item(item).situacao,
          item.get("dataAtualizacao"),
          contratacao["referencia"], contratacao["municipio_ibge"],
          raw, datetime.now().isoformat()))
