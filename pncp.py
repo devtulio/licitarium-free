@@ -92,6 +92,10 @@ FRACAO_COM_RESULTADO = 0.66   # 197.147 dos 298.699 itens têm preço homologado
 KB_DISCO_POR_ITEM_REFERENCIA = 0.78
 
 
+SEG_POR_REQ_INTEGRACAO = 1.4   # medido 27/10/2026, motor 1.8.0
+SEG_POR_REQ_CONSULTA = 3.0     # intervalo mínimo do motor 1.8.0
+
+
 def estimar_volume(codigo_ibge, inicio=DATA_INICIO_PNCP, fim=None, motor=None):
     """Quantas contratações um município tem, sem baixar nenhuma.
 
@@ -107,7 +111,13 @@ def estimar_volume(codigo_ibge, inicio=DATA_INICIO_PNCP, fim=None, motor=None):
     # a fase 3 custa uma requisição por contratação mais uma por item com
     # resultado — é ela que define se a coleta leva minutos ou uma noite
     requisicoes = total + itens * FRACAO_COM_RESULTADO
-    minutos = round(requisicoes * 0.9 / max(CONFIG_MOTOR.conexoes_paralelas, 1) / 60)
+    # ritmo do motor 1.8.0 (pedido do PNCP): 1,1 s entre chamadas à Integração
+    # (itens/resultados; medido ao vivo em 27/10: 1,4 s por requisição
+    # com a latência) e 3 s à Consulta (listagem: medido 13 chamadas, 2,8 s
+    # cada, mesmo com 3 contratações — uma por modalidade, mais as páginas)
+    consulta = total / 50 + 13
+    segundos = requisicoes * SEG_POR_REQ_INTEGRACAO + consulta * SEG_POR_REQ_CONSULTA
+    minutos = round(segundos / max(CONFIG_MOTOR.conexoes_paralelas, 1) / 60)
     return {"contratacoes": total, "itens": itens,
             "mb": round(itens * KB_DISCO_POR_ITEM_REFERENCIA / 1024, 1),
             "minutos": minutos, "parcial": r["parcial"]}

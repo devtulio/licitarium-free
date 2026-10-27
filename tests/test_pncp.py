@@ -1123,3 +1123,27 @@ def test_on_item_sem_progresso_nao_quebra(db):
         on_item(pendentes[0], 0, 2)
         yield pendentes[0], []
     pncp.sync_itens(db, motor=FakeMotor(itens_e_resultados=gerador))
+
+
+# --- motor_pncp 1.8.0: ritmo pedido pelo PNCP -------------------------------
+
+def test_estimar_volume_usa_o_ritmo_medido_do_motor_1_8_0():
+    """100 contratações: ~100 listagens de itens + resultados na Integração
+    (1,4 s) e as páginas da Consulta (3 s). O 0,9 s antigo subestimava."""
+    motor = FakeMotor(contar_contratacoes=lambda ibge, inicio, fim:
+                      {"total": 1000, "parcial": False})
+    r = pncp.estimar_volume("3534203", motor=motor)
+    req = 1000 + round(1000 * pncp.ITENS_POR_CONTRATACAO) * pncp.FRACAO_COM_RESULTADO
+    esperado = (req * 1.4 + (1000 / 50 + 13) * 3.0) / 60
+    assert r["minutos"] == round(esperado)
+    assert r["minutos"] > round(req * 0.9 / 60)
+
+
+def test_support_id_do_429_vai_para_o_historico_de_sync(db):
+    """O PNCP pede o Support ID numa reclamação; o motor o põe na mensagem
+    do PncpErro (e em .support_id) e o histórico grava str(erro) tal qual."""
+    erro = pncp.PncpErro("429 em /contratacoes — Support ID 9876543210")
+    erro.support_id = "9876543210"
+    pncp._log(db, "contratacoes", date(2026, 10, 27), date(2026, 10, 27),
+              0, "erro", str(erro))
+    assert erro.support_id in db.execute("SELECT erro FROM sync_log").fetchone()[0]

@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.15.2 — 2026-10-27
+
+**Alterado — `motor_pncp` v1.6.0 → v1.8.0: ritmo que o PNCP pediu**
+
+Em resposta oficial a um chamado, o PNCP informou os limites por IP de
+origem (Consulta: 5 requisições a cada 15 s na classe mais restrita, com
+bloqueio de 40 s) e pediu chamadas em sequência com pausa entre elas. O motor
+passa a cumprir isso sozinho: 3 s entre chamadas à API de Consulta, 1,1 s à
+de Integração, 429 sem `Retry-After` espera 40 s e tenta uma vez, e o ritmo é
+dividido entre os processos da mesma máquina (arquivos em `~/.motor_pncp/`).
+
+- **A sincronização fica mais lenta, de propósito.** Medido ao vivo: a
+  listagem de contratações (Consulta) saiu a ~3 s por chamada (13 chamadas em
+  36 s, mesmo para 3 contratações); itens e resultados (Integração) ficaram em
+  ~1,4 s por requisição, contra os 0,9 s da estimativa antiga.
+- **Estimativa de tempo recalibrada** (`pncp.estimar_volume`, usada na tela
+  de municípios de referência): 1,4 s por requisição de itens/resultados mais
+  3 s por chamada de listagem. Antes, subestimava o tempo da coleta.
+- **Support ID do 429** vem na mensagem do erro e já aparece em
+  Configurações → Sincronizações recentes; é o número que o suporte do PNCP
+  pede numa reclamação.
+- Sem mudança de tela. 2 testes novos (estimativa; Support ID no histórico).
+
 ## 2.15.1 — 2026-10-02
 
 **Alterado — `motor_pncp` v1.4.0 → v1.6.0 (sem mudança visível)**
