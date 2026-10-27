@@ -21,6 +21,8 @@ dividido entre os processos da mesma máquina (arquivos em `~/.motor_pncp/`).
 - **Support ID do 429** vem na mensagem do erro e já aparece em
   Configurações → Sincronizações recentes; é o número que o suporte do PNCP
   pede numa reclamação.
+- MANUAL.html: novo item em Sincronização explicando a lentidão intencional
+  e o Support ID.
 - Sem mudança de tela. 2 testes novos (estimativa; Support ID no histórico).
 
 ## 2.15.1 — 2026-10-02
